@@ -1,0 +1,41 @@
+# Gradle / Android build
+.gradle/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Generated binaries
+*.apk
+*.aab
+*.ap_
+*.dex
+out/
+
+# IDE / editor
+*.iml
+.idea/
+*.ipr
+*.iws
+.DS_Store
+
+# Kotlin / Java
+*.class
+
+# Signing material — NEVER commit keys or credentials
+*.keystore
+*.jks
+*.pepk
+keystore-credentials*
+key.properties
+keystore.properties
+
+# Local data-pipeline artifacts (regenerated at build time)
+data-pipeline/raw/
+data-pipeline/tmp/
+
+# OS / misc
+Thumbs.db
+*.log
