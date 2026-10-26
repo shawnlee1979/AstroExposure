@@ -69,6 +69,7 @@ Full selection rationale: [docs/opensource-survey.md](docs/opensource-survey.md)
 - [Design document](docs/design.md) — product definition, input/calculation/output layers, models, phasing, decision log (Chinese).
 - [Open-source survey](docs/opensource-survey.md) — framework and dataset selection with per-item licence verification (Chinese).
 - [Data licences](DATA-LICENSES.md) — third-party data and library attributions and obligations.
+- [Development rules](DEVELOPMENT-RULES.md) — layering, third-party adapter isolation, contract tests, data-pipeline and change-process rules all code must follow.
 
 ## Licence
 
@@ -151,6 +152,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - [设计方案](docs/design.md) —— 产品定义、输入 / 计算 / 输出三层、五类模型、分期与已决事项清单。
 - [开源选型调研](docs/opensource-survey.md) —— 框架与数据集选型，逐项核实许可证。
 - [数据许可说明](DATA-LICENSES.md) —— 第三方数据与库的来源、署名与使用义务。
+- [开发规则](DEVELOPMENT-RULES.md) —— 分层架构、第三方接口隔离、契约测试、数据管线与变更流程的硬性纪律。
 
 ## 许可证
 
