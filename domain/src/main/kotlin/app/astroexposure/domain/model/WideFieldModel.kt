@@ -12,9 +12,12 @@ import kotlin.math.roundToInt
  * where the A1 II range is ISO 3200–6400 and the ZV-E1 range is
  * ISO 3200–12800; every 1 mag of brighter total sky shifts the whole range
  * down one stop (factor 2), floored at ISO 400 and capped at the anchor's
- * upper end. The anchor is keyed on pixel pitch: bodies at or below 5 µm
- * use the A1 II anchor, larger-pixel bodies the ZV-E1 anchor (design §3.6
- * treats the two bodies' defaults as systematically different).
+ * upper end. The anchor is keyed on pixel pitch: bodies at or below
+ * 6.3 µm use the A1 II anchor, larger-pixel bodies the ZV-E1 anchor —
+ * 6.3 µm is the rounded midpoint of the two anchors' pitches
+ * (4.16 µm and 8.40 µm, midpoint 6.28 µm), so the split is the
+ * nearest-anchor split (design §3.6 treats the two bodies' defaults
+ * as systematically different).
  */
 object WideFieldModel {
 
@@ -24,8 +27,11 @@ object WideFieldModel {
     /** No untracked recommendation goes below this ISO (empirical floor). */
     const val ISO_FLOOR = 400
 
+    /** Nearest-anchor split: rounded midpoint of 4.16 µm and 8.40 µm (design §5.2.1). */
+    const val ANCHOR_PITCH_SPLIT_UM = 6.3
+
     private fun anchorRange(camera: Camera): IntRange =
-        if (camera.pixelPitch.value <= 5.0) 3200..6400 else 3200..12800
+        if (camera.pixelPitch.value <= ANCHOR_PITCH_SPLIT_UM) 3200..6400 else 3200..12800
 
     data class IsoRange(val low: Int, val high: Int)
 
