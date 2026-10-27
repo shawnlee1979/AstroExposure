@@ -241,7 +241,11 @@ class UseCasesTest {
         // Moments are chronological.
         assertEquals(result.moments.map { it.instant }.sorted(), result.moments.map { it.instant })
         assertTrue(result.moments.isNotEmpty())
-        // Static shortlist obeys its own rules.
+        // Static shortlist obeys its own rules. NOTE: with the production
+        // catalogue the shortlist currently degrades to empty because the
+        // :data adapter rejects the data's SUPERNOVA_REMANT rows (defect
+        // recorded in the phase report); the rule assertions below then
+        // hold vacuously and recommendationsAvailable is false.
         assertTrue(result.recommendations.size <= 10)
         for (rec in result.recommendations) {
             assertTrue((rec.obj.magnitude ?: 99.0) <= 6.5)

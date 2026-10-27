@@ -70,6 +70,8 @@ class TonightOverviewUseCase(
         val lowMoonlightWindows: List<LowMoonlightWindow>,
         val events: List<Event>,
         val recommendations: List<RecommendedObject>,
+        /** False when the object catalogue failed to load (see recommendations()). */
+        val recommendationsAvailable: Boolean,
         val moments: List<Moment>,
     )
 
@@ -115,6 +117,7 @@ class TonightOverviewUseCase(
             lowMoonlightWindows = lowMoonlightWindows(location, night, sky),
             events = events(date),
             recommendations = recommendations(location, date),
+            recommendationsAvailable = recommendationsAvailable,
             moments = moments,
         )
     }
@@ -192,9 +195,23 @@ class TonightOverviewUseCase(
      * are evaluated brightest-first and the scan stops once 10 qualify, so
      * the ephemeris cost stays bounded.
      */
+    private var recommendationsAvailable: Boolean = true
+
     private fun recommendations(location: GeoLocation, date: LocalDate): List<RecommendedObject> {
         val catalog = objectCatalog ?: return emptyList()
-        val candidates = catalog.allObjects()
+        // Explicit degradation, not a silent catch: the production object
+        // catalogue currently throws on its SUPERNOVA_REMANT rows (a :data
+        // defect recorded in the phase report — the adapter's type mapping
+        // disagrees with the generated data). Until :data is fixed, the
+        // shortlist degrades to empty and [Result.recommendationsAvailable]
+        // is false so the failure stays visible to callers.
+        val all = try {
+            catalog.allObjects()
+        } catch (e: IllegalStateException) {
+            recommendationsAvailable = false
+            return emptyList()
+        }
+        val candidates = all
             .filter { (it.magnitude ?: Double.MAX_VALUE) <= MAX_MAGNITUDE }
             .sortedBy { it.magnitude }
         val out = mutableListOf<RecommendedObject>()
