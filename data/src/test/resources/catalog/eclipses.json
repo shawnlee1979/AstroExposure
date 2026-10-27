@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "dataVersion": "test-fixture-1",
+  "eclipses": [
+    {
+      "date": "2026-02-17", "kind": "SOLAR", "type": "ANNULAR",
+      "peakUtc": "2026-02-17T12:01:00Z", "magnitude": 0.963, "saros": 140,
+      "pathWidthKm": 616, "centralDurationSec": 140,
+      "visibility": "Antarctica, southern South America, Africa"
+    },
+    {
+      "date": "2026-03-03", "kind": "LUNAR", "type": "TOTAL",
+      "peakUtc": "2026-03-03T11:33:00Z", "magnitude": 1.151, "saros": 133,
+      "pathWidthKm": null, "centralDurationSec": null,
+      "visibility": "Americas, East Asia, Australia, Pacific"
+    },
+    {
+      "date": "2026-08-12", "kind": "SOLAR", "type": "TOTAL",
+      "peakUtc": "2026-08-12T17:46:00Z", "magnitude": 1.039, "saros": 126,
+      "pathWidthKm": 294, "centralDurationSec": 366,
+      "visibility": "Arctic, Greenland, Iceland, Spain"
+    },
+    {
+      "date": "2026-08-28", "kind": "LUNAR", "type": "PARTIAL",
+      "peakUtc": "2026-08-28T04:13:00Z", "magnitude": 0.930, "saros": 138,
+      "pathWidthKm": null, "centralDurationSec": null,
+      "visibility": "Americas, Europe, Africa, West Asia"
+    }
+  ]
+}
