@@ -49,7 +49,7 @@ BASE = "https://raw.githubusercontent.com/mattiaverga/OpenNGC/master/database_fi
 TYPE_MAP = {
     "G": "GALAXY", "GPair": "GALAXY", "GTrpl": "GALAXY", "GGroup": "GALAXY",
     "OCl": "CLUSTER_OPEN", "GCl": "CLUSTER_GLOBULAR", "PN": "PLANETARY_NEBULA",
-    "SNR": "SUPERNOVA_REMANT", "EmN": "NEBULA", "RfN": "NEBULA", "HII": "NEBULA",
+    "SNR": "SUPERNOVA_REMNANT", "EmN": "NEBULA", "RfN": "NEBULA", "HII": "NEBULA",
     "Neb": "NEBULA", "Cl+N": "NEBULA", "DrkN": "NEBULA",
 }
 DEEP_SKY_TYPES = set(TYPE_MAP)
@@ -225,6 +225,15 @@ def main():
 
     total = len(objects)
     assert 300 <= total <= 600, f"total {total} outside 300-600 target band"
+    # Emitted type strings must stay within the set the :data adapter maps
+    # onto the domain enum (JsonObjectCatalog.parseObjectType); a typo here
+    # once shipped SUPERNOVA_REMANT and made the whole catalogue unloadable.
+    allowed_types = {
+        "GALAXY", "CLUSTER_OPEN", "CLUSTER_GLOBULAR", "PLANETARY_NEBULA",
+        "SUPERNOVA_REMNANT", "NEBULA", "DOUBLE_STAR", "ASTERISM", "OTHER",
+    }
+    emitted_types = {o["type"] for o in objects}
+    assert emitted_types <= allowed_types, f"unmapped types emitted: {emitted_types - allowed_types}"
     payload = {
         "schemaVersion": 1,
         "dataVersion": f"OpenNGC {UPSTREAM_TAG} (retrieved {date.today().isoformat()})",

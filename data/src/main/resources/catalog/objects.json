@@ -12,7 +12,7 @@
    "magnitude": 8.4,
    "sizeMajorArcmin": 8.0,
    "sizeMinorArcmin": 4.0,
-   "type": "SUPERNOVA_REMANT",
+   "type": "SUPERNOVA_REMNANT",
    "constellation": "Tau",
    "surfaceBrightness": 20.79,
    "surfaceBrightnessEstimated": true
@@ -3568,7 +3568,7 @@
    "magnitude": 9.59,
    "sizeMajorArcmin": 2.2,
    "sizeMinorArcmin": 2.0,
-   "type": "SUPERNOVA_REMANT",
+   "type": "SUPERNOVA_REMNANT",
    "constellation": "Dor",
    "surfaceBrightness": 19.83,
    "surfaceBrightnessEstimated": true
@@ -7558,7 +7558,7 @@
    "magnitude": 7.0,
    "sizeMajorArcmin": 210.0,
    "sizeMinorArcmin": 160.0,
-   "type": "SUPERNOVA_REMANT",
+   "type": "SUPERNOVA_REMNANT",
    "constellation": "Cyg",
    "surfaceBrightness": 26.94,
    "surfaceBrightnessEstimated": true
@@ -7572,7 +7572,7 @@
    "magnitude": 7.0,
    "sizeMajorArcmin": 60.0,
    "sizeMinorArcmin": 8.0,
-   "type": "SUPERNOVA_REMANT",
+   "type": "SUPERNOVA_REMNANT",
    "constellation": "Cyg",
    "surfaceBrightness": 22.33,
    "surfaceBrightnessEstimated": true
@@ -7586,7 +7586,7 @@
    "magnitude": 7.0,
    "sizeMajorArcmin": 12.0,
    "sizeMinorArcmin": 12.0,
-   "type": "SUPERNOVA_REMANT",
+   "type": "SUPERNOVA_REMNANT",
    "constellation": "Cyg",
    "surfaceBrightness": 21.02,
    "surfaceBrightnessEstimated": true
