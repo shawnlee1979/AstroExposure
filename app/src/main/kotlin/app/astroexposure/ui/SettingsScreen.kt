@@ -369,13 +369,17 @@ private fun PlaceForm(currentZone: ZoneId, onAdd: (SavedPlace) -> Unit) {
             Text(text = stringResource(R.string.settings_form_error), color = MaterialTheme.colorScheme.error)
         }
         OutlinedButton(onClick = {
+            val latDeg = lat.toDoubleOrNull() ?: Double.NaN
+            val lonDeg = lon.toDoubleOrNull() ?: Double.NaN
             val result = validatePlace(
                 id = "place-" + UUID.randomUUID().toString(),
                 name = name,
-                latitudeDeg = lat.toDoubleOrNull() ?: Double.NaN,
-                longitudeDeg = lon.toDoubleOrNull() ?: Double.NaN,
+                latitudeDeg = latDeg,
+                longitudeDeg = lonDeg,
                 heightMeters = 0.0,
-                zone = currentZone,
+                // §7.6: a favourite's zone resolves from its coordinates,
+                // the same path as GPS and manual entry.
+                zone = app.astroexposure.domain.geo.SiteTimeZone.resolve(latDeg, lonDeg, currentZone),
                 manualBortle = bortle.toIntOrNull(),
             )
             when (result) {

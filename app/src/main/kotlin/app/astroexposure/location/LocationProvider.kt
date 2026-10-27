@@ -9,6 +9,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.domain.geo.SiteTimeZone
 import app.astroexposure.domain.units.Degrees
 import java.time.Instant
 import java.time.ZoneId
@@ -110,12 +111,14 @@ class LocationProvider(private val context: Context) {
         }, timeoutMs)
     }
 
-    private fun toSite(location: Location, zone: ZoneId): LocatedSite = LocatedSite(
+    private fun toSite(location: Location, fallbackZone: ZoneId): LocatedSite = LocatedSite(
         location = GeoLocation(
             latitude = Degrees(location.latitude),
             longitude = Degrees(location.longitude),
             heightMeters = if (location.hasAltitude()) location.altitude else 0.0,
-            zone = zone,
+            // §7.6: the site's zone comes from its coordinates, with the
+            // caller's zone (the device zone) as the explicit fallback.
+            zone = SiteTimeZone.resolve(location.latitude, location.longitude, fallbackZone),
             label = null,
         ),
         source = LocationSource.GPS,
