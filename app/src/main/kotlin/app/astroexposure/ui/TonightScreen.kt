@@ -271,22 +271,29 @@ fun TonightScreen(
  * galactic-centre mark shows culmination time and altitude.
  */
 @Composable
+private fun twilightTimelineMark(
+    moment: TonightOverviewUseCase.Moment,
+    titleRes: Int,
+    solarAltitudeDeg: Double,
+    zone: ZoneId,
+): TimelineMark = TimelineMark(
+    instant = moment.instant,
+    title = stringResource(titleRes),
+    lines = listOf(
+        stringResource(
+            R.string.detail_moment_altitude_line,
+            formatTime(moment.instant, zone),
+            solarAltitudeDeg,
+        ),
+    ),
+)
+
+@Composable
 private fun timelineMarkFor(
     moment: TonightOverviewUseCase.Moment,
     overview: TonightOverviewUseCase.Result,
     zone: ZoneId,
 ): TimelineMark {
-    fun twilightMark(titleRes: Int, solarAltitudeDeg: Double) = TimelineMark(
-        instant = moment.instant,
-        title = stringResource(titleRes),
-        lines = listOf(
-            stringResource(
-                R.string.detail_moment_altitude_line,
-                formatTime(moment.instant, zone),
-                solarAltitudeDeg,
-            ),
-        ),
-    )
     return when (moment.kind) {
         TonightOverviewUseCase.MomentKind.SUNSET,
         TonightOverviewUseCase.MomentKind.SUNRISE -> {
@@ -363,13 +370,13 @@ private fun timelineMarkFor(
             )
         }
         TonightOverviewUseCase.MomentKind.CIVIL_DUSK_END ->
-            twilightMark(R.string.moment_civil_dusk, NightTimeline.CIVIL_LIMIT_DEG)
+            twilightTimelineMark(moment, R.string.moment_civil_dusk, NightTimeline.CIVIL_LIMIT_DEG, zone)
         TonightOverviewUseCase.MomentKind.NAUTICAL_DUSK_END ->
-            twilightMark(R.string.moment_nautical_dusk, NightTimeline.NAUTICAL_LIMIT_DEG)
+            twilightTimelineMark(moment, R.string.moment_nautical_dusk, NightTimeline.NAUTICAL_LIMIT_DEG, zone)
         TonightOverviewUseCase.MomentKind.ASTRO_DUSK ->
-            twilightMark(R.string.moment_astro_dusk, NightTimeline.ASTRONOMICAL_LIMIT_DEG)
+            twilightTimelineMark(moment, R.string.moment_astro_dusk, NightTimeline.ASTRONOMICAL_LIMIT_DEG, zone)
         TonightOverviewUseCase.MomentKind.ASTRO_DAWN ->
-            twilightMark(R.string.moment_astro_dawn, NightTimeline.ASTRONOMICAL_LIMIT_DEG)
+            twilightTimelineMark(moment, R.string.moment_astro_dawn, NightTimeline.ASTRONOMICAL_LIMIT_DEG, zone)
         TonightOverviewUseCase.MomentKind.GC_CULMINATION -> TimelineMark(
             instant = moment.instant,
             title = stringResource(R.string.moment_gc_culmination),
