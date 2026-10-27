@@ -375,6 +375,11 @@ private fun AstroApp(container: AppContainer) {
                             gpsFailed = false
                         },
                         onDateChange = { selectedDate = it },
+                        onEvaluateCursor = { instant ->
+                            container.tonightOverview.evaluateCursor(
+                                location, tonightDate, instant, result.timeline, manualBortle,
+                            )
+                        },
                         modifier = Modifier.padding(padding),
                     )
                 } ?: Text("…", modifier = Modifier.padding(padding))

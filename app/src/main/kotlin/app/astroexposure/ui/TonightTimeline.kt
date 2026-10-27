@@ -1,18 +1,25 @@
 package app.astroexposure.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -30,14 +38,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.astroexposure.R
 import app.astroexposure.domain.timeline.NightTimeline
+import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.usecase.TonightOverviewUseCase
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.max
+import kotlinx.coroutines.withTimeout
 
 /**
  * One tappable mark on the timeline (ui-design §7.4, 0.4.1 revision):
@@ -52,6 +66,17 @@ data class TimelineMark(
     val instant: Instant,
     val title: String,
     val lines: List<String>,
+)
+
+/**
+ * One cursor target's arc on the timeline (ui-design §7.5): the spans
+ * where the target is at or above 20°, its culmination instant (drawn
+ * as a solid dot) and its display name.
+ */
+data class TimelineArc(
+    val intervals: List<NightTimeline.Interval>,
+    val culmination: Instant,
+    val label: String,
 )
 
 /**
@@ -74,9 +99,16 @@ data class TimelineMark(
  * dashed border and the galactic-centre band a dot-dash border
  * (ui-design board, red-light variant).
  *
- * Layout reserves the phase-2 layers (ui-design §7.5) as empty
- * structural slots below the chart — cursor track, bubble layer and
- * target-arc layer — so the interactive phase reuses this layout.
+ * Phase 2 (ui-design §7.5) fills the reserved layers: the cursor
+ * track, bubble and target arcs, plus the time bar under the axis.
+ *
+ * Gesture coexistence with the §7.4 mark hot zones (minimal arrangement,
+ * the mark dialogs themselves are unchanged): the hot zones are child
+ * clickables whose tap handling consumes a tap before the chart's own
+ * tap detector sees it, so a tap that opens a mark detail does NOT
+ * place the cursor; a tap anywhere else places it. A drag anywhere
+ * takes over the cursor — the drag consumes its moves, which also
+ * cancels any hot-zone press in progress.
  */
 @Composable
 fun NightTimelineCard(
@@ -87,6 +119,18 @@ fun NightTimelineCard(
     zone: ZoneId,
     redLight: Boolean,
     modifier: Modifier = Modifier,
+    cursorInstant: Instant? = null,
+    cursorActive: Boolean = false,
+    bubbleTimeText: String? = null,
+    bubbleMoonText: String? = null,
+    bubbleSnapLabel: String? = null,
+    arcs: List<TimelineArc> = emptyList(),
+    highlightedArc: Int? = null,
+    onCursorTap: (Instant) -> Unit = {},
+    onCursorDrag: (Instant) -> Unit = {},
+    onCursorStep: (Long) -> Unit = {},
+    onExitCursor: () -> Unit = {},
+    onArcTap: (Int) -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
     val sunColor = if (redLight) Color(0xFFFF7A45) else Color(0xFFF2C66D)
@@ -132,7 +176,54 @@ fun NightTimelineCard(
                 Column {
                     // Chart: bands + curves + window bands + marker ticks
                     // + transparent tap hot zones over the ticks.
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .pointerInput(timeline.axisStart, timeline.axisEnd) {
+                                // Cursor tap (ui-design §7.5) with the
+                                // coexistence rule documented on the
+                                // card: the mark hot zones are children
+                                // whose click handling consumes a tap
+                                // first, so a tap that opens a mark
+                                // detail never reaches this detector and
+                                // never places the cursor.
+                                val totalSec = (timeline.axisEnd.epochSecond -
+                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
+                                fun instantAt(x: Float): Instant {
+                                    val fraction = (x / size.width).coerceIn(0f, 1f)
+                                    val epoch = timeline.axisStart.epochSecond +
+                                        (fraction * totalSec).toLong()
+                                    return TimelineCursor.clampToAxis(
+                                        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
+                                        timeline.axisStart, timeline.axisEnd,
+                                    )
+                                }
+                                detectTapGestures(
+                                    onTap = { offset -> onCursorTap(instantAt(offset.x)) },
+                                )
+                            }
+                            .pointerInput(timeline.axisStart, timeline.axisEnd) {
+                                val totalSec = (timeline.axisEnd.epochSecond -
+                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
+                                fun instantAt(x: Float): Instant {
+                                    val fraction = (x / size.width).coerceIn(0f, 1f)
+                                    val epoch = timeline.axisStart.epochSecond +
+                                        (fraction * totalSec).toLong()
+                                    return TimelineCursor.clampToAxis(
+                                        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
+                                        timeline.axisStart, timeline.axisEnd,
+                                    )
+                                }
+                                detectDragGestures(
+                                    onDragStart = { offset -> onCursorDrag(instantAt(offset.x)) },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        onCursorDrag(instantAt(change.position.x))
+                                    },
+                                )
+                            },
+                    ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val totalSec = (timeline.axisEnd.epochSecond - timeline.axisStart.epochSecond)
                                 .toDouble().coerceAtLeast(1.0)
@@ -294,6 +385,23 @@ fun NightTimelineCard(
                                     )
                                 }
                             }
+                            // Cursor (ui-design §7.5): gold line across
+                            // the chart with a knob at the top, drawn
+                            // only while the cursor state is active.
+                            if (cursorActive && cursorInstant != null) {
+                                val cursorX = xOf(cursorInstant)
+                                drawLine(
+                                    color = sunColor,
+                                    start = Offset(cursorX, 0f),
+                                    end = Offset(cursorX, size.height),
+                                    strokeWidth = 2.dp.toPx(),
+                                )
+                                drawCircle(
+                                    color = sunColor,
+                                    radius = 5.dp.toPx(),
+                                    center = Offset(cursorX, 5.dp.toPx()),
+                                )
+                            }
                         }
                         // Tap hot zones over the ticks and curve crossings:
                         // transparent, 40dp wide and spanning the chart
@@ -312,6 +420,48 @@ fun NightTimelineCard(
                                     .size(width = 40.dp, height = 150.dp)
                                     .clickable { selectedMark = mark },
                             )
+                        }
+                        // Cursor bubble (ui-design §7.5): cursor time
+                        // plus the Moon's altitude and illumination at
+                        // that moment, readable while dragging. When
+                        // the cursor is snapped to a key moment the
+                        // moment's name is appended.
+                        if (cursorActive && cursorInstant != null && bubbleTimeText != null) {
+                            val fraction = NightTimeline.fractionOf(
+                                cursorInstant, timeline.axisStart, timeline.axisEnd,
+                            )
+                            val bubbleWidth = 128.0
+                            val bubbleLeft = (fraction * widthDp - bubbleWidth / 2)
+                                .coerceIn(0.0, max(0.0, widthDp - bubbleWidth))
+                            Column(
+                                modifier = Modifier
+                                    .offset(x = bubbleLeft.dp, y = 14.dp)
+                                    .width(bubbleWidth.dp)
+                                    .background(sunColor, RoundedCornerShape(9.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = bubbleTimeText,
+                                    color = Color(0xFF131313),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                if (bubbleMoonText != null) {
+                                    Text(
+                                        text = bubbleMoonText,
+                                        color = Color(0xFF131313),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                                if (bubbleSnapLabel != null) {
+                                    Text(
+                                        text = bubbleSnapLabel,
+                                        color = Color(0xFF131313),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                            }
                         }
                     }
                     // Band legend row (text, so the bands do not rely on colour or line style alone).
@@ -344,12 +494,140 @@ fun NightTimelineCard(
                             )
                         }
                     }
-                    // Reserved phase-2 layers (ui-design §7.5): cursor
-                    // track, bubble layer and target-arc layer slots,
-                    // empty in this phase.
-                    Box(modifier = Modifier.fillMaxWidth().height(6.dp)) { /* cursor track slot */ }
-                    Box(modifier = Modifier.fillMaxWidth().height(0.dp)) { /* bubble layer slot */ }
-                    Box(modifier = Modifier.fillMaxWidth().height(0.dp)) { /* target-arc layer slot */ }
+                    // Cursor track (ui-design §7.5, the phase-1 reserved
+                    // slot): a thin rail under the axis with the cursor
+                    // knob, visible while the cursor state is active.
+                    Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+                        if (cursorActive && cursorInstant != null) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val totalSec = (timeline.axisEnd.epochSecond -
+                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
+                                val cursorX = ((cursorInstant.epochSecond -
+                                    timeline.axisStart.epochSecond) / totalSec).toFloat() * size.width
+                                drawLine(
+                                    color = borderColor,
+                                    start = Offset(0f, size.height / 2),
+                                    end = Offset(size.width, size.height / 2),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                                drawCircle(
+                                    color = sunColor,
+                                    radius = 3.dp.toPx(),
+                                    center = Offset(cursorX, size.height / 2),
+                                )
+                            }
+                        }
+                    }
+                    // Target-arc layer (ui-design §7.5, the phase-1
+                    // reserved slot): one lane per displayed cursor
+                    // target — its ≥20° spans as a bar, culmination as a
+                    // solid dot, name at the first span's start. Tapping
+                    // a lane reports the target index to the caller,
+                    // which scrolls its list row into view.
+                    if (cursorActive && arcs.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            arcs.forEachIndexed { index, arc ->
+                                val highlighted = highlightedArc == index
+                                val arcColor = if (highlighted) {
+                                    sunColor
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(13.dp)
+                                        .clickable { onArcTap(index) },
+                                ) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val totalSec = (timeline.axisEnd.epochSecond -
+                                            timeline.axisStart.epochSecond).toDouble()
+                                            .coerceAtLeast(1.0)
+                                        fun xOf(instant: Instant): Float =
+                                            ((instant.epochSecond - timeline.axisStart.epochSecond) /
+                                                totalSec).toFloat() * size.width
+                                        for (interval in arc.intervals) {
+                                            val left = xOf(interval.start)
+                                            val right = xOf(interval.end)
+                                            drawRoundRect(
+                                                color = arcColor.copy(
+                                                    alpha = if (highlighted) 0.35f else 0.16f,
+                                                ),
+                                                topLeft = Offset(left, 2.dp.toPx()),
+                                                size = Size(right - left, 9.dp.toPx()),
+                                                cornerRadius = androidx.compose.ui.geometry
+                                                    .CornerRadius(4.dp.toPx()),
+                                            )
+                                            drawRoundRect(
+                                                color = arcColor,
+                                                topLeft = Offset(left, 2.dp.toPx()),
+                                                size = Size(right - left, 9.dp.toPx()),
+                                                cornerRadius = androidx.compose.ui.geometry
+                                                    .CornerRadius(4.dp.toPx()),
+                                                style = Stroke(width = 1.dp.toPx()),
+                                            )
+                                        }
+                                        drawCircle(
+                                            color = arcColor,
+                                            radius = 2.5.dp.toPx(),
+                                            center = Offset(xOf(arc.culmination), 6.5.dp.toPx()),
+                                        )
+                                    }
+                                    arc.intervals.firstOrNull()?.let { first ->
+                                        val fraction = NightTimeline.fractionOf(
+                                            first.start, timeline.axisStart, timeline.axisEnd,
+                                        )
+                                        Text(
+                                            text = arc.label,
+                                            fontSize = 8.sp,
+                                            color = arcColor,
+                                            modifier = Modifier.offset(
+                                                x = (fraction * widthDp + 4.0).dp,
+                                                y = 1.dp,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Time bar (ui-design §7.5): −1′ / +1′ minute steps
+                    // (long press repeats in 10-minute steps), the
+                    // cursor time, and the whole-night exit.
+                    if (cursorActive && bubbleTimeText != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CursorStepButton(
+                                label = stringResource(R.string.cursor_step_back),
+                                borderColor = borderColor,
+                                onStep = { minutes -> onCursorStep(-minutes) },
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, sunColor, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    text = bubbleTimeText,
+                                    color = sunColor,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            CursorStepButton(
+                                label = stringResource(R.string.cursor_step_forward),
+                                borderColor = borderColor,
+                                onStep = { minutes -> onCursorStep(minutes) },
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(onClick = onExitCursor) {
+                                Text(stringResource(R.string.cursor_show_whole_night))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -366,5 +644,48 @@ fun NightTimelineCard(
                 }
             },
         )
+    }
+}
+
+/**
+ * One step button of the cursor time bar (ui-design §7.5): a tap steps
+ * one minute; a long press switches to repeated 10-minute steps until
+ * release. [onStep] receives the unsigned step size in minutes; the
+ * caller applies the direction.
+ */
+@Composable
+private fun CursorStepButton(
+    label: String,
+    borderColor: Color,
+    onStep: (Long) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .pointerInput(label) {
+                detectTapGestures(
+                    onPress = {
+                        onStep(1L)
+                        try {
+                            withTimeout(450L) { tryAwaitRelease() }
+                        } catch (e: PointerEventTimeoutCancellationException) {
+                            var released = false
+                            while (!released) {
+                                onStep(10L)
+                                try {
+                                    withTimeout(160L) { tryAwaitRelease() }
+                                    released = true
+                                } catch (e: PointerEventTimeoutCancellationException) {
+                                    // Still held: keep stepping.
+                                }
+                            }
+                        }
+                    },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
     }
 }

@@ -1,5 +1,7 @@
 package app.astroexposure.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -23,12 +27,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -38,9 +46,11 @@ import app.astroexposure.domain.geo.Coordinates
 import app.astroexposure.domain.sky.BaselineSource
 import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.timeline.NightTimeline
+import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.timeline.TonightDateWindow
 import app.astroexposure.support.TimeHealthCheck
 import app.astroexposure.usecase.TonightOverviewUseCase
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -49,6 +59,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Tonight overview (ui-design §4.1 and §7): location card (positioning +
@@ -57,6 +71,7 @@ import java.util.Locale
  * bright-object shortlist → ±3-day events. Conclusion first;
  * degradations stated plainly in their §7.4 positions.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TonightScreen(
     overview: TonightOverviewUseCase.Result,
@@ -76,12 +91,93 @@ fun TonightScreen(
     onManualBortleChange: (Int?) -> Unit,
     onManualLocation: (Double, Double) -> Unit,
     onDateChange: (LocalDate) -> Unit,
+    onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     modifier: Modifier = Modifier,
 ) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+
+    // Cursor state (ui-design §7.5). Everything resets when the selected
+    // date changes (the cursor belongs to one night); the position is
+    // retained while the cursor state is exited via "whole night", and
+    // the next plain tap on the axis restores it (see onCursorTap).
+    var cursorActive by remember(date) { mutableStateOf(false) }
+    var retainedCursor by remember(date) { mutableStateOf<Instant?>(null) }
+    var cursorEval by remember(date) { mutableStateOf<TonightOverviewUseCase.CursorEvaluation?>(null) }
+    var highlightedTarget by remember(date) { mutableStateOf<Int?>(null) }
+    var lastSnappedMoment by remember(date) { mutableStateOf<Int?>(null) }
+    // One bring-into-view requester per displayed cursor row, so tapping
+    // an arc on the timeline scrolls its list row into view (§7.5).
+    val rowRequesters = remember(date) {
+        List(TimelineCursor.MAX_DISPLAYED_TARGETS) { BringIntoViewRequester() }
+    }
+
+    // Placement shared by tap and drag: minute precision, axis clamp,
+    // snapping to a key moment within the §7.5 window with one haptic
+    // tick when a new moment is snapped to.
+    fun placeCursor(raw: Instant) {
+        val clamped = TimelineCursor.clampToAxis(
+            TimelineCursor.truncatedToMinute(raw),
+            overview.timeline.axisStart, overview.timeline.axisEnd,
+        )
+        val snapped = TimelineCursor.snappedMomentIndex(
+            clamped, overview.moments.map { it.instant },
+        )
+        if (snapped != null && snapped != lastSnappedMoment) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        lastSnappedMoment = snapped
+        retainedCursor = snapped?.let { overview.moments[it].instant } ?: clamped
+        cursorActive = true
+    }
+
+    // The evaluation follows the settled cursor position (short
+    // debounce so a drag does not evaluate every intermediate minute).
+    LaunchedEffect(cursorActive, retainedCursor, overview) {
+        cursorEval = if (cursorActive && retainedCursor != null) {
+            delay(120)
+            withContext(Dispatchers.Default) { onEvaluateCursor(retainedCursor!!) }
+        } else {
+            null
+        }
+        if (cursorEval?.instant != retainedCursor) highlightedTarget = null
+    }
+
+    val evalMatchesCursor = cursorEval != null && cursorEval!!.instant == retainedCursor
+    val snappedLabel = if (cursorActive && retainedCursor != null) {
+        TimelineCursor.snappedMomentIndex(retainedCursor!!, overview.moments.map { it.instant })
+            ?.let { index ->
+                val moment = overview.moments[index]
+                "${momentKindName(moment.kind)} ${formatTime(moment.instant, zone)}"
+            }
+    } else {
+        null
+    }
+    val bubbleMoonText = if (cursorActive && retainedCursor != null) {
+        val moonAlt = if (evalMatchesCursor) {
+            cursorEval!!.moonAltitudeDeg
+        } else {
+            TimelineCursor.moonAltitudeAt(overview.timeline.samples, retainedCursor!!)
+        }
+        val illumination = if (evalMatchesCursor) {
+            cursorEval!!.moonIllumination
+        } else {
+            overview.moonIllumination
+        }
+        moonAlt?.let {
+            stringResource(
+                R.string.cursor_bubble_moon, it, Math.round(illumination * 100),
+            )
+        }
+    } else {
+        null
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -154,6 +250,53 @@ fun TonightScreen(
             lowMoonlightWindows = overview.lowMoonlightWindows,
             zone = zone,
             redLight = redLight,
+            cursorInstant = retainedCursor,
+            cursorActive = cursorActive,
+            bubbleTimeText = retainedCursor?.let { formatTime(it, zone) },
+            bubbleMoonText = bubbleMoonText,
+            bubbleSnapLabel = snappedLabel,
+            arcs = if (cursorActive && evalMatchesCursor) {
+                cursorEval!!.targets.map { target ->
+                    TimelineArc(
+                        intervals = target.arcIntervals,
+                        culmination = target.culmination,
+                        label = target.obj.nameZh ?: target.obj.name,
+                    )
+                }
+            } else {
+                emptyList()
+            },
+            highlightedArc = highlightedTarget,
+            onCursorTap = { tapped ->
+                if (!cursorActive && retainedCursor != null) {
+                    // After "whole night", the next tap restores the
+                    // retained cursor position (ui-design §7.5).
+                    cursorActive = true
+                } else {
+                    placeCursor(tapped)
+                }
+            },
+            onCursorDrag = { dragged -> placeCursor(dragged) },
+            onCursorStep = { deltaMinutes ->
+                retainedCursor?.let { current ->
+                    retainedCursor = TimelineCursor.clampToAxis(
+                        TimelineCursor.truncatedToMinute(
+                            current.plus(Duration.ofMinutes(deltaMinutes)),
+                        ),
+                        overview.timeline.axisStart, overview.timeline.axisEnd,
+                    )
+                    lastSnappedMoment = null
+                    cursorActive = true
+                }
+            },
+            onExitCursor = {
+                cursorActive = false
+                highlightedTarget = null
+            },
+            onArcTap = { index ->
+                highlightedTarget = index
+                scope.launch { rowRequesters[index].bringIntoView() }
+            },
         )
 
         // Moon / total-sky verdict card (the Bortle fallback lives in the
@@ -196,28 +339,41 @@ fun TonightScreen(
             }
         }
 
-        // Static bright-object shortlist (unchanged whole-night rules).
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                SectionTitle(stringResource(R.string.tonight_recommendations_title))
-                if (!overview.recommendationsAvailable) {
-                    Text(text = stringResource(R.string.tonight_recommendations_unavailable))
-                } else if (overview.recommendations.isEmpty()) {
-                    Text(text = stringResource(R.string.tonight_recommendations_none))
-                } else {
-                    overview.recommendations.forEach { rec ->
-                        Text(
-                            text = stringResource(
-                                R.string.tonight_recommendation_item,
-                                rec.obj.nameZh ?: rec.obj.name,
-                                rec.obj.magnitude?.toString() ?: "—",
-                                formatTime(rec.pass.culmination, zone),
-                                rec.pass.culminationAltitude.value,
-                            ),
-                        )
+        if (cursorActive && retainedCursor != null) {
+            // Cursor state (ui-design §7.5): the recommendation area
+            // switches to "shootable at this moment".
+            CursorTargetsCard(
+                evaluation = if (evalMatchesCursor) cursorEval else null,
+                cursorTimeText = formatTime(retainedCursor!!, zone),
+                zone = zone,
+                highlightedTarget = highlightedTarget,
+                rowRequesters = rowRequesters,
+                onTargetTap = { highlightedTarget = it },
+            )
+        } else {
+            // Static bright-object shortlist (unchanged whole-night rules).
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SectionTitle(stringResource(R.string.tonight_recommendations_title))
+                    if (!overview.recommendationsAvailable) {
+                        Text(text = stringResource(R.string.tonight_recommendations_unavailable))
+                    } else if (overview.recommendations.isEmpty()) {
+                        Text(text = stringResource(R.string.tonight_recommendations_none))
+                    } else {
+                        overview.recommendations.forEach { rec ->
+                            Text(
+                                text = stringResource(
+                                    R.string.tonight_recommendation_item,
+                                    rec.obj.nameZh ?: rec.obj.name,
+                                    rec.obj.magnitude?.toString() ?: "—",
+                                    formatTime(rec.pass.culmination, zone),
+                                    rec.pass.culminationAltitude.value,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -619,6 +775,163 @@ private fun DateSwitchRow(
             },
         ) {
             DatePicker(state = pickerState, showModeToggle = false)
+        }
+    }
+}
+
+/** Display name of a key moment (ui-design §7.4 moment set), for the cursor bubble's snap label. */
+@Composable
+private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = stringResource(
+    when (kind) {
+        TonightOverviewUseCase.MomentKind.SUNSET -> R.string.moment_sunset
+        TonightOverviewUseCase.MomentKind.CIVIL_DUSK_END -> R.string.moment_civil_dusk
+        TonightOverviewUseCase.MomentKind.NAUTICAL_DUSK_END -> R.string.moment_nautical_dusk
+        TonightOverviewUseCase.MomentKind.ASTRO_DUSK -> R.string.moment_astro_dusk
+        TonightOverviewUseCase.MomentKind.MOONRISE -> R.string.moment_moonrise
+        TonightOverviewUseCase.MomentKind.MOONSET -> R.string.moment_moonset
+        TonightOverviewUseCase.MomentKind.GC_CULMINATION -> R.string.moment_gc_culmination
+        TonightOverviewUseCase.MomentKind.ASTRO_DAWN -> R.string.moment_astro_dawn
+        TonightOverviewUseCase.MomentKind.SUNRISE -> R.string.moment_sunrise
+    },
+)
+
+/**
+ * The "shootable at this moment" card (ui-design §7.5): title with the
+ * cursor time and the qualifying count, the four-item status row, and
+ * the ranked target rows. Tapping a row highlights its arc on the
+ * timeline (the reverse direction scrolls the row into view from the
+ * arc lanes). [evaluation] is null while an evaluation for the current
+ * cursor position is still in flight — the card then shows its title
+ * only, never stale results presented as current.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CursorTargetsCard(
+    evaluation: TonightOverviewUseCase.CursorEvaluation?,
+    cursorTimeText: String,
+    zone: ZoneId,
+    highlightedTarget: Int?,
+    rowRequesters: List<BringIntoViewRequester>,
+    onTargetTap: (Int) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            SectionTitle(stringResource(R.string.cursor_title, cursorTimeText))
+            if (evaluation == null) {
+                Text(text = "…", style = MaterialTheme.typography.bodyMedium)
+                return@Column
+            }
+            Text(
+                text = if (evaluation.totalShootable > evaluation.targets.size) {
+                    stringResource(
+                        R.string.cursor_count,
+                        evaluation.totalShootable, evaluation.targets.size,
+                    )
+                } else {
+                    stringResource(R.string.cursor_count_all, evaluation.totalShootable)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // Status row: segment, Sun altitude, moonlight tier,
+            // low-moonlight window membership (ui-design §7.5).
+            val segmentText = stringResource(
+                when (evaluation.segment) {
+                    NightTimeline.SunBand.DAY -> R.string.cursor_segment_day
+                    NightTimeline.SunBand.CIVIL_TWILIGHT -> R.string.cursor_segment_civil
+                    NightTimeline.SunBand.NAUTICAL_TWILIGHT -> R.string.cursor_segment_nautical
+                    NightTimeline.SunBand.ASTRONOMICAL_TWILIGHT ->
+                        R.string.cursor_segment_astronomical_twilight
+                    NightTimeline.SunBand.ASTRONOMICAL_NIGHT ->
+                        R.string.cursor_segment_astronomical_night
+                },
+            )
+            val interferenceText = stringResource(
+                when (evaluation.moonInterference) {
+                    TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
+                    TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
+                    TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
+                },
+            )
+            val lowMoonText = when (val status = evaluation.lowMoonStatus) {
+                is TimelineCursor.LowMoonStatus.Inside ->
+                    stringResource(R.string.cursor_low_moon_inside, formatTime(status.end, zone))
+                is TimelineCursor.LowMoonStatus.Next ->
+                    stringResource(R.string.cursor_low_moon_next, formatTime(status.start, zone))
+                TimelineCursor.LowMoonStatus.None ->
+                    stringResource(R.string.cursor_low_moon_none)
+            }
+            Text(
+                text = stringResource(
+                    R.string.cursor_status,
+                    segmentText, evaluation.sunAltitudeDeg, interferenceText, lowMoonText,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!evaluation.targetsAvailable) {
+                Text(text = stringResource(R.string.tonight_recommendations_unavailable))
+            } else if (evaluation.targets.isEmpty()) {
+                Text(text = stringResource(R.string.cursor_none))
+            } else {
+                evaluation.targets.forEachIndexed { index, target ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (highlightedTarget == index) {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                } else {
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                },
+                            )
+                            .bringIntoViewRequester(rowRequesters[index])
+                            .clickable { onTargetTap(index) }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = target.obj.nameZh ?: target.obj.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.cursor_target_meta,
+                                    formatTime(target.culmination, zone),
+                                    target.culminationAltitudeDeg,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = stringResource(
+                                    R.string.cursor_target_altitude, target.altitudeDeg,
+                                ),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = stringResource(
+                                    if (target.rising) {
+                                        R.string.cursor_target_rising
+                                    } else {
+                                        R.string.cursor_target_setting
+                                    },
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
