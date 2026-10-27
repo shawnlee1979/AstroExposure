@@ -303,6 +303,26 @@ def synthetic_selftest(tmpdir):
     assert header["grids"][0]["rows"] == ROWS
     assert np.array_equal(data.reshape(ROWS, COLS)[0:60, 2040:2160], got)
     print("synthetic self-test: resample + encode + read-back consistent")
+    # Tiled branch: the same array written as a 128x128 tiled TIFF must
+    # take TiffSliceReader's tile-by-tile path, and resampling it must
+    # give the same grid as the whole-image (striped) path above.
+    tiled_path = os.path.join(tmpdir, "synthetic_tiled.tif")
+    tifffile.imwrite(
+        tiled_path, arr, tile=(128, 128),
+        extratags=[(33550, "d", 3, (px, px, 0.0)),
+                   (33922, "d", 6, (0.0, 0.0, 0.0, -10.0, 85.0, 0.0))])
+    reader = TiffSliceReader(tiled_path)
+    try:
+        assert reader._array is None, \
+            "tiled file did not take the tile-by-tile branch"
+        assert np.array_equal(reader[10:200, 100:500],
+                              arr[10:200, 100:500]), "tiled slice mismatch"
+    finally:
+        reader.close()
+    tiled_grid = resample_tiff(tiled_path)
+    assert np.array_equal(tiled_grid, grid), \
+        "tiled resample differs from whole-image resample"
+    print("synthetic self-test: tiled TIFF branch matches whole-image branch")
 
 
 # --------------------------------------------------------------- sparse path
