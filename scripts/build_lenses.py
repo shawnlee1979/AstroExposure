@@ -14,8 +14,8 @@ other mounts can be added in the app as custom entries.
 
 Schema note: `maxAperture` is the maximum aperture at the wide end. A
 variable-aperture zoom additionally carries the optional field
-`maxApertureTele` (maximum aperture at the telephoto end, e.g. 5.6 for
-an 18-55mm f/3.5-5.6), because the calculator picks lenses from this
+`maxApertureTele` (maximum aperture at the telephoto end, e.g. 2.8 for
+the Tamron 35-150mm F2-2.8 in the delivered list), because the calculator picks lenses from this
 list and needs the effective maximum aperture at the chosen focal
 length. Constant-aperture zooms and primes omit the field.
 

@@ -59,8 +59,8 @@ Common rules:
 - Command: `python3 scripts/build_lenses.py`
 - Output: `data/src/main/resources/catalog/lenses.json`
 - Schema note: variable-aperture zooms carry an extra optional field
-  `maxApertureTele` (maximum aperture at the telephoto end, e.g. 5.6 for
-  an 18-55mm f/3.5-5.6); constant-aperture zooms and primes omit it.
+  `maxApertureTele` (maximum aperture at the telephoto end, e.g. 2.8 for
+  the Tamron 35-150mm F2-2.8 in the list below); constant-aperture zooms and primes omit it.
 - Data version record: `dataVersion` field in lenses.json +
   [data-sources.md](data-sources.md).
 

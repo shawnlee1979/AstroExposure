@@ -54,8 +54,14 @@ data from there under its original terms.
 > alone does *not* lift the restriction.
 
 - **What:** Modelled zenith artificial sky brightness (based on VIIRS DNB
-  satellite data), resampled at build time into a compact offline grid for
-  GPS-coordinate sky-brightness / Bortle lookup.
+  satellite data). The product bundled in this repository is a SPARSE
+  SAMPLE GRID (99 reference points sampled from the same atlas values via
+  lightpollutionmap.info), not a resample of the full atlas: only the
+  cells containing a sample point carry data, every other point returns
+  "no data" and the app falls back to a manual Bortle entry. The build
+  pipeline (scripts/build_lp_grid.py) accepts the full atlas GeoTIFF and
+  will produce the full resampled grid unchanged once the source file is
+  obtained.
 - **Source:** Falchi, F. et al., *The New World Atlas of Artificial Night Sky
   Brightness*, Science Advances 2(6), 2016. Data via GFZ Data Services,
   DOI 10.5880/GFZ.1.4.2016.001.

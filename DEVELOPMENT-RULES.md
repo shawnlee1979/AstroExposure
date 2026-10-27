@@ -31,7 +31,7 @@ UI（Compose 界面、红光主题、双语文案）
 
 1. **每个外部依赖对应一个领域侧接口（端口）**，接口只用领域类型描述能力，不出现第三方词汇：
    - `EphemerisProvider` —— 历算（太阳/月亮位置、月相、暮光、升落、食搜索）：现行实现 = Astronomy Engine 适配器；
-   - `ObjectCatalog` —— 深空/恒星目标库：现行实现 = OpenNGC + HYG 数据读取适配器；
+   - `ObjectCatalog` —— 深空/恒星目标库：现行实现 = OpenNGC 数据读取适配器（HYG 亮星子集见设计第 6 节规划，本批未交付）；
    - `LightPollutionSource` —— 光害查询（经纬度 → 天光亮度/Bortle 估计）：现行实现 = Falchi 图谱重采样网格适配器；
    - `EclipseCatalog` —— 日月食目录：现行实现 = NASA GSFC 数据生成的静态表适配器；
    - 流星雨年表同理走 `MeteorShowerCatalog` 接口（IMO 数据静态表）。验收：全文检索业务代码（领域层 + 用例层），不得出现任何第三方包名 import。
