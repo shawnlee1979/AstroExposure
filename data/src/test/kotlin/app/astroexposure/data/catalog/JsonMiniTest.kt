@@ -70,4 +70,41 @@ class JsonMiniTest {
             }
         }
     }
+
+    @Test
+    fun `rejects duplicate object keys`() {
+        try {
+            JsonMini.parse("""{"a":1,"b":2,"a":3}""")
+            fail("expected JsonParseException for a duplicate key")
+        } catch (e: JsonParseException) {
+            assertTrue(e.message!!.contains("duplicate"))
+        }
+    }
+
+    @Test
+    fun `intField rejects out of range integers instead of saturating`() {
+        val big = mapOf("v" to JsonValue.Num(1e20))
+        try {
+            big.intField("v", "test")
+            fail("expected IllegalStateException for an out-of-range integer")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("out of Int range"))
+        }
+        val ok = mapOf("v" to JsonValue.Num(147.0))
+        assertEquals(147, ok.intField("v", "test"))
+    }
+
+    @Test
+    fun `rejects nesting beyond the depth limit`() {
+        val deep = "[".repeat(JsonMini.MAX_DEPTH + 10) + "]".repeat(JsonMini.MAX_DEPTH + 10)
+        try {
+            JsonMini.parse(deep)
+            fail("expected JsonParseException for excessive nesting")
+        } catch (e: JsonParseException) {
+            assertTrue(e.message!!.contains("nesting"))
+        }
+        // Nesting within the limit still parses.
+        val fine = "[".repeat(16) + "1" + "]".repeat(16)
+        JsonMini.parse(fine)
+    }
 }

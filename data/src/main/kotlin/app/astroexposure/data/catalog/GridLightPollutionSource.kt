@@ -89,6 +89,21 @@ class GridLightPollutionSource(
         }.sortedBy { it.stepDeg } // finest first, regardless of header order
         val dataArea = bytes.copyOfRange(headerEnd, bytes.size)
         for (grid in grids) {
+            // Header sanity: a zero/negative step or shape would otherwise
+            // silently return wrong cells instead of failing at load.
+            if (!grid.stepDeg.isFinite() || grid.stepDeg <= 0.0 ||
+                grid.rows <= 0 || grid.cols <= 0 ||
+                !grid.scale.isFinite() || grid.scale <= 0.0 ||
+                !grid.latMin.isFinite() || !grid.latMax.isFinite() ||
+                !grid.lonMin.isFinite() || !grid.lonMax.isFinite() ||
+                grid.latMin > grid.latMax || grid.lonMin > grid.lonMax
+            ) {
+                throw IllegalStateException(
+                    "$context: invalid grid descriptor (stepDeg=${grid.stepDeg}, " +
+                        "rows=${grid.rows}, cols=${grid.cols}, scale=${grid.scale}, " +
+                        "lat=${grid.latMin}..${grid.latMax}, lon=${grid.lonMin}..${grid.lonMax})",
+                )
+            }
             val needed = grid.offset + grid.rows * grid.cols * 2
             if (grid.offset < 0 || needed > dataArea.size) {
                 throw IllegalStateException(

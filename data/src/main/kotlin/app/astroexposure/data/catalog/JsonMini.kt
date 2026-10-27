@@ -25,10 +25,18 @@ class JsonParseException(message: String, val position: Int) :
 
 object JsonMini {
 
+    /**
+     * Maximum nesting depth for arrays/objects. Bundled catalogues nest a
+     * handful of levels; imported documents are user-supplied, and an
+     * unbounded recursive-descent parse would end in a StackOverflowError
+     * instead of a catchable [JsonParseException].
+     */
+    const val MAX_DEPTH = 128
+
     fun parse(text: String): JsonValue {
         val parser = Parser(text)
         parser.skipWhitespace()
-        val value = parser.parseValue()
+        val value = parser.parseValue(0)
         parser.skipWhitespace()
         if (!parser.atEnd()) throw parser.error("trailing content after the top-level value")
         return value
@@ -54,15 +62,20 @@ object JsonMini {
             pos++
         }
 
-        fun parseValue(): JsonValue = when (val c = peek()) {
-            '{' -> parseObject()
-            '[' -> parseArray()
-            '"' -> JsonValue.Str(parseString())
-            't' -> parseLiteral("true", JsonValue.Bool(true))
-            'f' -> parseLiteral("false", JsonValue.Bool(false))
-            'n' -> parseLiteral("null", JsonValue.Null)
-            '-', in '0'..'9' -> parseNumber()
-            else -> throw error("unexpected character '$c'")
+        fun parseValue(depth: Int): JsonValue {
+            if (depth > MAX_DEPTH) {
+                throw error("nesting deeper than $MAX_DEPTH levels")
+            }
+            return when (val c = peek()) {
+                '{' -> parseObject(depth)
+                '[' -> parseArray(depth)
+                '"' -> JsonValue.Str(parseString())
+                't' -> parseLiteral("true", JsonValue.Bool(true))
+                'f' -> parseLiteral("false", JsonValue.Bool(false))
+                'n' -> parseLiteral("null", JsonValue.Null)
+                '-', in '0'..'9' -> parseNumber()
+                else -> throw error("unexpected character '$c'")
+            }
         }
 
         private fun parseLiteral(word: String, value: JsonValue): JsonValue {
@@ -73,7 +86,7 @@ object JsonMini {
             return value
         }
 
-        private fun parseObject(): JsonValue.Obj {
+        private fun parseObject(depth: Int): JsonValue.Obj {
             expect('{')
             val entries = LinkedHashMap<String, JsonValue>()
             skipWhitespace()
@@ -88,7 +101,13 @@ object JsonMini {
                 skipWhitespace()
                 expect(':')
                 skipWhitespace()
-                entries[key] = parseValue()
+                // A duplicate key means the document itself is corrupt
+                // (typically a generator bug); fail loudly instead of
+                // silently keeping the later value.
+                if (entries.containsKey(key)) {
+                    throw error("duplicate object key '$key'")
+                }
+                entries[key] = parseValue(depth + 1)
                 skipWhitespace()
                 when (peek()) {
                     ',' -> pos++
@@ -101,7 +120,7 @@ object JsonMini {
             }
         }
 
-        private fun parseArray(): JsonValue.Arr {
+        private fun parseArray(depth: Int): JsonValue.Arr {
             expect('[')
             val items = mutableListOf<JsonValue>()
             skipWhitespace()
@@ -111,7 +130,7 @@ object JsonMini {
             }
             while (true) {
                 skipWhitespace()
-                items += parseValue()
+                items += parseValue(depth + 1)
                 skipWhitespace()
                 when (peek()) {
                     ',' -> pos++
@@ -223,6 +242,11 @@ internal fun Map<String, JsonValue>.intField(key: String, context: String): Int 
     if (value % 1.0 != 0.0) {
         throw IllegalStateException("$context: field '$key' must be an integer, was $value")
     }
+    // Double.toInt() saturates silently outside the Int range; a corrupt
+    // catalogue field must fail loudly instead of becoming 2147483647.
+    if (value > Int.MAX_VALUE.toDouble() || value < Int.MIN_VALUE.toDouble()) {
+        throw IllegalStateException("$context: field '$key' is out of Int range, was $value")
+    }
     return value.toInt()
 }
 
@@ -244,6 +268,9 @@ internal fun Map<String, JsonValue>.optionalInt(key: String, context: String): I
     optionalDouble(key, context)?.let { value ->
         if (value % 1.0 != 0.0) {
             throw IllegalStateException("$context: field '$key' must be an integer, was $value")
+        }
+        if (value > Int.MAX_VALUE.toDouble() || value < Int.MIN_VALUE.toDouble()) {
+            throw IllegalStateException("$context: field '$key' is out of Int range, was $value")
         }
         value.toInt()
     }

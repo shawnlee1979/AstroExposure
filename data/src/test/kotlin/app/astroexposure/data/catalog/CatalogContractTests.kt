@@ -147,6 +147,26 @@ class LensCatalogContractTest {
     }
 }
 
+class LightPollutionHeaderValidationTest {
+
+    @Test
+    fun `a grid with stepDeg zero is rejected at load`() {
+        val bad = GridLightPollutionSource("/catalog/lp-grid-bad-step.bin")
+        try {
+            bad.artificialBrightnessMcdPerM2(
+                GeoLocation(
+                    latitude = Degrees(40.0),
+                    longitude = Degrees(-75.0),
+                    zone = ZoneId.of("America/New_York"),
+                ),
+            )
+            org.junit.Assert.fail("expected IllegalStateException for stepDeg = 0")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("invalid grid descriptor"))
+        }
+    }
+}
+
 class LightPollutionContractTest {
 
     private val source: LightPollutionSource = GridLightPollutionSource()
