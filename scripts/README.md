@@ -68,9 +68,12 @@ Common rules:
 
 - Source: Falchi et al. 2016 World Atlas (CC BY-NC 4.0), DOI
   10.5880/GFZ.1.4.2016.001.
-- Commands: `python3 scripts/fetch_falchi.py` (acquisition + provenance),
-  `python3 scripts/resample_falchi.py` (GeoTIFF -> grid, or the sparse
-  sample grid fallback described in the script header).
+- Commands: `python3 scripts/fetch_falchi.py` (resumable download of
+  World_Atlas_2015.zip from the GFZ datapub direct link, TIFF
+  extraction + SHA-256 provenance),
+  `python3 scripts/resample_falchi.py` (GeoTIFF -> full grid; the
+  sparse sample grid fallback described in the script header applies
+  only when no GeoTIFF is present in the pipeline cache).
 - Output: `data/src/main/resources/catalog/lp-grid.bin`
 - Data version record: header JSON inside lp-grid.bin +
   [data-sources.md](data-sources.md).

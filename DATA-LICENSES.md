@@ -54,21 +54,31 @@ data from there under its original terms.
 > alone does *not* lift the restriction.
 
 - **What:** Modelled zenith artificial sky brightness (based on VIIRS DNB
-  satellite data). The product bundled in this repository is a SPARSE
-  SAMPLE GRID (99 reference points sampled from the same atlas values via
-  lightpollutionmap.info), not a resample of the full atlas: only the
-  cells containing a sample point carry data, every other point returns
-  "no data" and the app falls back to a manual Bortle entry. The build
-  pipeline (scripts/build_lp_grid.py) accepts the full atlas GeoTIFF and
-  will produce the full resampled grid unchanged once the source file is
-  obtained.
+  satellite data). The product bundled in this repository is a resampled
+  adaptation of the full atlas GeoTIFF: `scripts/resample_falchi.py`
+  takes the median of each 10x10 block of 30-arcsec source pixels into
+  a 5-arcmin global grid (lat -60..85, lon -180..180), quantised at
+  0.05 mcd/m^2. Values are artificial brightness only; no natural-sky
+  component is added. Every grid cell carries a value (ocean cells
+  carry the atlas's own 0.0); points outside the grid extent return
+  "no data" and the app falls back to a manual Bortle entry.
 - **Source:** Falchi, F. et al., *The New World Atlas of Artificial Night Sky
-  Brightness*, Science Advances 2(6), 2016. Data via GFZ Data Services,
-  DOI 10.5880/GFZ.1.4.2016.001.
+  Brightness*, Science Advances 2(6), 2016,
+  doi:10.1126/sciadv.1600377. Data via GFZ Data Services,
+  DOI 10.5880/GFZ.1.4.2016.001, downloaded as `World_Atlas_2015.zip`
+  from https://datapub.gfz.de/download/10.5880.GFZ.1.4.2016.001/
+  (acquisition record and SHA-256 digests in scripts/data-sources.md).
 - **Licence:** Creative Commons Attribution-NonCommercial 4.0 International
-  (CC BY-NC 4.0).
-- **Obligations:** Attribute Falchi et al. (2016) with the DOI above.
-  **No commercial use** of the data or its derivatives.
+  (CC BY-NC 4.0),
+  https://creativecommons.org/licenses/by-nc/4.0/. Note on terms: the
+  current GFZ landing page for the DOI states CC BY-NC 4.0, while the
+  README bundled in the 2016 archive states an older licence wording.
+  This project follows the current landing-page terms (CC BY-NC 4.0),
+  the more specific and more recent statement by the distributing
+  archive.
+- **Obligations:** Attribute Falchi et al. (2016) with both DOIs above.
+  **No commercial use** of the data or its derivatives, including the
+  resampled grid in this repository.
 
 ## NASA GSFC Eclipse Catalogues — attribution terms
 
