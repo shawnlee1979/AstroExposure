@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
@@ -115,6 +116,19 @@ class EclipseModelTest {
         assertEquals(8.0, bracket.last().value, 1e-12)
         for (i in 1 until bracket.size) {
             assertEquals(2.0, bracket[i].value / bracket[i - 1].value, 0.35)
+        }
+    }
+
+    @Test
+    fun `lunar penumbral type is rejected explicitly`() {
+        // PENUMBRAL exists in the catalogue for lunar events; the solar
+        // table and the solar safety gate must refuse it loudly instead of
+        // returning corona rows / a filter verdict for the Moon.
+        assertThrows(IllegalArgumentException::class.java) {
+            EclipseModel.tableFor(EclipseType.PENUMBRAL)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SafetyGate.evaluate(acknowledged = true, EclipseType.PENUMBRAL)
         }
     }
 }

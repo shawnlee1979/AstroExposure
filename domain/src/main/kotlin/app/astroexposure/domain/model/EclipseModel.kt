@@ -115,8 +115,16 @@ object EclipseModel {
      * and partial events have no unfiltered window, so only the partial-phase
      * row is returned, locked to filter mode. Total (and hybrid) events
      * return the full table.
+     *
+     * This is a SOLAR-eclipse table: [EclipseType.PENUMBRAL] only occurs
+     * for lunar events in the catalogue, and asking for a solar exposure
+     * table (or corona rows) for one is a caller error — rejected loudly
+     * rather than answered with the full table.
      */
     fun tableFor(eclipseType: EclipseType): EclipseTable = when (eclipseType) {
+        EclipseType.PENUMBRAL -> throw IllegalArgumentException(
+            "PENUMBRAL is a lunar eclipse type; the solar exposure table does not apply",
+        )
         EclipseType.ANNULAR, EclipseType.PARTIAL ->
             EclipseTable(rows = listOf(Phenomenon.PARTIAL_PHASE), lockedToFilter = true)
         else ->
@@ -148,8 +156,16 @@ object SafetyGate {
         val filterLocked: Boolean,
     )
 
-    fun evaluate(acknowledged: Boolean, eclipseType: EclipseType): GateResult = GateResult(
-        blocked = !acknowledged,
-        filterLocked = eclipseType == EclipseType.ANNULAR || eclipseType == EclipseType.PARTIAL,
-    )
+    fun evaluate(acknowledged: Boolean, eclipseType: EclipseType): GateResult {
+        // The gate guards SOLAR viewing (design §5.4.2). A lunar
+        // (penumbral) event has no filter requirement and must not be
+        // passed through a solar safety gate by mistake.
+        require(eclipseType != EclipseType.PENUMBRAL) {
+            "PENUMBRAL is a lunar eclipse type; the solar safety gate does not apply"
+        }
+        return GateResult(
+            blocked = !acknowledged,
+            filterLocked = eclipseType == EclipseType.ANNULAR || eclipseType == EclipseType.PARTIAL,
+        )
+    }
 }
