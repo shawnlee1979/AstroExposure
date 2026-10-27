@@ -1,0 +1,422 @@
+{
+ "schemaVersion": 1,
+ "dataVersion": "manufacturer line-ups (compiled 2026-10-27)",
+ "lenses": [
+  {
+   "id": "canon-rf-135mm-f1.8l-is-usm",
+   "name": "Canon RF 135mm F1.8L IS USM",
+   "mount": "Canon RF",
+   "focalMinMm": 135,
+   "focalMaxMm": 135,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "canon-rf-14-35mm-f4l-is-usm",
+   "name": "Canon RF 14-35mm F4L IS USM",
+   "mount": "Canon RF",
+   "focalMinMm": 14,
+   "focalMaxMm": 35,
+   "maxAperture": 4.0
+  },
+  {
+   "id": "canon-rf-15-35mm-f2.8l-is-usm",
+   "name": "Canon RF 15-35mm F2.8L IS USM",
+   "mount": "Canon RF",
+   "focalMinMm": 15,
+   "focalMaxMm": 35,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "canon-rf-16mm-f2.8-stm",
+   "name": "Canon RF 16mm F2.8 STM",
+   "mount": "Canon RF",
+   "focalMinMm": 16,
+   "focalMaxMm": 16,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "canon-rf-24-70mm-f2.8l-is-usm",
+   "name": "Canon RF 24-70mm F2.8L IS USM",
+   "mount": "Canon RF",
+   "focalMinMm": 24,
+   "focalMaxMm": 70,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "canon-rf-24mm-f1.4l-vcm",
+   "name": "Canon RF 24mm F1.4L VCM",
+   "mount": "Canon RF",
+   "focalMinMm": 24,
+   "focalMaxMm": 24,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "canon-rf-28-70mm-f2l-usm",
+   "name": "Canon RF 28-70mm F2L USM",
+   "mount": "Canon RF",
+   "focalMinMm": 28,
+   "focalMaxMm": 70,
+   "maxAperture": 2.0
+  },
+  {
+   "id": "canon-rf-35mm-f1.4l-vcm",
+   "name": "Canon RF 35mm F1.4L VCM",
+   "mount": "Canon RF",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "canon-rf-35mm-f1.8-macro-is-stm",
+   "name": "Canon RF 35mm F1.8 Macro IS STM",
+   "mount": "Canon RF",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "canon-rf-50mm-f1.2l-usm",
+   "name": "Canon RF 50mm F1.2L USM",
+   "mount": "Canon RF",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.2
+  },
+  {
+   "id": "canon-rf-85mm-f1.2l-usm",
+   "name": "Canon RF 85mm F1.2L USM",
+   "mount": "Canon RF",
+   "focalMinMm": 85,
+   "focalMaxMm": 85,
+   "maxAperture": 1.2
+  },
+  {
+   "id": "nikon-z-135mm-f1.8-s-plena",
+   "name": "Nikon NIKKOR Z 135mm F1.8 S Plena",
+   "mount": "Nikon Z",
+   "focalMinMm": 135,
+   "focalMaxMm": 135,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "nikon-z-14-24mm-f2.8-s",
+   "name": "Nikon NIKKOR Z 14-24mm F2.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 14,
+   "focalMaxMm": 24,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "nikon-z-20mm-f1.8-s",
+   "name": "Nikon NIKKOR Z 20mm F1.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 20,
+   "focalMaxMm": 20,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "nikon-z-24-70mm-f2.8-s",
+   "name": "Nikon NIKKOR Z 24-70mm F2.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 24,
+   "focalMaxMm": 70,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "nikon-z-24mm-f1.8-s",
+   "name": "Nikon NIKKOR Z 24mm F1.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 24,
+   "focalMaxMm": 24,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "nikon-z-28mm-f2.8",
+   "name": "Nikon NIKKOR Z 28mm F2.8",
+   "mount": "Nikon Z",
+   "focalMinMm": 28,
+   "focalMaxMm": 28,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "nikon-z-35mm-f1.8-s",
+   "name": "Nikon NIKKOR Z 35mm F1.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "nikon-z-50mm-f1.2-s",
+   "name": "Nikon NIKKOR Z 50mm F1.2 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.2
+  },
+  {
+   "id": "nikon-z-50mm-f1.8-s",
+   "name": "Nikon NIKKOR Z 50mm F1.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "nikon-z-85mm-f1.2-s",
+   "name": "Nikon NIKKOR Z 85mm F1.2 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 85,
+   "focalMaxMm": 85,
+   "maxAperture": 1.2
+  },
+  {
+   "id": "nikon-z-85mm-f1.8-s",
+   "name": "Nikon NIKKOR Z 85mm F1.8 S",
+   "mount": "Nikon Z",
+   "focalMinMm": 85,
+   "focalMaxMm": 85,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sigma-135mm-f1.8-dg-hsm-art",
+   "name": "Sigma 135mm F1.8 DG HSM Art",
+   "mount": "Sony E",
+   "focalMinMm": 135,
+   "focalMaxMm": 135,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sigma-14-24mm-f2.8-dg-dn-art",
+   "name": "Sigma 14-24mm F2.8 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 14,
+   "focalMaxMm": 24,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sigma-14mm-f1.4-dg-dn-art",
+   "name": "Sigma 14mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 14,
+   "focalMaxMm": 14,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sigma-16-28mm-f2.8-dg-dn-contemporary",
+   "name": "Sigma 16-28mm F2.8 DG DN Contemporary",
+   "mount": "Sony E",
+   "focalMinMm": 16,
+   "focalMaxMm": 28,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sigma-20mm-f1.4-dg-dn-art",
+   "name": "Sigma 20mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 20,
+   "focalMaxMm": 20,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sigma-24-70mm-f2.8-dg-dn-art",
+   "name": "Sigma 24-70mm F2.8 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 24,
+   "focalMaxMm": 70,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sigma-24mm-f1.4-dg-dn-art",
+   "name": "Sigma 24mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 24,
+   "focalMaxMm": 24,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sigma-28-70mm-f2.8-dg-dn-contemporary",
+   "name": "Sigma 28-70mm F2.8 DG DN Contemporary",
+   "mount": "Sony E",
+   "focalMinMm": 28,
+   "focalMaxMm": 70,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sigma-35mm-f1.4-dg-dn-art",
+   "name": "Sigma 35mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sigma-50mm-f1.4-dg-dn-art",
+   "name": "Sigma 50mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sigma-85mm-f1.4-dg-dn-art",
+   "name": "Sigma 85mm F1.4 DG DN Art",
+   "mount": "Sony E",
+   "focalMinMm": 85,
+   "focalMaxMm": 85,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sony-e-11mm-f1.8",
+   "name": "Sony E 11mm F1.8",
+   "mount": "Sony E",
+   "focalMinMm": 11,
+   "focalMaxMm": 11,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sony-fe-12-24mm-f2.8-gm",
+   "name": "Sony FE 12-24mm F2.8 GM",
+   "mount": "Sony E",
+   "focalMinMm": 12,
+   "focalMaxMm": 24,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sony-fe-135mm-f1.8-gm",
+   "name": "Sony FE 135mm F1.8 GM",
+   "mount": "Sony E",
+   "focalMinMm": 135,
+   "focalMaxMm": 135,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sony-fe-14mm-f1.8-gm",
+   "name": "Sony FE 14mm F1.8 GM",
+   "mount": "Sony E",
+   "focalMinMm": 14,
+   "focalMaxMm": 14,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sony-fe-16-35mm-f2.8-gm-ii",
+   "name": "Sony FE 16-35mm F2.8 GM II",
+   "mount": "Sony E",
+   "focalMinMm": 16,
+   "focalMaxMm": 35,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sony-fe-20mm-f1.8-g",
+   "name": "Sony FE 20mm F1.8 G",
+   "mount": "Sony E",
+   "focalMinMm": 20,
+   "focalMaxMm": 20,
+   "maxAperture": 1.8
+  },
+  {
+   "id": "sony-fe-24-70mm-f2.8-gm-ii",
+   "name": "Sony FE 24-70mm F2.8 GM II",
+   "mount": "Sony E",
+   "focalMinMm": 24,
+   "focalMaxMm": 70,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "sony-fe-24mm-f1.4-gm",
+   "name": "Sony FE 24mm F1.4 GM",
+   "mount": "Sony E",
+   "focalMinMm": 24,
+   "focalMaxMm": 24,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sony-fe-35mm-f1.4-gm",
+   "name": "Sony FE 35mm F1.4 GM",
+   "mount": "Sony E",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sony-fe-50mm-f1.2-gm",
+   "name": "Sony FE 50mm F1.2 GM",
+   "mount": "Sony E",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.2
+  },
+  {
+   "id": "sony-fe-50mm-f1.4-gm",
+   "name": "Sony FE 50mm F1.4 GM",
+   "mount": "Sony E",
+   "focalMinMm": 50,
+   "focalMaxMm": 50,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "sony-fe-85mm-f1.4-gm-ii",
+   "name": "Sony FE 85mm F1.4 GM II",
+   "mount": "Sony E",
+   "focalMinMm": 85,
+   "focalMaxMm": 85,
+   "maxAperture": 1.4
+  },
+  {
+   "id": "tamron-11-20mm-f2.8-di-iii-a-rxd",
+   "name": "Tamron 11-20mm F2.8 Di III-A RXD",
+   "mount": "Sony E",
+   "focalMinMm": 11,
+   "focalMaxMm": 20,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "tamron-17-28mm-f2.8-di-iii-rxd",
+   "name": "Tamron 17-28mm F2.8 Di III RXD",
+   "mount": "Sony E",
+   "focalMinMm": 17,
+   "focalMaxMm": 28,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "tamron-20mm-f2.8-di-iii-osd",
+   "name": "Tamron 20mm F2.8 Di III OSD M1:2",
+   "mount": "Sony E",
+   "focalMinMm": 20,
+   "focalMaxMm": 20,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "tamron-24mm-f2.8-di-iii-osd",
+   "name": "Tamron 24mm F2.8 Di III OSD M1:2",
+   "mount": "Sony E",
+   "focalMinMm": 24,
+   "focalMaxMm": 24,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "tamron-28-75mm-f2.8-di-iii-vxd-g2",
+   "name": "Tamron 28-75mm F2.8 Di III VXD G2",
+   "mount": "Sony E",
+   "focalMinMm": 28,
+   "focalMaxMm": 75,
+   "maxAperture": 2.8
+  },
+  {
+   "id": "tamron-35-150mm-f2-2.8-di-iii-vxd",
+   "name": "Tamron 35-150mm F2-2.8 Di III VXD",
+   "mount": "Sony E",
+   "focalMinMm": 35,
+   "focalMaxMm": 150,
+   "maxAperture": 2.0
+  },
+  {
+   "id": "tamron-35mm-f2.8-di-iii-osd",
+   "name": "Tamron 35mm F2.8 Di III OSD M1:2",
+   "mount": "Sony E",
+   "focalMinMm": 35,
+   "focalMaxMm": 35,
+   "maxAperture": 2.8
+  }
+ ]
+}
