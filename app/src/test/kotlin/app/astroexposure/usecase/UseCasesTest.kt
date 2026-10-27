@@ -384,6 +384,26 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightEventsDisplayIsUnavailableWhenOnlyOneEventCatalogueFails() {
+        // A single failed catalogue is enough to make the event section
+        // unavailable: availability is all-or-nothing across catalogues,
+        // not just when both fail at once.
+        val brokenEclipses = object : EclipseCatalog {
+            override fun eclipses(fromYear: Int, toYear: Int): List<EclipseRecord> =
+                throw JsonParseException("corrupt eclipses", 0)
+            override val dataVersion: String = "broken"
+        }
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            eclipseCatalog = brokenEclipses,
+            showerCatalog = JsonMeteorShowerCatalog(),
+        )
+        val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        assertFalse(result.eventsAvailable)
+        assertEquals(TonightOverviewUseCase.EventsDisplay.UNAVAILABLE, result.eventsDisplay)
+    }
+
+    @Test
     fun tonightEventsDisplayIsNoneWhenHealthyCataloguesHaveNoNearbyEvent() {
         val useCase = TonightOverviewUseCase(
             ephemeris = ephemeris,
