@@ -89,4 +89,32 @@ class LandscapeModelTest {
         assertEquals(LandscapeModel.WorkflowStep.LOCK_COMPOSITION, result.workflowSteps.first())
         assertEquals(LandscapeModel.WorkflowStep.COMPOSITE_IN_POST, result.workflowSteps.last())
     }
+
+    @Test
+    fun `blue hour with null minutes produces no frame and reports the skip`() {
+        // null minutes = "not in blue hour" (Input KDoc): the model must not
+        // substitute a mid-table value (the old behaviour used 20 minutes).
+        val result = LandscapeModel.evaluate(
+            input(setOf(LandscapeModel.ForegroundMethod.BLUE_HOUR), minutes = null),
+        )
+        assertTrue(result.foregroundFrames.isEmpty())
+        assertEquals(
+            setOf(LandscapeModel.ForegroundMethod.BLUE_HOUR), result.skippedMethods,
+        )
+        // Other methods are unaffected by the missing blue-hour input.
+        val mixed = LandscapeModel.evaluate(
+            input(
+                setOf(
+                    LandscapeModel.ForegroundMethod.BLUE_HOUR,
+                    LandscapeModel.ForegroundMethod.NIGHT_LONG_EXPOSURE,
+                ),
+                minutes = null,
+            ),
+        )
+        assertEquals(1, mixed.foregroundFrames.size)
+        assertEquals(
+            LandscapeModel.ForegroundMethod.NIGHT_LONG_EXPOSURE,
+            mixed.foregroundFrames.single().method,
+        )
+    }
 }

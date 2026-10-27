@@ -71,6 +71,14 @@ object LandscapeModel {
         val skyFrame: SkyFrame,
         val foregroundFrames: List<ForegroundFrame>,
         val workflowSteps: List<WorkflowStep>,
+        /**
+         * Requested methods that produced no frame because their inputs
+         * place them outside their domain — currently BLUE_HOUR when
+         * [Input.minutesAfterSunset] is null (outside blue hour). The skip
+         * is explicit here so callers can label it instead of a frame with
+         * invented parameters appearing (design §5.1, §2.8).
+         */
+        val skippedMethods: Set<ForegroundMethod> = emptySet(),
     )
 
     /**
@@ -84,10 +92,18 @@ object LandscapeModel {
     }
 
     fun evaluate(input: Input): Result {
-        val frames = input.methods.sorted().map { method ->
+        val skipped = mutableSetOf<ForegroundMethod>()
+        val frames = input.methods.sorted().mapNotNull { method ->
             when (method) {
                 ForegroundMethod.BLUE_HOUR -> {
-                    val minutes = input.minutesAfterSunset ?: 20
+                    // null minutes means "not in blue hour" (see Input):
+                    // no blue-hour frame exists then — never substitute a
+                    // mid-table value the caller did not ask for.
+                    val minutes = input.minutesAfterSunset
+                    if (minutes == null) {
+                        skipped += method
+                        null
+                    } else {
                     // EV shift from the f/8 + ISO 100 base to the chosen settings.
                     val base = blueHourBaseSeconds(minutes)
                     val shifted = base *
@@ -102,6 +118,7 @@ object LandscapeModel {
                         frameCountRange = null,
                         moonlightHint = false,
                     )
+                    }
                 }
                 ForegroundMethod.NIGHT_LONG_EXPOSURE -> ForegroundFrame(
                     method = method,
@@ -133,6 +150,7 @@ object LandscapeModel {
             ),
             foregroundFrames = frames,
             workflowSteps = WorkflowStep.entries,
+            skippedMethods = skipped,
         )
     }
 }

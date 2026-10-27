@@ -71,7 +71,7 @@ class MeteorModelTest {
         )
         assertEquals(MeteorModel.LimitingFactor.SKY_BRIGHTNESS, r.limitingFactor)
         val expectedSkyCap = Strictness.STANDARD.backgroundTargetFraction *
-            BuiltInCameras.ZV_E1.fullWellElectrons!! / skyElectronRate(15.0, 1.4, BuiltInCameras.ZV_E1)
+            BuiltInCameras.ZV_E1.fullWellElectrons!! / skyElectronRate(15.0, 1.4, BuiltInCameras.ZV_E1, app.astroexposure.domain.sky.DEFAULT_QE_WHEN_UNRECORDED)
         assertEquals(expectedSkyCap, r.singleFrameSeconds, 0.01)
     }
 
@@ -114,10 +114,15 @@ class MeteorModelTest {
 
     @Test
     fun `moon verdict thresholds are as recorded`() {
-        assertEquals(MeteorModel.MoonVerdict.SEVERE, MeteorModel.moonVerdict(0.95, moonUp = true))
-        assertEquals(MeteorModel.MoonVerdict.MODERATE, MeteorModel.moonVerdict(0.95, moonUp = false))
-        assertEquals(MeteorModel.MoonVerdict.MODERATE, MeteorModel.moonVerdict(0.6, moonUp = true))
-        assertEquals(MeteorModel.MoonVerdict.LOW, MeteorModel.moonVerdict(0.3, moonUp = true))
+        // Peak night (|days| <= 0.5), Moon up, near-full: SEVERE.
+        assertEquals(MeteorModel.MoonVerdict.SEVERE, MeteorModel.moonVerdict(0.95, moonUp = true, daysFromPeak = 0.0))
+        // Moon down: no moonlight interference whatever the phase.
+        assertEquals(MeteorModel.MoonVerdict.LOW, MeteorModel.moonVerdict(0.95, moonUp = false, daysFromPeak = 0.0))
+        assertEquals(MeteorModel.MoonVerdict.LOW, MeteorModel.moonVerdict(0.6, moonUp = false, daysFromPeak = 0.0))
+        // Full Moon up but off the peak night: MODERATE, not SEVERE.
+        assertEquals(MeteorModel.MoonVerdict.MODERATE, MeteorModel.moonVerdict(0.95, moonUp = true, daysFromPeak = 3.0))
+        assertEquals(MeteorModel.MoonVerdict.MODERATE, MeteorModel.moonVerdict(0.6, moonUp = true, daysFromPeak = 0.0))
+        assertEquals(MeteorModel.MoonVerdict.LOW, MeteorModel.moonVerdict(0.3, moonUp = true, daysFromPeak = 0.0))
     }
 
     @Test

@@ -3,6 +3,7 @@ package app.astroexposure.domain.model
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.sky.TotalSky
+import app.astroexposure.domain.sky.effectiveQe
 import app.astroexposure.domain.sky.skyElectronRate
 import app.astroexposure.domain.strictness.Strictness
 import app.astroexposure.domain.units.Degrees
@@ -60,6 +61,8 @@ object MeteorModel {
         val limitingFactor: LimitingFactor,
         /** True when no full well is recorded and the sky cap could not be applied. */
         val skyCapUnavailable: Boolean,
+        /** True when the sky cap used the default QE (camera records none, design §2.3/§2.8). */
+        val qeDefaulted: Boolean,
         val iso: Int?,
         val unverifiedGainFlag: Boolean,
         val frameCount: Int,
@@ -70,11 +73,15 @@ object MeteorModel {
     )
 
     /**
-     * Moonlight verdict (empirical thresholds): illumination >= 0.9 with the
-     * Moon up on the peak night is SEVERE; >= 0.55 is MODERATE; else LOW.
+     * Moonlight verdict (empirical thresholds, design §5.5): with the Moon
+     * down there is no moonlight to interfere, whatever the phase — LOW.
+     * With the Moon up: illumination >= 0.9 on the peak night (within the
+     * PEAK band, |days from peak| <= 0.5) is SEVERE; >= 0.55 is MODERATE;
+     * else LOW.
      */
-    fun moonVerdict(illumination: Double, moonUp: Boolean): MoonVerdict = when {
-        illumination >= 0.9 && moonUp -> MoonVerdict.SEVERE
+    fun moonVerdict(illumination: Double, moonUp: Boolean, daysFromPeak: Double): MoonVerdict = when {
+        !moonUp -> MoonVerdict.LOW
+        illumination >= 0.9 && kotlin.math.abs(daysFromPeak) <= 0.5 -> MoonVerdict.SEVERE
         illumination >= 0.55 -> MoonVerdict.MODERATE
         else -> MoonVerdict.LOW
     }
@@ -98,8 +105,9 @@ object MeteorModel {
         ).maxShutter.value
 
         val fullWell = input.camera.fullWellElectrons
+        val (qe, qeDefaulted) = effectiveQe(input.camera)
         val skyCap: Double? = fullWell?.let { fw ->
-            val rSky = skyElectronRate(input.totalSky.totalMpsas, input.aperture, input.camera)
+            val rSky = skyElectronRate(input.totalSky.totalMpsas, input.aperture, input.camera, qe)
             input.strictness.backgroundTargetFraction * fw / rSky
         }
 
@@ -121,11 +129,12 @@ object MeteorModel {
             singleFrameSeconds = single,
             limitingFactor = limiting,
             skyCapUnavailable = skyCap == null,
+            qeDefaulted = qeDefaulted,
             iso = iso,
             unverifiedGainFlag = unverified,
             frameCount = frames,
             dataGb = dataGb,
-            moonVerdict = moonVerdict(input.moonIllumination, input.moonUp),
+            moonVerdict = moonVerdict(input.moonIllumination, input.moonUp, input.daysFromPeak),
             activityLevel = activityLevel(input.daysFromPeak),
         )
     }
