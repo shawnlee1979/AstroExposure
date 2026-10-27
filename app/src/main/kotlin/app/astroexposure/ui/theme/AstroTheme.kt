@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Visual tokens from the approved UI design spec (docs/ui-design.md):
+ * Visual tokens from the UI design spec (docs/ui-design.md):
  * deep-space black background (#05070D), card surface (#0C1120), and the
  * starlight-gold accent (#F2C66D) reserved for conclusion values.
  * Red-light mode swaps the whole palette to a red scale (dark-adaptation
@@ -23,6 +23,8 @@ private val NightScheme = darkColorScheme(
     onSurface = Color(0xFFE9ECF5),
     surfaceVariant = Color(0xFF131A30),
     onSurfaceVariant = Color(0xFFA7AEC4),
+    error = Color(0xFFE5484D),
+    onError = Color(0xFFFDECEA),
 )
 
 private val RedScheme = darkColorScheme(
@@ -34,6 +36,8 @@ private val RedScheme = darkColorScheme(
     onSurface = Color(0xFFFF8A78),
     surfaceVariant = Color(0xFF2A0808),
     onSurfaceVariant = Color(0xFFC25444),
+    error = Color(0xFFFF4A3D),
+    onError = Color(0xFF2B0500),
 )
 
 @Composable
