@@ -74,6 +74,30 @@
     <string name="moment_sunrise">日出</string>
     <string name="bortle_manual_label">手动 Bortle 等级</string>
 
+    <!-- Tonight timeline integration (ui-design §7) -->
+    <string name="location_edit_confirm">确认</string>
+    <string name="location_edit_cancel">取消</string>
+    <string name="location_edit_invalid">经纬度超出范围</string>
+    <string name="location_light_row">光害 · 区域值 · Bortle %1$d · %2$.2f mcd/m²</string>
+    <string name="location_light_version">光害数据 · %1$s</string>
+    <string name="location_light_no_data">光害 · 暂无网格数据</string>
+    <string name="location_light_manual">手动 Bortle %1$d</string>
+    <string name="date_back_to_tonight">回到今晚</string>
+    <string name="date_label_tonight">%1$s · 今晚</string>
+    <string name="date_label_tomorrow">明天 · %1$s</string>
+    <string name="date_label_yesterday">昨天 · %1$s</string>
+    <string name="date_label_future">%1$d 天后 · %2$s</string>
+    <string name="date_label_past">%1$d 天前 · %2$s</string>
+    <string name="tonight_zone_note">时刻按 %1$s 显示</string>
+    <string name="timeline_title">时间轴</string>
+    <string name="timeline_no_night">今晚无天文夜</string>
+    <string name="timeline_moon_note">月亮 · 照明 %1$d%%</string>
+    <string name="timeline_legend_sun">太阳（实线）</string>
+    <string name="timeline_legend_moon">月亮（虚线）</string>
+    <string name="timeline_gc_band">银心窗口</string>
+    <string name="timeline_low_moon_band">低月光窗口</string>
+    <string name="common_close">关闭</string>
+
     <!-- Calculators -->
     <string name="calc_title">计算器</string>
     <string name="cat_landscape">带地景星野</string>

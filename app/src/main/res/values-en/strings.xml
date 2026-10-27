@@ -74,6 +74,30 @@
     <string name="moment_sunrise">Sunrise</string>
     <string name="bortle_manual_label">Manual Bortle class</string>
 
+    <!-- Tonight timeline integration (ui-design §7) -->
+    <string name="location_edit_confirm">Confirm</string>
+    <string name="location_edit_cancel">Cancel</string>
+    <string name="location_edit_invalid">Coordinates out of range</string>
+    <string name="location_light_row">Light pollution · area value · Bortle %1$d · %2$.2f mcd/m²</string>
+    <string name="location_light_version">Light-pollution data · %1$s</string>
+    <string name="location_light_no_data">Light pollution · no grid data</string>
+    <string name="location_light_manual">Manual Bortle %1$d</string>
+    <string name="date_back_to_tonight">Back to tonight</string>
+    <string name="date_label_tonight">%1$s · Tonight</string>
+    <string name="date_label_tomorrow">Tomorrow · %1$s</string>
+    <string name="date_label_yesterday">Yesterday · %1$s</string>
+    <string name="date_label_future">In %1$d days · %2$s</string>
+    <string name="date_label_past">%1$d days ago · %2$s</string>
+    <string name="tonight_zone_note">Times shown in %1$s</string>
+    <string name="timeline_title">Timeline</string>
+    <string name="timeline_no_night">No astronomical night tonight</string>
+    <string name="timeline_moon_note">Moon · illumination %1$d%%</string>
+    <string name="timeline_legend_sun">Sun (solid line)</string>
+    <string name="timeline_legend_moon">Moon (dashed line)</string>
+    <string name="timeline_gc_band">Galactic centre window</string>
+    <string name="timeline_low_moon_band">Low-moonlight window</string>
+    <string name="common_close">Close</string>
+
     <string name="calc_title">Calculators</string>
     <string name="cat_landscape">Landscape + sky</string>
     <string name="cat_wide_field">Wide-field sky</string>

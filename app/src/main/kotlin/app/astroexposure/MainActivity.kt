@@ -33,7 +33,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.domain.geo.SiteTimeZone
 import app.astroexposure.domain.lens.Lens
+import app.astroexposure.domain.timeline.TonightDateWindow
 import app.astroexposure.domain.strictness.Strictness
 import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.ArcsecPerMinute
@@ -111,8 +113,14 @@ private fun AstroApp(container: AppContainer) {
     var healthTick by remember { mutableStateOf(0) }
     var gpsTime by remember { mutableStateOf<Instant?>(null) }
 
-    val today = remember { LocalDate.now(ZoneId.systemDefault()) }
     val location = site.location
+    // "Tonight" anchor (ui-design §7.3): read at this boundary in the
+    // site's zone and refreshed on resume (healthTick) and on site
+    // changes. The selected Tonight date lives beside it; calculation
+    // tabs keep using the anchor.
+    val today = remember(location.zone, healthTick) { LocalDate.now(location.zone) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+    val tonightDate = TonightDateWindow.clamp(today, selectedDate ?: today)
 
     suspend fun reloadLibrary() {
         cameras = repo.cameras()
@@ -166,9 +174,9 @@ private fun AstroApp(container: AppContainer) {
     }
 
     var overview by remember { mutableStateOf<TonightOverviewUseCase.Result?>(null) }
-    LaunchedEffect(location, today, manualBortle) {
+    LaunchedEffect(location, tonightDate, manualBortle) {
         overview = withContext(Dispatchers.Default) {
-            container.tonightOverview.execute(location, today, manualBortle)
+            container.tonightOverview.execute(location, tonightDate, manualBortle)
         }
     }
     val sampleInstant = overview?.night?.dusk ?: Instant.now()
@@ -214,6 +222,20 @@ private fun AstroApp(container: AppContainer) {
             }
         } else {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Entering the Tonight tab requests a fresh GPS fix (ui-design
+    // §7.2), once per entry; a last-known fix may already be in place as
+    // an interim. Leaving the tab re-arms the next entry.
+    var autoLocated by remember { mutableStateOf(false) }
+    LaunchedEffect(tab) {
+        if (tab == Tab.TONIGHT && !autoLocated) {
+            autoLocated = true
+            useGps()
+        }
+        if (tab != Tab.TONIGHT) {
+            autoLocated = false
         }
     }
 
@@ -318,12 +340,13 @@ private fun AstroApp(container: AppContainer) {
                 Tab.TONIGHT -> overview?.let { result ->
                     TonightScreen(
                         overview = result,
-                        date = today,
+                        date = tonightDate,
+                        anchorDate = today,
                         zone = location.zone,
-                        locationLabel = location.label
-                            ?: "%.4f, %.4f".format(
-                                location.latitude.value, location.longitude.value,
-                            ),
+                        deviceZone = ZoneId.systemDefault(),
+                        latitudeDeg = location.latitude.value,
+                        longitudeDeg = location.longitude.value,
+                        locationLabel = location.label,
                         locationSourceText = stringResource(
                             when (site.source) {
                                 LocationSource.GPS -> R.string.location_source_gps
@@ -342,12 +365,16 @@ private fun AstroApp(container: AppContainer) {
                             site = LocatedSite(
                                 GeoLocation(
                                     Degrees(lat), Degrees(lon), 0.0,
-                                    ZoneId.systemDefault(),
+                                    // §7.6: manual coordinates resolve their
+                                    // zone from the coordinates, with the
+                                    // device zone as the explicit fallback.
+                                    SiteTimeZone.resolve(lat, lon, ZoneId.systemDefault()),
                                 ),
                                 LocationSource.MANUAL, null,
                             )
                             gpsFailed = false
                         },
+                        onDateChange = { selectedDate = it },
                         modifier = Modifier.padding(padding),
                     )
                 } ?: Text("…", modifier = Modifier.padding(padding))
@@ -497,7 +524,16 @@ private fun AstroApp(container: AppContainer) {
                         }
                     },
                     onUsePlace = { place ->
-                        site = LocatedSite(place.location, LocationSource.FAVOURITE, null)
+                        // §7.6: favourites take the same coordinate→zone
+                        // path as GPS and manual entry when selected.
+                        val resolved = place.location.copy(
+                            zone = SiteTimeZone.resolve(
+                                place.location.latitude.value,
+                                place.location.longitude.value,
+                                place.location.zone,
+                            ),
+                        )
+                        site = LocatedSite(resolved, LocationSource.FAVOURITE, null)
                         manualBortle = place.manualBortle
                         tab = Tab.TONIGHT
                     },
