@@ -333,15 +333,17 @@ class UseCasesTest {
         assertEquals(source.dataVersion, info!!.dataVersion)
         assertNotNull(info.artificialMcdPerM2)
         assertTrue(info.bortleEstimate in 1..9)
-        // Open ocean has no grid data: the value is null, never guessed.
-        val ocean = GeoLocation(
-            latitude = Degrees(0.0), longitude = Degrees(-150.0),
+        // Outside the grid's coverage (the full grid spans -60°..85°
+        // latitude; inside coverage an unlit cell reads 0.0, which is a
+        // real value) the value is null, never guessed.
+        val outside = GeoLocation(
+            latitude = Degrees(-70.0), longitude = Degrees(0.0),
             heightMeters = 0.0, zone = ZoneId.of("UTC"),
         )
-        val oceanInfo = useCase.execute(ocean, LocalDate.of(2026, 8, 12)).lightPollutionInfo
-        assertNotNull(oceanInfo)
-        assertEquals(null, oceanInfo!!.artificialMcdPerM2)
-        assertEquals(null, oceanInfo.bortleEstimate)
+        val outsideInfo = useCase.execute(outside, LocalDate.of(2026, 8, 12)).lightPollutionInfo
+        assertNotNull(outsideInfo)
+        assertEquals(null, outsideInfo!!.artificialMcdPerM2)
+        assertEquals(null, outsideInfo.bortleEstimate)
     }
 
     @Test
