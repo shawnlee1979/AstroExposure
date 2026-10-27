@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>曝光参谋 AstroExposure · UI 设计稿</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#030409; color:#E9EEF8; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:28px 16px 48px; }
+  h1 { font-size:22px; font-weight:700; letter-spacing:.5px; }
+  h1 span { color:#F2C66D; }
+  .sub { color:#96A3BE; font-size:13px; margin:8px 0 4px; line-height:1.7; max-width:860px; }
+  .note { color:#5D6C8C; font-size:12px; margin-bottom:26px; }
+  .board { display:flex; flex-wrap:wrap; gap:28px 22px; }
+  .cell { width:344px; }
+  .cap { margin-top:10px; font-size:13px; color:#E9EEF8; font-weight:600; }
+  .cap small { display:block; color:#5D6C8C; font-weight:400; margin-top:3px; line-height:1.6; }
+  .phone { width:344px; height:716px; border-radius:38px; border:1px solid #2A3757; background:#05070D; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 14px 44px rgba(0,0,0,.55); }
+  .statusbar { display:flex; justify-content:space-between; padding:12px 20px 4px; font-size:12px; color:#96A3BE; }
+  .content { flex:1; padding:10px 14px; overflow:hidden; }
+  .card { background:#0C1120; border:1px solid #22304F; border-radius:16px; padding:14px 16px; margin-bottom:12px; }
+  .card h3 { font-size:13px; color:#96A3BE; font-weight:600; letter-spacing:1px; margin-bottom:10px; }
+  .loc { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .loc .place { font-size:17px; font-weight:700; }
+  .loc .date { font-size:12px; color:#96A3BE; margin-top:2px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#4CC38A; margin-right:5px; }
+  .health { font-size:12px; color:#4CC38A; border:1px solid #22304F; border-radius:999px; padding:6px 10px; background:#0C1120; }
+  .grid4 { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+  .kv .k { font-size:12px; color:#5D6C8C; }
+  .kv .v { font-size:16px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .kv .v.gold { color:#F2C66D; }
+  .rec { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-top:1px solid #1A2440; }
+  .rec:first-of-type { border-top:none; padding-top:2px; }
+  .rec .name { font-size:15px; font-weight:600; }
+  .rec .why { font-size:12px; color:#96A3BE; margin-top:2px; }
+  .rec .time { font-size:13px; color:#F2C66D; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cats { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .cat { background:#0C1120; border:1px solid #22304F; border-radius:14px; padding:10px 0 8px; text-align:center; font-size:11px; color:#96A3BE; }
+  .cat .ic { font-size:19px; display:block; margin-bottom:4px; }
+  .tabbar { display:flex; border-top:1px solid #1A2440; background:#070A14; padding:10px 0 16px; }
+  .tab { flex:1; text-align:center; font-size:11px; color:#5D6C8C; }
+  .tab .ic { font-size:18px; display:block; margin-bottom:2px; }
+  .tab.on { color:#F2C66D; }
+  .badge { font-size:11px; border-radius:999px; padding:3px 9px; border:1px solid #22304F; color:#96A3BE; }
+  .badge.std { color:#F2C66D; border-color:#57481F; background:#1D1807; }
+  .badge.warn { color:#F5A524; border-color:#5C4512; background:#211806; }
+  .badge.bad { color:#FF8A80; border-color:#5F2320; background:#220B0A; }
+  .bigrow { display:flex; gap:10px; margin:6px 0 4px; }
+  .big { flex:1; background:#131B31; border-radius:12px; padding:10px 12px; }
+  .big .k { font-size:11px; color:#5D6C8C; }
+  .big .v { font-size:27px; font-weight:700; color:#F2C66D; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .big .v small { font-size:14px; color:#96A3BE; font-weight:400; }
+  .reasons { margin-top:8px; }
+  .reasons li { list-style:none; font-size:13px; color:#96A3BE; line-height:1.55; padding:5px 0 5px 16px; position:relative; border-top:1px dashed #1A2440; }
+  .reasons li:first-child { border-top:none; }
+  .reasons li::before { content:"·"; position:absolute; left:4px; color:#F2C66D; font-weight:700; }
+  .reasons li b { color:#E9EEF8; font-weight:600; }
+  .actions { display:flex; gap:10px; margin-top:4px; }
+  .btn { flex:1; text-align:center; padding:13px 0; border-radius:12px; font-size:15px; font-weight:600; }
+  .btn.primary { background:#F2C66D; color:#191203; }
+  .btn.ghost { background:#0C1120; border:1px solid #22304F; color:#E9EEF8; }
+  .alertbar { border-radius:12px; padding:11px 13px; font-size:13px; line-height:1.6; margin-bottom:12px; }
+  .alertbar.warn { background:#211806; border:1px solid #5C4512; color:#FFCE7A; }
+  .alertbar.bad { background:#220B0A; border:1px solid #5F2320; color:#FFB3AB; }
+  .field { margin-bottom:14px; }
+  .field .fl { font-size:13px; color:#96A3BE; margin-bottom:8px; display:flex; justify-content:space-between; }
+  .field .fl .fv { color:#E9EEF8; font-weight:600; }
+  .seg { display:flex; background:#131B31; border-radius:12px; padding:4px; gap:4px; }
+  .seg div { flex:1; text-align:center; padding:10px 0; border-radius:9px; font-size:14px; color:#96A3BE; }
+  .seg div.on { background:#22304F; color:#E9EEF8; font-weight:600; }
+  .picker { background:#131B31; border-radius:12px; padding:13px 14px; display:flex; justify-content:space-between; align-items:center; font-size:15px; }
+  .picker .sub2 { font-size:12px; color:#5D6C8C; margin-top:2px; }
+  .picker .chev { color:#5D6C8C; }
+  .stepper { display:flex; align-items:center; background:#131B31; border-radius:12px; overflow:hidden; }
+  .stepper .sbtn { width:52px; text-align:center; font-size:22px; padding:10px 0; color:#F2C66D; background:#182238; }
+  .stepper .sval { flex:1; text-align:center; font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .tl { position:relative; padding-left:20px; }
+  .tl::before { content:""; position:absolute; left:5px; top:8px; bottom:8px; width:2px; background:#22304F; }
+  .tev { position:relative; padding:9px 0; }
+  .tev::before { content:""; position:absolute; left:-19px; top:14px; width:8px; height:8px; border-radius:50%; background:#22304F; border:2px solid #05070D; }
+  .tev.now::before { background:#F2C66D; }
+  .tev .tt { font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .tev .tn { font-size:14px; margin-left:8px; }
+  .tev .td { font-size:12px; color:#96A3BE; margin-top:2px; line-height:1.5; }
+  .win { background:#0A1F16; border:1px solid #1E4630; border-radius:10px; padding:8px 11px; font-size:12px; color:#7ED3A5; margin:4px 0 4px -6px; }
+  /* 红光主题 */
+  .red { background:#0A0202; border-color:#471512; }
+  .red .content { background:#0A0202; }
+  .red .card, .red .cat { background:#180404; border-color:#471512; }
+  .red .place, .red .rec .name, .red .tev .tn, .red .picker, .red .stepper .sval { color:#FF7A6B; }
+  .red .kv .v, .red .rec .time { color:#FF9D8A; }
+  .red .kv .k, .red .rec .why, .red .tev .td, .red .date, .red .statusbar { color:#C04434; }
+  .red .tev .tt { color:#FF9D8A; }
+  .red .health { background:#180404; border-color:#471512; color:#FF7A6B; }
+  .red .dot { background:#FF7A6B; }
+  .red .tabbar { background:#0D0303; border-color:#471512; }
+  .red .tab { color:#8F2B21; } .red .tab.on { color:#FF9D8A; }
+  .red .cat { color:#C04434; }
+  .red .win { background:#1C0505; border-color:#5C1A14; color:#FF8A75; }
+  .red .tl::before { background:#471512; } .red .tev::before { background:#471512; border-color:#0A0202; } .red .tev.now::before { background:#FF9D8A; }
+  .tokens { margin-top:34px; max-width:1060px; }
+  .tokens h2 { font-size:16px; margin-bottom:12px; }
+  .swatches { display:flex; flex-wrap:wrap; gap:10px; }
+  .sw { width:118px; border:1px solid #22304F; border-radius:12px; overflow:hidden; }
+  .sw .chip { height:38px; }
+  .sw .lab { font-size:11px; padding:7px 9px; color:#96A3BE; line-height:1.5; background:#0C1120; }
+  .sw .lab b { color:#E9EEF8; display:block; font-size:12px; }
+</style>
+</head>
+<body>
+<h1>曝光参谋 <span>AstroExposure</span> · UI 设计稿 v0.1</h1>
+<p class="sub">定调：仪器感 —— 深空黑底、低饱和、结论先行；数值等宽对齐便于暗处扫读；触控目标 ≥48dp 戴手套可操作。红光模式是整套独立主题（仅红光谱、护暗适应），不是红色滤镜。下排第 5 张为同一首页的红光版对照。</p>
+<p class="note">样张数值为示意（取自设计文档算例），不是真实历算结果；正式版由历算引擎实时给出。</p>
+
+<div class="board">
+
+<!-- 1 今晚概览 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>曝光参谋</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="loc">
+      <div><div class="place">收藏地点 · 郊区观测点</div><div class="date">10 月 26 日 周一 · Bortle 5（图谱）</div></div>
+      <div class="health"><span class="dot"></span>时间正常</div>
+    </div>
+    <div class="card"><h3>今晚天象</h3>
+      <div class="grid4">
+        <div class="kv"><div class="k">日落</div><div class="v">18:12</div></div>
+        <div class="kv"><div class="k">天文夜</div><div class="v">19:48 – 05:36</div></div>
+        <div class="kv"><div class="k">银心窗口</div><div class="v gold">19:48 – 21:20</div></div>
+        <div class="kv"><div class="k">月相</div><div class="v">照明 32% · 22:40 落</div></div>
+      </div>
+    </div>
+    <div class="card"><h3>今晚推荐</h3>
+      <div class="rec"><div><div class="name">银河中心（广域星空）</div><div class="why">银心高度尚可，月落前先拍</div></div><div class="time">19:48 起</div></div>
+      <div class="rec"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
+      <div class="rec"><div><div class="name">M45 昴星团</div><div class="why">后半夜升至 60° 以上</div></div><div class="time">23:30 后</div></div>
+    </div>
+    <div class="cats">
+      <div class="cat"><span class="ic">🏔️</span>星野地景</div>
+      <div class="cat"><span class="ic">🌌</span>广域星空</div>
+      <div class="cat"><span class="ic">🪐</span>深空</div>
+      <div class="cat"><span class="ic">🌙</span>月 / 日食</div>
+      <div class="cat"><span class="ic">☄️</span>流星雨</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">① 首页 · 今晚概览<small>先给结论：天象四格 + 推荐榜单一句话理由 + 五类入口。右上角是时间健康状态（异常时变红点 + 说明）。</small></div>
+</div>
+
+<!-- 2 参数卡片 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>广域星空 · 结果</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">广域星空 · 不跟踪（NPF）</h3><span class="badge std">标准档</span>
+      </div>
+      <div class="bigrow">
+        <div class="big"><div class="k">最长快门</div><div class="v">8<small> s</small></div></div>
+        <div class="big"><div class="k">建议 ISO</div><div class="v">3200</div></div>
+      </div>
+      <div class="bigrow">
+        <div class="big"><div class="k">光圈</div><div class="v">f/2.0</div></div>
+        <div class="big"><div class="k">连拍</div><div class="v">×40<small> 张</small></div></div>
+      </div>
+      <ul class="reasons">
+        <li>按 NPF 完整式：A1 II（4.16µm）+ 50mm，赤纬取银心 <b>−29°</b></li>
+        <li>标准档容差 ≤1px 星点拖线；换严格档为 6s、宽松档 11s</li>
+        <li>天光为<b>图谱估算</b>（Bortle 5）；ISO 为起步值，以直方图为准</li>
+        <li>月光 32% 且 22:40 落下，对前半夜影响有限</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">换跟踪拍摄</h3><span class="badge warn">待实测</span>
+      </div>
+      <p style="font-size:13px;color:#96A3BE;line-height:1.7;margin-top:8px;">跟踪最长单张 = 像元容差 ÷ 漂移率。当前跟踪档案<b style="color:#E9EEF8;">尚未录入实测漂移率</b>，暂不给秒数；完成基线实测后自动启用。</p>
+    </div>
+    <div class="actions"><div class="btn ghost">微调重算</div><div class="btn primary">保存为计划</div></div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">◎</span>今晚</div>
+    <div class="tab on"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">② 参数卡片 · 结果页<small>大数值结论 + 每条一句人话的理由；档位徽章固定在卡顶。跟踪档案未实测时不给秒数、只给公式——状态不许粉饰。</small></div>
+</div>
+
+<!-- 3 计算器输入 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>广域星空 · 计算</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="field"><div class="fl"><span>相机</span></div>
+      <div class="picker"><div>Sony A1 II<div class="sub2">全画幅 · 像素间距 4.16µm</div></div><div class="chev">›</div></div>
+    </div>
+    <div class="field"><div class="fl"><span>镜头</span></div>
+      <div class="picker"><div>FE 50mm F1.4 GM<div class="sub2">定焦 · 最大光圈 f/1.4</div></div><div class="chev">›</div></div>
+    </div>
+    <div class="field"><div class="fl"><span>拍摄方式</span></div>
+      <div class="seg"><div class="on">不跟踪</div><div>跟踪</div></div>
+    </div>
+    <div class="field"><div class="fl"><span>工作光圈</span><span class="fv">f/2.0</span></div>
+      <div class="stepper"><div class="sbtn">−</div><div class="sval">f/2.0</div><div class="sbtn">＋</div></div>
+    </div>
+    <div class="field"><div class="fl"><span>目标赤纬</span><span class="fv">银心 −29°（默认）</span></div>
+      <div class="stepper"><div class="sbtn">−</div><div class="sval">−29°</div><div class="sbtn">＋</div></div>
+    </div>
+    <div class="field"><div class="fl"><span>严苛档位</span><span class="fv" style="color:#F2C66D;">系统推荐：标准</span></div>
+      <div class="seg"><div>严格</div><div class="on">标准</div><div>宽松</div></div>
+    </div>
+    <div class="actions" style="margin-top:20px;"><div class="btn primary" style="flex:1;">计算曝光参数</div></div>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.6;margin-top:12px;">输入保留，下次打开自动带回；档位可改，卡片将注明所用档位与理由。</p>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">◎</span>今晚</div>
+    <div class="tab on"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">③ 计算器 · 输入页<small>选择器 + 大步进器，不用小下拉框；档位带系统推荐标注。底部固定大按钮，戴手套单手可达。</small></div>
+</div>
+
+<!-- 4 时刻列表 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>今晚时刻</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="card"><h3>关键时刻 · 10 月 26 日夜</h3>
+      <div class="tl">
+        <div class="tev"><span class="tt">18:12</span><span class="tn">日落</span><div class="td">可开始架设器材、构图试拍</div></div>
+        <div class="tev"><span class="tt">18:44</span><span class="tn">民用暮光止</span><div class="td">地景尚有层次，适合星野地景的地景帧</div></div>
+        <div class="tev"><span class="tt">19:48</span><span class="tn">天文夜开始</span><div class="td">银心高度 24°，广域星空窗口开启</div></div>
+        <div class="tev now"><span class="tt">21:20</span><span class="tn">银心窗口结束</span><div class="td">银心沉至 10° 以下，转拍 M31</div></div>
+        <div class="tev"><span class="tt">22:40</span><span class="tn">月落</span><div class="td">照明 32% 的月亮落下，天光转暗</div>
+          <div class="win">低月光窗口 22:40 – 05:36 · 深空最佳时段</div></div>
+        <div class="tev"><span class="tt">23:56</span><span class="tn">M31 过中天</span><div class="td">高度 88°，注意赤道仪 / 云台限位</div></div>
+        <div class="tev"><span class="tt">05:36</span><span class="tn">天文夜结束</span><div class="td">收工；晨昏蒙影可拍地景空镜</div></div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">v1.0 为列表形态；图形时间轴（含高度曲线）在 v1.1。</p>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">④ 时刻列表 · 时间线<small>当前时段金色点高亮；低月光窗口用绿色带标出（红光模式下自动转红阶）。每个时刻带一句「所以做什么」。</small></div>
+</div>
+
+<!-- 5 红光模式 -->
+<div class="cell">
+<div class="phone red">
+  <div class="statusbar"><span>21:47</span><span>曝光参谋 · 红光</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="loc">
+      <div><div class="place">收藏地点 · 郊区观测点</div><div class="date">10 月 26 日 周一 · Bortle 5（图谱）</div></div>
+      <div class="health"><span class="dot"></span>时间正常</div>
+    </div>
+    <div class="card"><h3 style="color:#C04434;">今晚天象</h3>
+      <div class="grid4">
+        <div class="kv"><div class="k">日落</div><div class="v">18:12</div></div>
+        <div class="kv"><div class="k">天文夜</div><div class="v">19:48 – 05:36</div></div>
+        <div class="kv"><div class="k">银心窗口</div><div class="v">19:48 – 21:20</div></div>
+        <div class="kv"><div class="k">月相</div><div class="v">照明 32% · 22:40 落</div></div>
+      </div>
+    </div>
+    <div class="card"><h3 style="color:#C04434;">今晚推荐</h3>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">银河中心（广域星空）</div><div class="why">银心高度尚可，月落前先拍</div></div><div class="time">19:48 起</div></div>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">M45 昴星团</div><div class="why">后半夜升至 60° 以上</div></div><div class="time">23:30 后</div></div>
+    </div>
+    <div class="cats">
+      <div class="cat"><span class="ic">🏔️</span>星野地景</div>
+      <div class="cat"><span class="ic">🌌</span>广域星空</div>
+      <div class="cat"><span class="ic">🪐</span>深空</div>
+      <div class="cat"><span class="ic">🌙</span>月 / 日食</div>
+      <div class="cat"><span class="ic">☄️</span>流星雨</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑤ 红光模式 · 首页对照<small>同一布局整套换红光谱：无蓝、无绿、无白，保护暗适应。一键切换（首页与设置各一处），可选日落后自动开启。</small></div>
+</div>
+
+<!-- 6 深空卡 + 降级 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>23:05</span><span>深空 · 结果</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="alertbar warn">今晚月光偏强（照明 78%，月亮在场至 02:10）：深空条件打折，子曝光被天光压短。可考虑改拍月亮或带月光地景的星野。</div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">深空 · M31（按类型档）</h3><span class="badge std">标准档</span>
+      </div>
+      <div class="bigrow">
+        <div class="big"><div class="k">子曝光</div><div class="v">45<small> s</small></div></div>
+        <div class="big"><div class="k">ISO</div><div class="v">1600</div></div>
+      </div>
+      <div class="bigrow">
+        <div class="big"><div class="k">总时长</div><div class="v">2.5<small> h</small></div></div>
+        <div class="big"><div class="k">张数 / 数据</div><div class="v">200<small> 张 · 12GB</small></div></div>
+      </div>
+      <ul class="reasons">
+        <li>子曝光按 swamp 口径：总天光 = 图谱基线 + 月光贡献合成</li>
+        <li>张数与数据量为<b>预算口径</b>，单张参数才是推荐主体</li>
+        <li>跟踪漂移未实测前，总时长按计划值执行并留复核点</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">日食 · 安全提示样式</h3><span class="badge bad">不可跳过</span>
+      </div>
+      <p style="font-size:13px;color:#96A3BE;line-height:1.7;margin-top:8px;">日食类卡片先过安全闸门：红色顶栏 + 必须勾选确认（滤镜 / 目视安全）后才显示分阶段曝光表；环食全程锁定滤镜。此为样式示意。</p>
+    </div>
+    <div class="actions"><div class="btn ghost">换目标</div><div class="btn primary">保存为计划</div></div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">◎</span>今晚</div>
+    <div class="tab on"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑥ 深空卡片 · 降级与安全态<small>月光强时卡顶直言提示、不粉饰；日食安全闸门为独立警示样式。坏消息要先于参数出现。</small></div>
+</div>
+
+</div>
+
+<div class="tokens">
+  <h2>设计令牌速览（深色主题）</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#05070D"></div><div class="lab"><b>bg</b>#05070D 页面底</div></div>
+    <div class="sw"><div class="chip" style="background:#0C1120"></div><div class="lab"><b>surface</b>#0C1120 卡片</div></div>
+    <div class="sw"><div class="chip" style="background:#131B31"></div><div class="lab"><b>surface2</b>#131B31 内嵌/输入</div></div>
+    <div class="sw"><div class="chip" style="background:#E9EEF8"></div><div class="lab"><b>text</b>#E9EEF8 主文字</div></div>
+    <div class="sw"><div class="chip" style="background:#96A3BE"></div><div class="lab"><b>text2</b>#96A3BE 次文字</div></div>
+    <div class="sw"><div class="chip" style="background:#F2C66D"></div><div class="lab"><b>accent</b>#F2C66D 星光金</div></div>
+    <div class="sw"><div class="chip" style="background:#4CC38A"></div><div class="lab"><b>ok</b>#4CC38A 条件良好</div></div>
+    <div class="sw"><div class="chip" style="background:#F5A524"></div><div class="lab"><b>warn</b>#F5A524 提醒/降级</div></div>
+    <div class="sw"><div class="chip" style="background:#E5484D"></div><div class="lab"><b>bad</b>#E5484D 警告/安全</div></div>
+    <div class="sw"><div class="chip" style="background:#FF7A6B"></div><div class="lab"><b>红光 text</b>#FF7A6B 红光主文字</div></div>
+  </div>
+  <p class="note" style="margin-top:16px;">完整规格见 docs/ui-design.md：含信息架构、关键界面说明、状态呈现与交互规则。此规格为二期界面施工依据。</p>
+</div>
+</body>
+</html>
