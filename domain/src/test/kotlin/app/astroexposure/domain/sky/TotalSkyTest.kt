@@ -52,17 +52,30 @@ class TotalSkyTest {
 
     @Test
     fun `sky electron rate hand value at dark sky`() {
-        val r = skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II)
+        val r = skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
         assertEquals(1.09, r, 0.05)
     }
 
     @Test
     fun `sky electron rate scales with pixel area and inverse aperture squared`() {
-        val a1 = skyElectronRate(20.0, 2.0, BuiltInCameras.A1_II)
-        val zv = skyElectronRate(20.0, 2.0, BuiltInCameras.ZV_E1)
+        val a1 = skyElectronRate(20.0, 2.0, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
+        val zv = skyElectronRate(20.0, 2.0, BuiltInCameras.ZV_E1, DEFAULT_QE_WHEN_UNRECORDED)
         // (8.40/4.16)^2 ≈ 4.08
         assertEquals(4.08, zv / a1, 0.05)
-        val stopped = skyElectronRate(20.0, 4.0, BuiltInCameras.A1_II)
+        val stopped = skyElectronRate(20.0, 4.0, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
         assertEquals(4.0, a1 / stopped, 1e-9)
+    }
+
+    @Test
+    fun `effective QE uses the recorded value or the documented default`() {
+        // Neither built-in records a QE (design SS2.3 allows empty), so the
+        // documented default applies and is flagged as defaulted.
+        val (qeBuiltIn, defaultedBuiltIn) = effectiveQe(BuiltInCameras.A1_II)
+        assertEquals(DEFAULT_QE_WHEN_UNRECORDED, qeBuiltIn, 1e-12)
+        assertTrue(defaultedBuiltIn)
+        val custom = BuiltInCameras.A1_II.copy(quantumEfficiencyReference = 0.62)
+        val (qeCustom, defaultedCustom) = effectiveQe(custom)
+        assertEquals(0.62, qeCustom, 1e-12)
+        assertFalse(defaultedCustom)
     }
 }

@@ -2,6 +2,7 @@ package app.astroexposure.domain.model
 
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.sky.TotalSky
+import app.astroexposure.domain.sky.effectiveQe
 import app.astroexposure.domain.sky.skyElectronRate
 import app.astroexposure.domain.strictness.Strictness
 import app.astroexposure.domain.units.Seconds
@@ -79,6 +80,8 @@ object DeepSkyModel {
             /** Background target electrons C * RN². */
             val targetBackgroundElectrons: Double,
             val skyElectronRatePerPixelSec: Double,
+            /** True when the sky rate used the default QE (camera records none, design §2.3/§2.8). */
+            val qeDefaulted: Boolean,
             val subExposureSeconds: Double,
             /** Sub-exposure under the OTHER tier's C, for comparison (design §5.3). */
             val subExposureOtherCSeconds: Double,
@@ -145,7 +148,8 @@ object DeepSkyModel {
             )
         }
 
-        val rSky = skyElectronRate(input.totalSky.totalMpsas, input.aperture, camera)
+        val (qe, qeDefaulted) = effectiveQe(camera)
+        val rSky = skyElectronRate(input.totalSky.totalMpsas, input.aperture, camera, qe)
         val rawSub = computeSubExposureSeconds(rn, c, rSky)
         val rawOther = computeSubExposureSeconds(rn, otherC, rSky)
 
@@ -173,6 +177,7 @@ object DeepSkyModel {
             swampC = c,
             targetBackgroundElectrons = targetElectrons,
             skyElectronRatePerPixelSec = rSky,
+            qeDefaulted = qeDefaulted,
             subExposureSeconds = sub,
             subExposureOtherCSeconds = rawOther,
             otherC = otherC,

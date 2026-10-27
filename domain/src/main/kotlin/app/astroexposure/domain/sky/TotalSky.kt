@@ -86,12 +86,36 @@ data class TotalSky(
  * Acceptance footing (design §8.6): order-of-magnitude agreement with the
  * SharpCap sky calculator; the stated uncertainty is a factor of about 2.
  */
+/**
+ * Broadband QE used when a body records no QE reference value
+ * ([Camera.quantumEfficiencyReference] is null, design §2.3).
+ *
+ * Provenance: current back-illuminated CMOS generations report peak QE
+ * around 55–60% in manufacturer sensor data (Sony Semiconductor data
+ * sheets for the IMX BSI families); the broadband-effective value across
+ * the visible band sits below the peak, and 0.5 is the mid-range working
+ * figure (empirical footing, "经验口径"). The choice is well inside the
+ * sky-rate uncertainty the design already declares for R_sky (a factor
+ * of about 2, §5.3), and callers must flag when this default was used
+ * (design §2.8) — it is never a silent fallback.
+ */
+const val DEFAULT_QE_WHEN_UNRECORDED = 0.5
+
 fun skyElectronRate(
     totalMpsas: Double,
     aperture: Double,
     camera: Camera,
-    qe: Double = 0.5,
+    qe: Double,
 ): Double {
     val p = camera.pixelPitch.value
     return 3.174e8 * Math.pow(10.0, -0.4 * totalMpsas) * (p * p / (aperture * aperture)) * qe
 }
+
+/**
+ * The QE a sky-rate computation should use for [camera]: its recorded
+ * reference value when present, else [DEFAULT_QE_WHEN_UNRECORDED]; the
+ * Boolean reports whether the default was used, so results can label it.
+ */
+fun effectiveQe(camera: Camera): Pair<Double, Boolean> =
+    camera.quantumEfficiencyReference?.let { it to false }
+        ?: (DEFAULT_QE_WHEN_UNRECORDED to true)

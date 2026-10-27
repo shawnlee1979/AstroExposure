@@ -30,6 +30,14 @@ data class Camera(
     val readNoiseLowSegmentElectrons: Double? = null,
     /** Full-well capacity at base ISO, electrons (design §3.5). */
     val fullWellElectrons: Double? = null,
+    /**
+     * Quantum-efficiency reference value in (0, 1] (design §2.3: a camera
+     * data-model field, may be empty). Null means "not recorded": the sky
+     * electron rate then uses the documented default in
+     * [app.astroexposure.domain.sky.DEFAULT_QE_WHEN_UNRECORDED] and the
+     * models flag that they did so.
+     */
+    val quantumEfficiencyReference: Double? = null,
     /** True when [fullWellElectrons] is a same-family reference value, not a per-body measurement. */
     val fullWellIsReferenceValue: Boolean = false,
     /** False when the photo-mode dual-gain point has not been verified (design §3.3, ZV-E1). */

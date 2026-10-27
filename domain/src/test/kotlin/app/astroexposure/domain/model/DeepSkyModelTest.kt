@@ -171,4 +171,21 @@ class DeepSkyModelTest {
         assertEquals(6.05, r.targetBackgroundElectrons, 0.05)
         assertEquals(6.0, r.totalHoursRepresentative, 1e-9)
     }
+
+    @Test
+    fun `QE defaulting is flagged and a recorded QE is honoured`() {
+        fun inputFor(camera: Camera) = DeepSkyModel.Input(
+            camera = camera, aperture = 2.0, totalSky = skyAt(20.0),
+            strictness = Strictness.STANDARD, trackingCapSeconds = null,
+            targetClass = DeepSkyModel.TargetClass.BRIGHT_CLUSTER_NEBULA,
+        )
+        // A1 II records no QE reference (design SS2.3 allows empty): the
+        // documented default applies and the result says so.
+        val defaulted = ready(inputFor(BuiltInCameras.A1_II))
+        assertTrue(defaulted.qeDefaulted)
+        val withQe = ready(inputFor(BuiltInCameras.A1_II.copy(quantumEfficiencyReference = 0.62)))
+        assertFalse(withQe.qeDefaulted)
+        // Rate scales linearly with QE: 0.62 / 0.5 = 1.24x.
+        assertEquals(1.24, withQe.skyElectronRatePerPixelSec / defaulted.skyElectronRatePerPixelSec, 0.01)
+    }
 }
