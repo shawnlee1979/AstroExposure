@@ -77,6 +77,15 @@ class TotalSkyTest {
         assertThrows(IllegalArgumentException::class.java) {
             skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II, 0.0)
         }
+        // QE is a conversion fraction: above 1.0 is unphysical and must
+        // be rejected, matching the Camera field's (0, 1] documentation.
+        for (qe in listOf(1.01, 1.5, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II, qe)
+            }
+        }
+        // The upper bound itself is valid.
+        skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II, 1.0)
         assertThrows(IllegalArgumentException::class.java) {
             skyElectronRate(Double.NaN, 2.0, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
         }
