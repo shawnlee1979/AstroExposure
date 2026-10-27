@@ -27,8 +27,8 @@ import app.astroexposure.support.ShowerDates
 import java.time.LocalDate
 
 /**
- * Phase-2 calculator use cases (supervisor recommendation B: straight-through
- * tests). Each use case only assembles domain models and port data — no
+ * Phase-2 calculator use cases, covered by straight-through tests. Each
+ * use case only assembles domain models and port data — no
  * formula lives here (DEVELOPMENT-RULES.md D.4) and nothing reads the clock,
  * GPS or files; the UI supplies every instant and location explicitly.
  */

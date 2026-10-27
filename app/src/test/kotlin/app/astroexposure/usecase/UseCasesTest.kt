@@ -35,8 +35,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Straight-through tests (supervisor recommendation B): real domain models
- * behind the real :data adapters, exercised through the use-case layer.
+ * Straight-through tests: real domain models behind the real :data
+ * adapters, exercised through the use-case layer.
  */
 class UseCasesTest {
 

@@ -33,10 +33,9 @@ class WideFieldModelTest {
 
     @Test
     fun `custom bodies split at the 6-3 um nearest-anchor boundary`() {
-        // The supervisor's counterexample: a 5.5 um body is nearer the
-        // A1 II anchor (4.16 um) than the ZV-E1 anchor (8.40 um), so it
-        // must take the A1 II range; the old 5 um split gave it the
-        // ZV-E1 range instead.
+        // A 5.5 um body is nearer the A1 II anchor (4.16 um) than the
+        // ZV-E1 anchor (8.40 um), so it takes the A1 II range; the old
+        // 5 um split gave it the ZV-E1 range instead.
         val at55 = app.astroexposure.domain.camera.Camera("custom-5.5", "Custom 5.5", 33.0, 22.0, 6000, 4000)
         val range55 = WideFieldModel.untrackedIso(skyAt(21.75), at55)
         assertEquals(3200, range55.low); assertEquals(6400, range55.high)
