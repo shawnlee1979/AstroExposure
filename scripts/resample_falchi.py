@@ -177,14 +177,71 @@ def tiff_geo(page):
     return -180.0, 90.0, 1 / 120
 
 
+class TiffSliceReader:
+    """Random-access 2D slice reader over a single-band GeoTIFF.
+
+    The shipped Falchi GeoTIFF is tiled (128x128) and uncompressed;
+    tifffile's memmap view of such a file faults in some environments,
+    so tiled/uncompressed pages are read tile by tile straight from
+    the TileOffsets table. Other layouts (the small striped synthetic
+    files of the self-test) are decoded whole by tifffile.
+    """
+
+    def __init__(self, path):
+        import tifffile
+        self._fh = None
+        with tifffile.TiffFile(path) as tif:
+            page = tif.pages[0]
+            self.shape = page.shape
+            self._dtype = page.dtype
+            if page.is_tiled and int(page.compression) == 1:
+                self._tw, self._th = page.tilewidth, page.tilelength
+                self._offsets = [int(v) for v in
+                                 page.tags["TileOffsets"].value]
+                self._counts = [int(v) for v in
+                                page.tags["TileByteCounts"].value]
+                self._array = None
+            else:
+                self._array = page.asarray()
+        if self._array is None:
+            self._fh = open(path, "rb")
+            cols = self.shape[1]
+            self._tiles_across = (cols + self._tw - 1) // self._tw
+
+    def __getitem__(self, key):
+        rows, cols = key
+        r0, r1 = rows.start, rows.stop
+        c0, c1 = cols.start, cols.stop
+        if self._array is not None:
+            return self._array[r0:r1, c0:c1]
+        out = np.empty((r1 - r0, c1 - c0), dtype=self._dtype)
+        for tr in range(r0 // self._th, (r1 - 1) // self._th + 1):
+            for tc in range(c0 // self._tw, (c1 - 1) // self._tw + 1):
+                idx = tr * self._tiles_across + tc
+                self._fh.seek(self._offsets[idx])
+                tile = np.frombuffer(self._fh.read(self._counts[idx]),
+                                     dtype=self._dtype)
+                tile = tile.reshape(self._th, self._tw)
+                gr0, gc0 = tr * self._th, tc * self._tw
+                sr0, sr1 = max(r0, gr0), min(r1, gr0 + self._th)
+                sc0, sc1 = max(c0, gc0), min(c1, gc0 + self._tw)
+                out[sr0 - r0:sr1 - r0, sc0 - c0:sc1 - c0] = \
+                    tile[sr0 - gr0:sr1 - gr0, sc0 - gc0:sc1 - gc0]
+        return out
+
+    def close(self):
+        if self._fh is not None:
+            self._fh.close()
+
+
 def resample_tiff(path):
     """Median-resample a 30-arcsec GeoTIFF onto the 5-arcmin grid."""
     import tifffile
     grid = np.full((ROWS, COLS), NODATA, dtype=np.uint16)
     with tifffile.TiffFile(path) as tif:
         page = tif.pages[0]
-        src = page.asarray(out="memmap")
         lon0, lat_top, px = tiff_geo(page)
+    src = TiffSliceReader(path)
     ratio_f = STEP_EXACT / px
     ratio = int(round(ratio_f))
     assert ratio >= 1 and abs(ratio_f - ratio) < 1e-4, \
@@ -214,6 +271,7 @@ def resample_tiff(path):
                                axis=(1, 3))
         grid[out_r_start:out_r_end, :] = \
             np.vectorize(encode_value)(med).astype(np.uint16)
+    src.close()
     return grid
 
 
@@ -298,11 +356,12 @@ def main():
     if os.path.exists(TIFF):
         grid = resample_tiff(TIFF)
         header = header_for(
-            "Falchi et al. 2016, World Atlas (CC BY-NC 4.0)",
+            "Falchi et al. 2016, World Atlas of Artificial Night Sky "
+            "Brightness (GFZ doi:10.5880/GFZ.1.4.2016.001, CC BY-NC 4.0)",
             {"dataVersion": ("Falchi et al. 2016 World Atlas via GFZ "
                               "doi:10.5880/GFZ.1.4.2016.001 "
                               f"(resampled {date.today().isoformat()})"),
-             "gridKind": "full-atlas-median-resample"})
+             "gridKind": "full-grid"})
         mode = "full atlas"
     else:
         samples = load_samples(refresh)
