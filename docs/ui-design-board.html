@@ -98,6 +98,40 @@
   .red .cat { color:#C04434; }
   .red .win { background:#1C0505; border-color:#5C1A14; color:#FF8A75; }
   .red .tl::before { background:#471512; } .red .tev::before { background:#471512; border-color:#0A0202; } .red .tev.now::before { background:#FF9D8A; }
+  /* 今晚页时间轴样张（⑦⑧） */
+  .daterow { display:flex; justify-content:space-between; align-items:center; background:#0C1120; border:1px solid #22304F; border-radius:14px; padding:8px 12px; margin-bottom:10px; font-size:13.5px; }
+  .daterow .chev { color:#6EA8FE; font-size:16px; padding:0 6px; }
+  .lrow { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .lrow + .lrow { margin-top:5px; }
+  .lnum { font-variant-numeric:tabular-nums; font-size:14.5px; }
+  .lpen { color:#6EA8FE; font-size:12px; margin-left:4px; }
+  .llab { font-size:12px; color:#96A3BE; }
+  .lver { font-size:11px; color:#5D6C8C; }
+  .tlx { position:relative; height:252px; background:#0C1120; border:1px solid #22304F; border-radius:14px; overflow:hidden; margin-bottom:10px; }
+  .tlx .band { position:absolute; top:0; bottom:24px; }
+  .tlx .b-day { background:#2A3350; } .tlx .b-civ { background:#232C47; } .tlx .b-nau { background:#1A2340; } .tlx .b-ast { background:#121A30; } .tlx .b-night { background:#080D1D; }
+  .tlx svg.curves { position:absolute; left:0; top:0; width:100%; height:150px; }
+  .tlx .moon-note { position:absolute; font-size:9.5px; color:#6EA8FE; white-space:nowrap; }
+  .tlx .lowmoon { position:absolute; top:158px; height:13px; background:rgba(76,195,138,.28); border:1px solid rgba(76,195,138,.65); border-radius:3px; }
+  .tlx .gcwin { position:absolute; top:158px; height:13px; background:rgba(242,198,109,.22); border:1px solid rgba(242,198,109,.55); border-radius:3px; }
+  .tlx .bandlab { position:absolute; top:160px; font-size:8.5px; color:#96A3BE; }
+  .tlx .mark { position:absolute; top:4px; width:2px; height:12px; background:#96A3BE; }
+  .tlx .mark span { position:absolute; width:46px; left:-22px; text-align:center; font-size:8.5px; color:#96A3BE; white-space:nowrap; }
+  .tlx .mark .r1 { top:15px; } .tlx .mark .r2 { top:28px; }
+  .tlx .arc-layer { position:absolute; left:0; right:0; top:180px; height:44px; }
+  .tlx .bubble-layer, .tlx .cursor-track { position:absolute; left:0; right:0; top:0; bottom:24px; }
+  .tlx .axis { position:absolute; left:0; right:0; bottom:0; height:24px; border-top:1px solid #22304F; display:flex; justify-content:space-between; align-items:center; padding:0 6px; font-size:9px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
+  .red .daterow { background:#180404; border-color:#471512; color:#FF7A6B; }
+  .red .daterow .chev { color:#FF9D8A; }
+  .red .llab { color:#C04434; } .red .lver { color:#8F2B21; } .red .lpen { color:#FF9D8A; }
+  .red .tlx { background:#180404; border-color:#471512; }
+  .red .tlx .b-day { background:#3A0E0A; } .red .tlx .b-civ { background:#2E0A07; } .red .tlx .b-nau { background:#240806; } .red .tlx .b-ast { background:#1B0505; } .red .tlx .b-night { background:#120303; }
+  .red .tlx .moon-note { color:#FF9D8A; }
+  .red .tlx .lowmoon { background:rgba(229,86,60,.16); border:1px dashed #E5563C; }
+  .red .tlx .gcwin { background:rgba(255,122,69,.14); border:1px dotted #FF7A45; }
+  .red .tlx .bandlab { color:#C04434; }
+  .red .tlx .mark { background:#D64A3E; } .red .tlx .mark span { color:#C04434; }
+  .red .tlx .axis { border-color:#471512; color:#8F2B21; }
   .tokens { margin-top:34px; max-width:1060px; }
   .tokens h2 { font-size:16px; margin-bottom:12px; }
   .swatches { display:flex; flex-wrap:wrap; gap:10px; }
@@ -108,8 +142,8 @@
 </style>
 </head>
 <body>
-<h1>曝光参谋 <span>AstroExposure</span> · UI 设计稿 v0.1</h1>
-<p class="sub">定调：仪器感 —— 深空黑底、低饱和、结论先行；数值等宽对齐便于暗处扫读；触控目标 ≥48dp 戴手套可操作。红光模式是整套独立主题（仅红光谱、护暗适应），不是红色滤镜。下排第 5 张为同一首页的红光版对照。</p>
+<h1>曝光参谋 <span>AstroExposure</span> · UI 设计稿 v0.2</h1>
+<p class="sub">定调：仪器感 —— 深空黑底、低饱和、结论先行；数值等宽对齐便于暗处扫读；触控目标 ≥48dp 戴手套可操作。红光模式是整套独立主题（仅红光谱、护暗适应），不是红色滤镜。下排第 5 张为同一首页的红光版对照；第 7、8 张为今晚页时间轴整合样张（深色 / 红光），规格见 docs/ui-design.md 第 7 节。</p>
 <p class="note">样张数值为示意（取自设计文档算例），不是真实历算结果；正式版由历算引擎实时给出。</p>
 
 <div class="board">
@@ -343,6 +377,134 @@
 <div class="cap">⑥ 深空卡片 · 降级与安全态<small>月光强时卡顶直言提示、不粉饰；日食安全闸门为独立警示样式。坏消息要先于参数出现。</small></div>
 </div>
 
+<!-- 7 今晚页时间轴（深色） -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>今晚</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="card">
+      <div class="lrow"><span class="llab">GPS 已定位</span><span class="lnum">34.0754° −84.2941°<span class="lpen">✎</span></span></div>
+      <div class="lrow"><span class="llab">光害 · 区域值</span><span class="lnum">Bortle 4 · 1.92 mcd/m²</span></div>
+      <div class="lrow"><span class="lver">光害数据版本</span><span class="lver">Falchi 2016 图谱 · 样本网格 2026-10-27</span></div>
+    </div>
+    <div class="daterow"><span class="chev">‹</span><span>10月27日 周二 · 今晚</span><span class="chev">›</span></div>
+    <div class="tlx">
+      <div class="band b-day" style="left:0;width:6.6%"></div>
+      <div class="band b-civ" style="left:6.6%;width:3.1%"></div>
+      <div class="band b-nau" style="left:9.7%;width:3%"></div>
+      <div class="band b-ast" style="left:12.7%;width:3%"></div>
+      <div class="band b-night" style="left:15.7%;width:67.3%"></div>
+      <div class="band b-ast" style="left:83%;width:3.1%"></div>
+      <div class="band b-nau" style="left:86.1%;width:3.1%"></div>
+      <div class="band b-civ" style="left:89.2%;width:4.2%"></div>
+      <div class="band b-day" style="left:93.4%;width:6.6%"></div>
+      <svg class="curves" viewBox="0 0 316 150" preserveAspectRatio="none">
+        <path d="M0,34 C26,74 52,110 90,132 C140,150 210,150 252,128 C282,112 300,66 316,40" fill="none" stroke="#F2C66D" stroke-width="1.6"/>
+        <path d="M0,72 C28,60 52,58 76,68 C98,77 118,92 125,104" fill="none" stroke="#6EA8FE" stroke-width="1.6"/>
+        <line x1="0" y1="104" x2="316" y2="104" stroke="#22304F" stroke-dasharray="3 4"/>
+      </svg>
+      <div class="moon-note" style="left:52%;top:52px">月亮 · 照明 42%</div>
+      <div class="mark" style="left:6.6%"><span class="r1">日落</span></div>
+      <div class="mark" style="left:9.7%"><span class="r2" style="transform:translateX(6px)">民用暮光终</span></div>
+      <div class="mark" style="left:12.7%"><span class="r1" style="transform:translateX(14px)">航海暮光终</span></div>
+      <div class="mark" style="left:15.7%"><span class="r2" style="transform:translateX(20px)">天文暮光终</span></div>
+      <div class="mark" style="left:30%"><span class="r1">银心中天</span></div>
+      <div class="mark" style="left:39.6%"><span class="r2">月落</span></div>
+      <div class="mark" style="left:83%"><span class="r1">晨光始</span></div>
+      <div class="mark" style="left:93.4%"><span class="r2">日出</span></div>
+      <div class="gcwin" style="left:6.6%;width:19.1%"></div>
+      <div class="bandlab" style="left:8%">银心</div>
+      <div class="lowmoon" style="left:39.6%;width:43.4%"></div>
+      <div class="bandlab" style="left:56%">低月光窗口</div>
+      <!-- 第二期预留层：游标轨道 / 气泡层 / 弧段层，第一期为空置结构，版式不返工 -->
+      <div class="cursor-track"></div>
+      <div class="bubble-layer"></div>
+      <div class="arc-layer"></div>
+      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+    </div>
+    <div class="card"><h3>今晚推荐</h3>
+      <div class="rec"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
+      <div class="rec"><div><div class="name">NGC 869 双星团</div><div class="why">后半夜过中天</div></div><div class="time">01:52 中天</div></div>
+      <div class="rec"><div><div class="name">M45 昴星团</div><div class="why">后半夜升至 57°</div></div><div class="time">23:30 后</div></div>
+    </div>
+    <div class="card"><h3>近期事件 · ±3 天</h3>
+      <div class="rec"><div><div class="name">猎户座流星雨 · 活跃期</div><div class="why">峰值已过，余量递减</div></div><div class="time">10月27日</div></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑦ 今晚页 · 时间轴（第一期静态四层）<small>地点卡：经纬度后 ✎ 示意可编辑，框内无提醒文案；光害一行到底并带数据版本。日期行可步进、点按开日历，非当晚带相对标注与「回到今晚」。时间轴：背景带 / 日月曲线 / 窗口区间 / 时刻标记四层；标记标签两行交错并按宽度避让，月亮曲线旁注当晚照明比；游标轨道、气泡层、弧段层已在结构中预留（第一期空置）。</small></div>
+</div>
+
+<!-- 8 今晚页时间轴（红光） -->
+<div class="cell">
+<div class="phone red">
+  <div class="statusbar"><span>21:47</span><span>今晚 · 红光</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="card">
+      <div class="lrow"><span class="llab">GPS 已定位</span><span class="lnum">34.0754° −84.2941°<span class="lpen">✎</span></span></div>
+      <div class="lrow"><span class="llab">光害 · 区域值</span><span class="lnum">Bortle 4 · 1.92 mcd/m²</span></div>
+      <div class="lrow"><span class="lver">光害数据版本</span><span class="lver">Falchi 2016 图谱 · 样本网格 2026-10-27</span></div>
+    </div>
+    <div class="daterow"><span class="chev">‹</span><span>10月27日 周二 · 今晚</span><span class="chev">›</span></div>
+    <div class="tlx">
+      <div class="band b-day" style="left:0;width:6.6%"></div>
+      <div class="band b-civ" style="left:6.6%;width:3.1%"></div>
+      <div class="band b-nau" style="left:9.7%;width:3%"></div>
+      <div class="band b-ast" style="left:12.7%;width:3%"></div>
+      <div class="band b-night" style="left:15.7%;width:67.3%"></div>
+      <div class="band b-ast" style="left:83%;width:3.1%"></div>
+      <div class="band b-nau" style="left:86.1%;width:3.1%"></div>
+      <div class="band b-civ" style="left:89.2%;width:4.2%"></div>
+      <div class="band b-day" style="left:93.4%;width:6.6%"></div>
+      <svg class="curves" viewBox="0 0 316 150" preserveAspectRatio="none">
+        <path d="M0,34 C26,74 52,110 90,132 C140,150 210,150 252,128 C282,112 300,66 316,40" fill="none" stroke="#FF7A45" stroke-width="1.6"/>
+        <path d="M0,72 C28,60 52,58 76,68 C98,77 118,92 125,104" fill="none" stroke="#FF9D8A" stroke-width="1.6" stroke-dasharray="5 3"/>
+        <line x1="0" y1="104" x2="316" y2="104" stroke="#471512" stroke-dasharray="3 4"/>
+      </svg>
+      <div class="moon-note" style="left:52%;top:52px">月亮 · 照明 42%</div>
+      <div class="mark" style="left:6.6%"><span class="r1">日落</span></div>
+      <div class="mark" style="left:9.7%"><span class="r2" style="transform:translateX(6px)">民用暮光终</span></div>
+      <div class="mark" style="left:12.7%"><span class="r1" style="transform:translateX(14px)">航海暮光终</span></div>
+      <div class="mark" style="left:15.7%"><span class="r2" style="transform:translateX(20px)">天文暮光终</span></div>
+      <div class="mark" style="left:30%"><span class="r1">银心中天</span></div>
+      <div class="mark" style="left:39.6%"><span class="r2">月落</span></div>
+      <div class="mark" style="left:83%"><span class="r1">晨光始</span></div>
+      <div class="mark" style="left:93.4%"><span class="r2">日出</span></div>
+      <div class="gcwin" style="left:6.6%;width:19.1%"></div>
+      <div class="bandlab" style="left:8%">银心</div>
+      <div class="lowmoon" style="left:39.6%;width:43.4%"></div>
+      <div class="bandlab" style="left:56%">低月光窗口</div>
+      <!-- 第二期预留层：游标轨道 / 气泡层 / 弧段层，第一期为空置结构，版式不返工 -->
+      <div class="cursor-track"></div>
+      <div class="bubble-layer"></div>
+      <div class="arc-layer"></div>
+      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+    </div>
+    <div class="card"><h3 style="color:#C04434;">今晚推荐</h3>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">NGC 869 双星团</div><div class="why">后半夜过中天</div></div><div class="time">01:52 中天</div></div>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">M45 昴星团</div><div class="why">后半夜升至 57°</div></div><div class="time">23:30 后</div></div>
+    </div>
+    <div class="card"><h3 style="color:#C04434;">近期事件 · ±3 天</h3>
+      <div class="rec" style="border-color:#471512;"><div><div class="name">猎户座流星雨 · 活跃期</div><div class="why">峰值已过，余量递减</div></div><div class="time">10月27日</div></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑧ 今晚页 · 时间轴（红光版）<small>与 ⑦ 同一布局整套红阶：底 #0A0202、卡面 #180404；状态色 info #FF9D8A / ok #E5563C / warn #FF7A45 / bad #FF4A3D。红光下不靠色相分信息：太阳曲线实线、月亮曲线虚线，低月光窗口虚线边、银心窗口点线边（亮度 + 图标 + 线型三重编码）。</small></div>
+</div>
+
 </div>
 
 <div class="tokens">
@@ -358,6 +520,8 @@
     <div class="sw"><div class="chip" style="background:#F5A524"></div><div class="lab"><b>warn</b>#F5A524 提醒/降级</div></div>
     <div class="sw"><div class="chip" style="background:#E5484D"></div><div class="lab"><b>bad</b>#E5484D 警告/安全</div></div>
     <div class="sw"><div class="chip" style="background:#FF7A6B"></div><div class="lab"><b>红光 text</b>#FF7A6B 红光主文字</div></div>
+    <div class="sw"><div class="chip" style="background:#FDECEA"></div><div class="lab"><b>onError</b>#FDECEA 深色主题 error 上的文字</div></div>
+    <div class="sw"><div class="chip" style="background:#2B0500"></div><div class="lab"><b>红光 onError</b>#2B0500 红光主题 error 上的文字</div></div>
   </div>
   <p class="note" style="margin-top:16px;">完整规格见 docs/ui-design.md：含信息架构、关键界面说明、状态呈现与交互规则。此规格为二期界面施工依据。</p>
 </div>
