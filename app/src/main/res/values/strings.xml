@@ -252,5 +252,5 @@
     <string name="language_switch">EN</string>
     <string name="settings_time_health">时间健康状态</string>
     <string name="settings_data_sources">数据来源与许可</string>
-    <string name="data_sources_body">目标目录：OpenNGC（CC BY-SA 4.0）· 版本 %1$s\n光害图谱：Falchi 世界夜空亮度图谱（CC BY-NC 4.0），本机为稀疏样本网格，无样本处返回无数据并走手动 Bortle 兜底 · 版本 %2$s\n日月食目录：NASA GSFC（Espenak &amp; Meeus）· 版本 %3$s\n流星雨年表：IMO 流星雨日历 2026 · 版本 %4$s\n镜头库：五家厂商产品线整理 · 版本 %5$s\n历算引擎：Astronomy Engine（MIT）\n流星雨峰值日期由太阳黄经以平均太阳运动近似换算（约 ±数天），不作精确预报。</string>
+    <string name="data_sources_body">目标目录：OpenNGC（CC BY-SA 4.0）· 版本 %1$s\n光害图谱：Falchi 世界夜空亮度图谱（CC BY-NC 4.0），全量图谱重采样网格，图谱覆盖外返回无数据并走手动 Bortle 兜底 · 版本 %2$s\n日月食目录：NASA GSFC（Espenak &amp; Meeus）· 版本 %3$s\n流星雨年表：IMO 流星雨日历 2026 · 版本 %4$s\n镜头库：五家厂商产品线整理 · 版本 %5$s\n历算引擎：Astronomy Engine（MIT）\n流星雨峰值日期由太阳黄经以平均太阳运动近似换算（约 ±数天），不作精确预报。</string>
 </resources>
