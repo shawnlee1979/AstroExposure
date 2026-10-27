@@ -172,7 +172,12 @@ object DeepSkyModel {
             caps += CapReason.SINGLE_FRAME_CEILING
         }
         val effectiveCap = listOfNotNull(trackingCap, SINGLE_FRAME_CAP_SECONDS).min()
-        val otherCComparisonUncapped = caps.isNotEmpty() && rawOther > effectiveCap
+        // The comparison value is raw (uncapped) by construction, so its
+        // label depends only on whether it exceeds the cap — not on
+        // whether the main value was itself capped. Tying the flag to
+        // caps would miss the relaxed tier, where the main value can sit
+        // below the cap while the doubled comparison value exceeds it.
+        val otherCComparisonUncapped = rawOther > effectiveCap
 
         val totalSeconds = input.targetClass.totalHoursRepresentative * 3600.0
         val frames = ceil(totalSeconds / sub).toInt()

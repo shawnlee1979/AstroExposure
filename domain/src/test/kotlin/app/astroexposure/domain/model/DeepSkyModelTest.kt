@@ -129,6 +129,29 @@ class DeepSkyModelTest {
     }
 
     @Test
+    fun `relaxed tier flags the comparison value when only it exceeds the tracking cap`() {
+        // Relaxed tier: C = 5, comparison C = 10, so the comparison value
+        // is exactly twice the main value. At aperture 1.4 and sky 20.0
+        // the main value is about 0.43 s (below the 0.5 s tracking cap)
+        // while the comparison value is about 0.86 s (above it): the
+        // main value is uncapped, but the comparison still needs its
+        // uncapped label.
+        val r = ready(
+            DeepSkyModel.Input(
+                camera = BuiltInCameras.A1_II, aperture = 1.4, totalSky = skyAt(20.0),
+                strictness = Strictness.RELAXED, trackingCapSeconds = Seconds(0.5),
+                targetClass = DeepSkyModel.TargetClass.BRIGHT_CLUSTER_NEBULA,
+            ),
+        )
+        assertEquals(5, r.swampC)
+        assertEquals(10, r.otherC)
+        assertEquals(0.43, r.subExposureSeconds, 0.01)
+        assertTrue(r.capReasons.isEmpty())
+        assertEquals(0.86, r.subExposureOtherCSeconds, 0.01)
+        assertTrue(r.otherCComparisonUncapped)
+    }
+
+    @Test
     fun `frame count and data volume follow the budget arithmetic`() {
         // Tracking cap of 1 s makes the sub-exposure exact: 1.5 h -> 5400 frames.
         val r = ready(
