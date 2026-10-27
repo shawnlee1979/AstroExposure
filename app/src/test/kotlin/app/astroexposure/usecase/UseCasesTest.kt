@@ -301,6 +301,72 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightCursorEvaluationRanksShootableTargets() {
+        // Cursor evaluation (ui-design §7.5) against the real catalogue
+        // and ephemeris: New York, 2026-08-12, cursor at 23:00 local.
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val overview = useCase.execute(nyc, date)
+        val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
+        val evaluation = useCase.evaluateCursor(nyc, date, cursor, overview.timeline)
+
+        assertEquals(cursor, evaluation.instant)
+        assertEquals(
+            app.astroexposure.domain.timeline.NightTimeline.SunBand.ASTRONOMICAL_NIGHT,
+            evaluation.segment,
+        )
+        assertTrue(evaluation.sunAltitudeDeg < -18.0)
+        assertTrue(evaluation.targetsAvailable)
+        // Display cap and the honest total.
+        assertTrue(evaluation.totalShootable >= evaluation.targets.size)
+        assertTrue(evaluation.targets.size <= 10)
+        assertTrue(evaluation.targets.isNotEmpty())
+        // Every displayed target clears the 20° line at the cursor, the
+        // list is in altitude-descending order, and each arc lies on the
+        // axis with its culmination at or above the threshold.
+        var previousAltitude = Double.MAX_VALUE
+        for (target in evaluation.targets) {
+            assertTrue(target.altitudeDeg >= 20.0)
+            assertTrue(target.altitudeDeg <= previousAltitude + 1e-9)
+            previousAltitude = target.altitudeDeg
+            for (interval in target.arcIntervals) {
+                assertTrue(!interval.start.isBefore(overview.timeline.axisStart))
+                assertTrue(!interval.end.isAfter(overview.timeline.axisEnd))
+            }
+            assertTrue(target.culminationAltitudeDeg >= 20.0)
+        }
+    }
+
+    @Test
+    fun tonightCursorEvaluationNormalisesInstantAndDegradesOnCatalogueFailure() {
+        val failingCatalog = object : ObjectCatalog {
+            override val dataVersion: String get() = "failing"
+            override fun allObjects(): List<DeepSkyObject> =
+                throw IllegalStateException("catalogue broken")
+            override fun byId(id: String): DeepSkyObject? = null
+        }
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = failingCatalog,
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val overview = useCase.execute(nyc, date)
+        // Seconds are dropped (minute precision) and the catalogue
+        // failure degrades explicitly instead of failing the evaluation.
+        val raw = date.atTime(23, 0).atZone(nyc.zone).toInstant().plusSeconds(37)
+        val evaluation = useCase.evaluateCursor(nyc, date, raw, overview.timeline)
+        assertEquals(0, evaluation.instant.epochSecond % 60)
+        assertFalse(evaluation.targetsAvailable)
+        assertTrue(evaluation.targets.isEmpty())
+        assertEquals(0, evaluation.totalShootable)
+    }
+
+    @Test
     fun tonightTimelineDegradesWithoutAstronomicalNight() {
         // Tromsø in mid-June: the Sun never drops to -18°, so there is no
         // astronomical night. Per the ui-design §7.4 degradation rule the

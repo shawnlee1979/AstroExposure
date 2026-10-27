@@ -20,6 +20,7 @@ import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.sky.MoonPhaseNames
 import app.astroexposure.domain.sky.SkyBrightness
 import app.astroexposure.domain.timeline.NightTimeline
+import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.support.ShowerDates
 import app.astroexposure.support.SkyAssembly
@@ -114,6 +115,46 @@ class TonightOverviewUseCase(
         val moonsetAzimuthDeg: Double?,
         val phaseName: MoonPhaseName,
         val illumination: Double,
+    )
+
+    /**
+     * One shootable target at the cursor instant (ui-design §7.5):
+     * its altitude and moonlight contribution at the cursor (the two
+     * ranking keys), the above-threshold arc intervals across the axis
+     * with the sampled culmination, and whether it is still rising at
+     * the cursor.
+     */
+    data class CursorTarget(
+        val obj: DeepSkyObject,
+        val altitudeDeg: Double,
+        val moonlightMcdPerM2: Double,
+        val arcIntervals: List<NightTimeline.Interval>,
+        val culmination: Instant,
+        val culminationAltitudeDeg: Double,
+        val rising: Boolean,
+    )
+
+    /**
+     * Everything the cursor state renders (ui-design §7.5): the status
+     * row's four items (solar segment + Sun altitude, moonlight tier,
+     * low-moonlight window membership), the bubble's Moon figures, and
+     * the ranked "shootable now" list. [targets] is capped at
+     * [TimelineCursor.MAX_DISPLAYED_TARGETS] for display and arcs;
+     * [totalShootable] counts every qualifying target.
+     * [targetsAvailable] is false when the object catalogue failed to
+     * load — the same explicit degradation as the whole-night list.
+     */
+    data class CursorEvaluation(
+        val instant: Instant,
+        val segment: NightTimeline.SunBand,
+        val sunAltitudeDeg: Double,
+        val moonAltitudeDeg: Double,
+        val moonIllumination: Double,
+        val moonInterference: TimelineCursor.MoonInterference,
+        val lowMoonStatus: TimelineCursor.LowMoonStatus,
+        val targets: List<CursorTarget>,
+        val totalShootable: Int,
+        val targetsAvailable: Boolean,
     )
 
     /** The three mutually exclusive states the events section can render. */
@@ -231,6 +272,123 @@ class TonightOverviewUseCase(
             lightPollutionInfo = lightPollutionInfo(location),
             sunDetail = sunDetail,
             moonDetail = moonDetail,
+        )
+    }
+
+    /**
+     * Evaluate one cursor instant (ui-design §7.5). The instant is
+     * normalised here as well as in the UI — truncated to the minute
+     * and clamped to the axis — so any caller gets the spec's minute
+     * precision. Moonlight contributions follow the existing
+     * [SkyAssembly] sampling definition (toward each target; toward
+     * the galactic centre for the status row), never a second formula.
+     * Per-target arcs are sampled at the timeline's 5-minute step and
+     * computed only for the displayed targets, keeping the ephemeris
+     * cost bounded by the display cap.
+     */
+    fun evaluateCursor(
+        location: GeoLocation,
+        date: LocalDate,
+        instant: Instant,
+        timeline: Timeline,
+        manualBortle: Int? = null,
+    ): CursorEvaluation {
+        val cursor = TimelineCursor.clampToAxis(
+            TimelineCursor.truncatedToMinute(instant), timeline.axisStart, timeline.axisEnd,
+        )
+        val night = ephemeris.astronomicalNight(location, date)
+        val sunAltitude = ephemeris.horizontalPosition(location, CelestialBody.SUN, cursor).altitude.value
+        val moonPosition = ephemeris.horizontalPosition(location, CelestialBody.MOON, cursor)
+        val gcTarget = EquatorialCoordinates(GC_RA_HOURS, Degrees(GC_DEC_DEG))
+        val gcSky = SkyAssembly.compose(ephemeris, lightPollution, location, cursor, gcTarget, manualBortle)
+        val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 +
+            (gcSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
+        val lowMoonStatus = TimelineCursor.lowMoonStatus(
+            cursor,
+            lowMoonlightWindows(location, night, gcSky).map {
+                NightTimeline.Interval(it.start, it.end)
+            },
+        )
+
+        val catalog = objectCatalog
+        val all = if (catalog == null) {
+            null
+        } else {
+            try {
+                catalog.allObjects()
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (all == null) {
+            return CursorEvaluation(
+                instant = cursor,
+                segment = NightTimeline.bandFor(sunAltitude),
+                sunAltitudeDeg = sunAltitude,
+                moonAltitudeDeg = moonPosition.altitude.value,
+                moonIllumination = gcSky.moonIllumination,
+                moonInterference = TimelineCursor.moonInterference(
+                    gcSky.moonlightMcdPerM2, baselineTotal,
+                ),
+                lowMoonStatus = lowMoonStatus,
+                targets = emptyList(),
+                totalShootable = 0,
+                targetsAvailable = catalog == null,
+            )
+        }
+
+        val evaluated = all.map { obj ->
+            val coords = EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg))
+            val altitude = ephemeris.altitudeOf(location, coords, cursor).value
+            val moonlight = if (altitude >= TimelineCursor.MIN_ALTITUDE_DEG) {
+                SkyAssembly.compose(
+                    ephemeris, lightPollution, location, cursor, coords, manualBortle,
+                ).moonlightMcdPerM2
+            } else {
+                0.0
+            }
+            Triple(obj, coords, TimelineCursor.Candidate(altitude, moonlight))
+        }
+        val ranked = TimelineCursor.rankShootable(evaluated.map { it.third })
+        val step = Duration.ofMinutes(NightTimeline.SAMPLE_STEP_MINUTES)
+        val targets = ranked.take(TimelineCursor.MAX_DISPLAYED_TARGETS).map { index ->
+            val (obj, coords, candidate) = evaluated[index]
+            val arcSamples = mutableListOf<TimelineCursor.AltitudeSample>()
+            var t = timeline.axisStart
+            while (!t.isAfter(timeline.axisEnd)) {
+                arcSamples += TimelineCursor.AltitudeSample(
+                    t, ephemeris.altitudeOf(location, coords, t).value,
+                )
+                t = t.plus(step)
+            }
+            val culmination = TimelineCursor.culminationOf(arcSamples)
+            CursorTarget(
+                obj = obj,
+                altitudeDeg = candidate.altitudeDeg,
+                moonlightMcdPerM2 = candidate.moonlightMcdPerM2,
+                arcIntervals = TimelineCursor.aboveThresholdIntervals(
+                    arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+                ),
+                culmination = culmination?.instant ?: cursor,
+                culminationAltitudeDeg = culmination?.altitudeDeg ?: candidate.altitudeDeg,
+                rising = ephemeris.altitudeOf(
+                    location, coords, cursor.plus(Duration.ofMinutes(15)),
+                ).value > candidate.altitudeDeg,
+            )
+        }
+        return CursorEvaluation(
+            instant = cursor,
+            segment = NightTimeline.bandFor(sunAltitude),
+            sunAltitudeDeg = sunAltitude,
+            moonAltitudeDeg = moonPosition.altitude.value,
+            moonIllumination = gcSky.moonIllumination,
+            moonInterference = TimelineCursor.moonInterference(
+                gcSky.moonlightMcdPerM2, baselineTotal,
+            ),
+            lowMoonStatus = lowMoonStatus,
+            targets = targets,
+            totalShootable = ranked.size,
+            targetsAvailable = true,
         )
     }
 
