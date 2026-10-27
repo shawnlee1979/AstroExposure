@@ -1,46 +1,76 @@
 package app.astroexposure
 
+import android.Manifest
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
-import app.astroexposure.ui.NpfScreen
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import app.astroexposure.domain.camera.Camera
+import app.astroexposure.domain.ephemeris.EquatorialCoordinates
+import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.domain.lens.Lens
+import app.astroexposure.domain.strictness.Strictness
+import app.astroexposure.domain.tracking.TrackingProfile
+import app.astroexposure.domain.units.ArcsecPerMinute
+import app.astroexposure.domain.units.Degrees
+import app.astroexposure.location.LocatedSite
+import app.astroexposure.location.LocationSource
+import app.astroexposure.persistence.AppRepository
+import app.astroexposure.persistence.SavedPlace
+import app.astroexposure.persistence.SavedPlan
+import app.astroexposure.support.LibraryTransfer
+import app.astroexposure.support.PlanTextExport
+import app.astroexposure.support.SkyAssembly
+import app.astroexposure.support.SkyContext
+import app.astroexposure.support.TimeHealthCheck
+import app.astroexposure.ui.CalculatorsScreen
+import app.astroexposure.ui.PlansScreen
+import app.astroexposure.ui.SettingsScreen
 import app.astroexposure.ui.TonightScreen
 import app.astroexposure.ui.theme.AstroTheme
+import app.astroexposure.usecase.TonightOverviewUseCase
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * Phase-1 walking skeleton: tonight overview + NPF calculator, red-light
- * toggle, zh/en switch. Time ("today") is read from the device clock HERE,
- * at the application boundary, and passed down as a value — the domain and
- * the ephemeris port never read the clock themselves (design §4.1, D.2).
+ * Phase-2 application shell: bottom four tabs (Tonight / Calculate /
+ * Plans / Settings, ui-design §3). The device clock and GPS are read HERE,
+ * at the application boundary, and passed down as values — the domain and
+ * the ports never read them (design §4.1, DEVELOPMENT-RULES.md D.2).
  */
 class MainActivity : AppCompatActivity() {
 
-    private val container = AppContainer()
+    private val container: AppContainer by lazy { AppContainer(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,40 +80,210 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private enum class Tab { TONIGHT, NPF }
+private enum class Tab { TONIGHT, CALCULATE, PLANS, SETTINGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AstroApp(container: AppContainer) {
-    var redLight by rememberSaveable { mutableStateOf(false) }
-    var tab by rememberSaveable { mutableStateOf(Tab.TONIGHT) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val repo = container.repository
 
-    val location = AppContainer.DEFAULT_LOCATION
-    val today = remember { LocalDate.now(location.zone) }
-    val overview = remember(today) { container.tonightOverview.execute(location, today) }
+    var tab by rememberSaveable { mutableStateOf(Tab.TONIGHT) }
+    var redLight by rememberSaveable { mutableStateOf(false) }
+    var redLightAuto by rememberSaveable { mutableStateOf(false) }
+    var defaultStrictness by rememberSaveable { mutableStateOf(Strictness.STANDARD) }
+
+    var cameras by remember { mutableStateOf<List<Pair<Camera, Boolean>>>(emptyList()) }
+    var lenses by remember { mutableStateOf<List<Pair<Lens, Boolean>>>(emptyList()) }
+    var profiles by remember { mutableStateOf<List<TrackingProfile>>(emptyList()) }
+    var places by remember { mutableStateOf<List<SavedPlace>>(emptyList()) }
+    var plans by remember { mutableStateOf<List<SavedPlan>>(emptyList()) }
+    var importMessage by remember { mutableStateOf<String?>(null) }
+
+    var site by remember {
+        mutableStateOf(
+            LocatedSite(AppContainer.DEFAULT_LOCATION, LocationSource.SAMPLE, null),
+        )
+    }
+    var manualBortle by remember { mutableStateOf<Int?>(null) }
+    var gpsFailed by remember { mutableStateOf(false) }
+    var healthTick by remember { mutableStateOf(0) }
+    var gpsTime by remember { mutableStateOf<Instant?>(null) }
+
+    val today = remember { LocalDate.now(ZoneId.systemDefault()) }
+    val location = site.location
+
+    suspend fun reloadLibrary() {
+        cameras = repo.cameras()
+        lenses = repo.lenses()
+        profiles = repo.trackingProfiles()
+        places = repo.places()
+        plans = repo.plans()
+    }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { repo.seedIfEmpty() }
+        val settings = withContext(Dispatchers.IO) { repo.settings() }
+        settings[AppRepository.KEY_DEFAULT_STRICTNESS]?.let { name ->
+            runCatching { Strictness.valueOf(name) }.getOrNull()?.let { defaultStrictness = it }
+        }
+        redLightAuto = settings[AppRepository.KEY_RED_LIGHT_AUTO] == "true"
+        withContext(Dispatchers.IO) { reloadLibrary() }
+        // If a last-known GPS fix exists, adopt it silently as the GPS channel.
+        container.locationProvider.lastKnown(ZoneId.systemDefault())?.let {
+            site = it
+            gpsTime = it.gpsTime
+        }
+    }
+
+    // Time health + auto red light are evaluated on every resume (design §2.2/§7.4).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                healthTick++
+                if (redLightAuto) {
+                    val sunset = container.ephemeris
+                        .sunEvents(location, LocalDate.now(location.zone)).sunset
+                    if (sunset != null && Instant.now().isAfter(sunset)) {
+                        redLight = true
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val timeHealth = remember(healthTick, location, gpsTime) {
+        TimeHealthCheck.evaluate(
+            systemZone = ZoneId.systemDefault(),
+            locationZone = location.zone,
+            systemNow = Instant.now(),
+            gpsTime = gpsTime,
+        )
+    }
+
+    var overview by remember { mutableStateOf<TonightOverviewUseCase.Result?>(null) }
+    LaunchedEffect(location, today, manualBortle) {
+        overview = withContext(Dispatchers.Default) {
+            container.tonightOverview.execute(location, today, manualBortle)
+        }
+    }
+    val sampleInstant = overview?.night?.dusk ?: Instant.now()
+    val skyFor: (EquatorialCoordinates) -> SkyContext = remember(location, manualBortle, sampleInstant) {
+        { target ->
+            SkyAssembly.compose(
+                container.ephemeris, container.lightPollution, location,
+                sampleInstant, target, manualBortle,
+            )
+        }
+    }
+
+    // --- Location channels -------------------------------------------------
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            container.locationProvider.requestSingle(ZoneId.systemDefault()) { fix ->
+                if (fix != null) {
+                    site = fix
+                    gpsTime = fix.gpsTime
+                    gpsFailed = false
+                    manualBortle = null
+                } else {
+                    gpsFailed = true
+                }
+            }
+        } else {
+            gpsFailed = true
+        }
+    }
+    val useGps: () -> Unit = {
+        if (container.locationProvider.hasPermission()) {
+            container.locationProvider.requestSingle(ZoneId.systemDefault()) { fix ->
+                if (fix != null) {
+                    site = fix
+                    gpsTime = fix.gpsTime
+                    gpsFailed = false
+                    manualBortle = null
+                } else {
+                    gpsFailed = true
+                }
+            }
+        } else {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // --- Plan export / import (thin intent wrappers) -------------------------
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+    val exportTextLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        val text = pendingExport
+        if (uri != null && text != null) {
+            scope.launch(Dispatchers.IO) {
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(text.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val text = pendingExport
+        if (uri != null && text != null) {
+            scope.launch(Dispatchers.IO) {
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(text.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                }
+                when (val result = text?.let { LibraryTransfer.import(it) }) {
+                    is LibraryTransfer.ImportResult.Ok -> {
+                        val backup = result.backup
+                        withContext(Dispatchers.IO) {
+                            backup.cameras.forEach {
+                                repo.upsertCamera(it, it.id in backup.customCameraIds)
+                            }
+                            backup.lenses.forEach {
+                                repo.upsertLens(it, it.id in backup.customLensIds)
+                            }
+                            backup.trackingProfiles.forEach { repo.upsertProfile(it) }
+                            backup.places.forEach { repo.upsertPlace(it) }
+                            backup.plans.forEach { repo.addPlan(it) }
+                            reloadLibrary()
+                        }
+                        importMessage = context.getString(
+                            R.string.plans_import_done,
+                            backup.cameras.size + backup.lenses.size +
+                                backup.trackingProfiles.size + backup.places.size +
+                                backup.plans.size,
+                            backup.skippedEntries,
+                        )
+                    }
+                    else -> importMessage = context.getString(R.string.plans_import_failed)
+                }
+            }
+        }
+    }
 
     AstroTheme(redLight = redLight) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.app_name)) },
-                    actions = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(end = 8.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.red_light),
-                                modifier = Modifier.padding(end = 4.dp),
-                            )
-                            Switch(checked = redLight, onCheckedChange = { redLight = it })
-                            TextButton(onClick = { toggleLanguage() }) {
-                                Text(stringResource(R.string.language_switch))
-                            }
-                        }
-                    },
-                )
+                TopAppBar(title = { Text(stringResource(R.string.app_name)) })
             },
             bottomBar = {
                 NavigationBar {
@@ -94,23 +294,213 @@ private fun AstroApp(container: AppContainer) {
                         label = { Text(stringResource(R.string.tab_tonight)) },
                     )
                     NavigationBarItem(
-                        selected = tab == Tab.NPF,
-                        onClick = { tab = Tab.NPF },
+                        selected = tab == Tab.CALCULATE,
+                        onClick = { tab = Tab.CALCULATE },
                         icon = {},
-                        label = { Text(stringResource(R.string.tab_npf)) },
+                        label = { Text(stringResource(R.string.tab_calculate)) },
+                    )
+                    NavigationBarItem(
+                        selected = tab == Tab.PLANS,
+                        onClick = { tab = Tab.PLANS },
+                        icon = {},
+                        label = { Text(stringResource(R.string.tab_plans)) },
+                    )
+                    NavigationBarItem(
+                        selected = tab == Tab.SETTINGS,
+                        onClick = { tab = Tab.SETTINGS },
+                        icon = {},
+                        label = { Text(stringResource(R.string.tab_settings)) },
                     )
                 }
             },
         ) { padding ->
             when (tab) {
-                Tab.TONIGHT -> TonightScreen(
-                    overview = overview,
+                Tab.TONIGHT -> overview?.let { result ->
+                    TonightScreen(
+                        overview = result,
+                        date = today,
+                        zone = location.zone,
+                        locationLabel = location.label
+                            ?: "%.4f, %.4f".format(
+                                location.latitude.value, location.longitude.value,
+                            ),
+                        locationSourceText = stringResource(
+                            when (site.source) {
+                                LocationSource.GPS -> R.string.location_source_gps
+                                LocationSource.MANUAL -> R.string.location_source_manual
+                                LocationSource.FAVOURITE -> R.string.location_source_favourite
+                                LocationSource.SAMPLE -> R.string.location_source_sample
+                            },
+                        ) + if (gpsFailed) " · " + stringResource(R.string.location_gps_failed) else "",
+                        timeHealth = timeHealth,
+                        redLight = redLight,
+                        onRedLightChange = { redLight = it },
+                        onUseGps = useGps,
+                        manualBortle = manualBortle,
+                        onManualBortleChange = { manualBortle = it },
+                        onManualLocation = { lat, lon ->
+                            site = LocatedSite(
+                                GeoLocation(
+                                    Degrees(lat), Degrees(lon), 0.0,
+                                    ZoneId.systemDefault(),
+                                ),
+                                LocationSource.MANUAL, null,
+                            )
+                            gpsFailed = false
+                        },
+                        modifier = Modifier.padding(padding),
+                    )
+                } ?: Text("…", modifier = Modifier.padding(padding))
+
+                Tab.CALCULATE -> CalculatorsScreen(
+                    container = container,
+                    cameras = cameras.map { it.first },
+                    lenses = lenses.map { it.first },
+                    profiles = profiles,
+                    showers = remember { container.showerCatalog.showers() },
+                    location = location,
                     date = today,
-                    zone = location.zone,
+                    defaultStrictness = defaultStrictness,
+                    sampleInstant = sampleInstant,
+                    skyFor = skyFor,
+                    onSavePlan = { category, title, body, payload ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.addPlan(
+                                SavedPlan(
+                                    id = 0,
+                                    createdAt = Instant.now(),
+                                    date = today,
+                                    category = category,
+                                    title = title,
+                                    bodyText = body,
+                                    payloadJson = payload,
+                                ),
+                            )
+                            plans = repo.plans()
+                        }
+                    },
                     modifier = Modifier.padding(padding),
                 )
-                Tab.NPF -> NpfScreen(
-                    useCase = container.npfCalculator,
+
+                Tab.PLANS -> PlansScreen(
+                    plans = plans,
+                    importMessage = importMessage,
+                    onDelete = { plan ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.deletePlan(plan)
+                            plans = repo.plans()
+                        }
+                    },
+                    onExportText = {
+                        pendingExport = PlanTextExport.plansToText(plans)
+                        exportTextLauncher.launch("astroexposure-plans.txt")
+                    },
+                    onExportJson = {
+                        pendingExport = LibraryTransfer.export(
+                            cameras = cameras,
+                            lenses = lenses,
+                            trackingProfiles = profiles,
+                            places = places,
+                            plans = plans,
+                            exportedAt = Instant.now(),
+                        )
+                        exportJsonLauncher.launch("astroexposure-backup.json")
+                    },
+                    onImportJson = {
+                        importLauncher.launch(arrayOf("application/json"))
+                    },
+                    modifier = Modifier.padding(padding),
+                )
+
+                Tab.SETTINGS -> SettingsScreen(
+                    cameras = cameras,
+                    lenses = lenses,
+                    profiles = profiles,
+                    places = places,
+                    defaultStrictness = defaultStrictness,
+                    onDefaultStrictnessChange = { tier ->
+                        defaultStrictness = tier
+                        scope.launch(Dispatchers.IO) {
+                            repo.putSetting(AppRepository.KEY_DEFAULT_STRICTNESS, tier.name)
+                        }
+                    },
+                    redLight = redLight,
+                    onRedLightChange = { redLight = it },
+                    redLightAuto = redLightAuto,
+                    onRedLightAutoChange = { auto ->
+                        redLightAuto = auto
+                        scope.launch(Dispatchers.IO) {
+                            repo.putSetting(AppRepository.KEY_RED_LIGHT_AUTO, auto.toString())
+                        }
+                    },
+                    onLanguageToggle = { toggleLanguage() },
+                    timeHealth = timeHealth,
+                    dataSourcesText = stringResource(
+                        R.string.data_sources_body,
+                        container.objectCatalog.dataVersion,
+                        container.lightPollution.dataVersion,
+                        container.eclipseCatalog.dataVersion,
+                        container.showerCatalog.dataVersion,
+                        container.lensCatalog.dataVersion,
+                    ),
+                    currentZone = ZoneId.systemDefault(),
+                    onAddCamera = { camera ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.upsertCamera(camera, custom = true)
+                            reloadLibrary()
+                        }
+                    },
+                    onDeleteCamera = { camera, custom ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.deleteCamera(camera, custom)
+                            reloadLibrary()
+                        }
+                    },
+                    onAddLens = { lens ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.upsertLens(lens, custom = true)
+                            reloadLibrary()
+                        }
+                    },
+                    onDeleteLens = { lens, custom ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.deleteLens(lens, custom)
+                            reloadLibrary()
+                        }
+                    },
+                    onSaveProfileDrift = { profile, typical, worst ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.upsertProfile(
+                                profile.copy(
+                                    typicalDrift = typical?.let { ArcsecPerMinute(it) },
+                                    worstDrift = worst?.let { ArcsecPerMinute(it) },
+                                    measuredOn = if (typical != null) {
+                                        LocalDate.now()
+                                    } else {
+                                        profile.measuredOn
+                                    },
+                                ),
+                            )
+                            reloadLibrary()
+                        }
+                    },
+                    onAddPlace = { place ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.upsertPlace(place)
+                            reloadLibrary()
+                        }
+                    },
+                    onDeletePlace = { place ->
+                        scope.launch(Dispatchers.IO) {
+                            repo.deletePlace(place)
+                            reloadLibrary()
+                        }
+                    },
+                    onUsePlace = { place ->
+                        site = LocatedSite(place.location, LocationSource.FAVOURITE, null)
+                        manualBortle = place.manualBortle
+                        tab = Tab.TONIGHT
+                    },
                     modifier = Modifier.padding(padding),
                 )
             }
