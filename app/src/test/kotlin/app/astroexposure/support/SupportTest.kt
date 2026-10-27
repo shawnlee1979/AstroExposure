@@ -50,6 +50,7 @@ private class FakeEphemeris(
         location: GeoLocation, target: EquatorialCoordinates, date: LocalDate, threshold: Degrees,
     ): TargetPass? = null
     override fun eclipsesBetween(from: Instant, to: Instant): List<EclipseEvent> = emptyList()
+    override fun moonPhaseAngle(instant: Instant): Degrees = Degrees(90.0)
 }
 
 private class FakeLp(private val value: Double?) : LightPollutionSource {

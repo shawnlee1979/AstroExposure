@@ -4,6 +4,7 @@ import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.EclipseRecord
 import app.astroexposure.domain.catalog.LightPollutionSource
+import app.astroexposure.domain.catalog.LightPollutionVersion
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
@@ -15,6 +16,8 @@ import app.astroexposure.domain.ephemeris.NightWindow
 import app.astroexposure.domain.ephemeris.SunEvents
 import app.astroexposure.domain.ephemeris.TargetPass
 import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.domain.sky.MoonPhaseName
+import app.astroexposure.domain.sky.MoonPhaseNames
 import app.astroexposure.domain.sky.SkyBrightness
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.units.Degrees
@@ -75,11 +78,42 @@ class TonightOverviewUseCase(
      * grid cell's artificial luminance and its Bortle estimate via the
      * domain's single conversion, plus the source's recorded data
      * version. [artificialMcdPerM2] is null where the grid has no data.
+     * [versionInfo] is the same header in structured form; the card's
+     * short display is composed from it (never the raw citation).
      */
     data class LightPollutionInfo(
         val artificialMcdPerM2: Double?,
         val bortleEstimate: Int?,
         val dataVersion: String,
+        val versionInfo: LightPollutionVersion? = null,
+    )
+
+    /**
+     * Sun detail behind the timeline's Sun marks (ui-design §7.4): the
+     * selected night's sunset and the following sunrise, each with the
+     * azimuth sampled from the ephemeris port at that instant. A field
+     * is null when the event does not occur (polar day/night).
+     */
+    data class SunDetail(
+        val sunset: Instant?,
+        val sunsetAzimuthDeg: Double?,
+        val sunrise: Instant?,
+        val sunriseAzimuthDeg: Double?,
+    )
+
+    /**
+     * Moon detail behind the timeline's Moon marks (ui-design §7.4):
+     * rise/set instants with azimuths sampled at those instants, plus
+     * the phase name (classified from the port's phase angle at dusk)
+     * and the illumination fraction shown elsewhere on the page.
+     */
+    data class MoonDetail(
+        val moonrise: Instant?,
+        val moonriseAzimuthDeg: Double?,
+        val moonset: Instant?,
+        val moonsetAzimuthDeg: Double?,
+        val phaseName: MoonPhaseName,
+        val illumination: Double,
     )
 
     /** The three mutually exclusive states the events section can render. */
@@ -113,6 +147,9 @@ class TonightOverviewUseCase(
         val timeline: Timeline,
         /** Null when no light-pollution source is configured or it failed to load. */
         val lightPollutionInfo: LightPollutionInfo? = null,
+        /** Detail data for the timeline mark dialogs (ui-design §7.4). */
+        val sunDetail: SunDetail,
+        val moonDetail: MoonDetail,
     ) {
         /** Events-section state, kept out of the composable so it is unit-testable. */
         val eventsDisplay: EventsDisplay
@@ -126,10 +163,30 @@ class TonightOverviewUseCase(
     fun execute(location: GeoLocation, date: LocalDate, manualBortle: Int? = null): Result {
         val night = ephemeris.astronomicalNight(location, date)
         val sun = ephemeris.sunEvents(location, date)
+        val nextSun = ephemeris.sunEvents(location, date.plusDays(1))
         val riseSet = ephemeris.moonRiseSet(location, date)
         val dusk = night?.dusk ?: date.atTime(12, 0).atZone(location.zone).toInstant()
         val illumination = ephemeris.moonIllumination(dusk)
         val gc = ephemeris.galacticCenterWindow(location, date)
+
+        // Mark-dialog details (ui-design §7.4): rise/set azimuths are
+        // the port's horizontal position sampled at the event instant.
+        fun azimuthAt(body: CelestialBody, instant: Instant?): Double? =
+            instant?.let { ephemeris.horizontalPosition(location, body, it).azimuth.value }
+        val sunDetail = SunDetail(
+            sunset = sun.sunset,
+            sunsetAzimuthDeg = azimuthAt(CelestialBody.SUN, sun.sunset),
+            sunrise = nextSun.sunrise,
+            sunriseAzimuthDeg = azimuthAt(CelestialBody.SUN, nextSun.sunrise),
+        )
+        val moonDetail = MoonDetail(
+            moonrise = riseSet.moonrise,
+            moonriseAzimuthDeg = azimuthAt(CelestialBody.MOON, riseSet.moonrise),
+            moonset = riseSet.moonset,
+            moonsetAzimuthDeg = azimuthAt(CelestialBody.MOON, riseSet.moonset),
+            phaseName = MoonPhaseNames.of(ephemeris.moonPhaseAngle(dusk)),
+            illumination = illumination,
+        )
 
         val sky = lightPollution?.let {
             SkyAssembly.compose(
@@ -148,7 +205,7 @@ class TonightOverviewUseCase(
             riseSet.moonset?.let { add(Moment(it, MomentKind.MOONSET)) }
             gc?.let { add(Moment(it.culmination, MomentKind.GC_CULMINATION)) }
             night?.let { add(Moment(it.dawn, MomentKind.ASTRO_DAWN)) }
-            ephemeris.sunEvents(location, date.plusDays(1)).sunrise?.let {
+            nextSun.sunrise?.let {
                 add(Moment(it, MomentKind.SUNRISE))
             }
         }.sortedBy { it.instant }
@@ -172,6 +229,8 @@ class TonightOverviewUseCase(
             moments = moments,
             timeline = buildTimeline(location, date, sun, night, gc),
             lightPollutionInfo = lightPollutionInfo(location),
+            sunDetail = sunDetail,
+            moonDetail = moonDetail,
         )
     }
 
@@ -214,16 +273,29 @@ class TonightOverviewUseCase(
             )
             t = t.plus(step)
         }
+        // Without an astronomical night the timeline degrades to the
+        // Sun/Moon curves plus the explicit no-night note (ui-design
+        // §7.4): the solar background bands and the galactic-centre
+        // interval band are absent, not merely unpainted.
+        val hasNight = night != null
         return Timeline(
             axisStart = axisStart,
             axisEnd = axisEnd,
             samples = samples,
-            bandSegments = NightTimeline.bandSegments(samples, axisStart, axisEnd),
-            moonAboveIntervals = NightTimeline.moonAboveIntervals(samples, axisStart, axisEnd),
-            galacticCenterInterval = gc?.let {
-                NightTimeline.clampToAxis(it.risesAbove, it.setsBelow, axisStart, axisEnd)
+            bandSegments = if (hasNight) {
+                NightTimeline.bandSegments(samples, axisStart, axisEnd)
+            } else {
+                emptyList()
             },
-            hasAstronomicalNight = night != null,
+            moonAboveIntervals = NightTimeline.moonAboveIntervals(samples, axisStart, axisEnd),
+            galacticCenterInterval = if (hasNight) {
+                gc?.let {
+                    NightTimeline.clampToAxis(it.risesAbove, it.setsBelow, axisStart, axisEnd)
+                }
+            } else {
+                null
+            },
+            hasAstronomicalNight = hasNight,
         )
     }
 
@@ -244,6 +316,7 @@ class TonightOverviewUseCase(
                     )
                 },
                 dataVersion = source.dataVersion,
+                versionInfo = source.versionInfo,
             )
         } catch (e: Exception) {
             null

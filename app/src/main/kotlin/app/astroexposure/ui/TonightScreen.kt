@@ -33,8 +33,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.astroexposure.R
+import app.astroexposure.domain.catalog.LightPollutionVersionFormat
 import app.astroexposure.domain.geo.Coordinates
 import app.astroexposure.domain.sky.BaselineSource
+import app.astroexposure.domain.sky.MoonPhaseName
+import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TonightDateWindow
 import app.astroexposure.support.TimeHealthCheck
 import app.astroexposure.usecase.TonightOverviewUseCase
@@ -145,22 +148,7 @@ fun TonightScreen(
         NightTimelineCard(
             timeline = overview.timeline,
             marks = overview.moments.map { moment ->
-                TimelineMark(
-                    label = stringResource(
-                        when (moment.kind) {
-                            TonightOverviewUseCase.MomentKind.SUNSET -> R.string.moment_sunset
-                            TonightOverviewUseCase.MomentKind.CIVIL_DUSK_END -> R.string.moment_civil_dusk
-                            TonightOverviewUseCase.MomentKind.NAUTICAL_DUSK_END -> R.string.moment_nautical_dusk
-                            TonightOverviewUseCase.MomentKind.ASTRO_DUSK -> R.string.moment_astro_dusk
-                            TonightOverviewUseCase.MomentKind.MOONRISE -> R.string.moment_moonrise
-                            TonightOverviewUseCase.MomentKind.MOONSET -> R.string.moment_moonset
-                            TonightOverviewUseCase.MomentKind.GC_CULMINATION -> R.string.moment_gc_culmination
-                            TonightOverviewUseCase.MomentKind.ASTRO_DAWN -> R.string.moment_astro_dawn
-                            TonightOverviewUseCase.MomentKind.SUNRISE -> R.string.moment_sunrise
-                        },
-                    ),
-                    instant = moment.instant,
-                )
+                timelineMarkFor(moment, overview, zone)
             },
             moonIllumination = overview.moonIllumination,
             lowMoonlightWindows = overview.lowMoonlightWindows,
@@ -275,6 +263,130 @@ fun TonightScreen(
 }
 
 /**
+ * Build the label-free timeline mark for one key moment (ui-design
+ * §7.4): Sun and Moon moments open the shared Sun / Moon detail (rise
+ * and set times with azimuths sampled at those instants; the Moon
+ * detail adds the phase name and illumination), twilight moments show
+ * the moment with the solar altitude that defines it, and the
+ * galactic-centre mark shows culmination time and altitude.
+ */
+@Composable
+private fun timelineMarkFor(
+    moment: TonightOverviewUseCase.Moment,
+    overview: TonightOverviewUseCase.Result,
+    zone: ZoneId,
+): TimelineMark {
+    fun twilightMark(titleRes: Int, solarAltitudeDeg: Double) = TimelineMark(
+        instant = moment.instant,
+        title = stringResource(titleRes),
+        lines = listOf(
+            stringResource(
+                R.string.detail_moment_altitude_line,
+                formatTime(moment.instant, zone),
+                solarAltitudeDeg,
+            ),
+        ),
+    )
+    return when (moment.kind) {
+        TonightOverviewUseCase.MomentKind.SUNSET,
+        TonightOverviewUseCase.MomentKind.SUNRISE -> {
+            val detail = overview.sunDetail
+            TimelineMark(
+                instant = moment.instant,
+                title = stringResource(R.string.detail_sun_title),
+                lines = buildList {
+                    if (detail.sunset != null) {
+                        add(
+                            stringResource(
+                                R.string.detail_sunset_line,
+                                formatTime(detail.sunset, zone),
+                                detail.sunsetAzimuthDeg ?: 0.0,
+                            ),
+                        )
+                    }
+                    if (detail.sunrise != null) {
+                        add(
+                            stringResource(
+                                R.string.detail_sunrise_line,
+                                formatTime(detail.sunrise, zone),
+                                detail.sunriseAzimuthDeg ?: 0.0,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+        TonightOverviewUseCase.MomentKind.MOONRISE,
+        TonightOverviewUseCase.MomentKind.MOONSET -> {
+            val detail = overview.moonDetail
+            TimelineMark(
+                instant = moment.instant,
+                title = stringResource(R.string.detail_moon_title),
+                lines = buildList {
+                    if (detail.moonrise != null) {
+                        add(
+                            stringResource(
+                                R.string.detail_moonrise_line,
+                                formatTime(detail.moonrise, zone),
+                                detail.moonriseAzimuthDeg ?: 0.0,
+                            ),
+                        )
+                    }
+                    if (detail.moonset != null) {
+                        add(
+                            stringResource(
+                                R.string.detail_moonset_line,
+                                formatTime(detail.moonset, zone),
+                                detail.moonsetAzimuthDeg ?: 0.0,
+                            ),
+                        )
+                    }
+                    add(
+                        stringResource(
+                            R.string.detail_moon_phase_line,
+                            stringResource(
+                                when (detail.phaseName) {
+                                    MoonPhaseName.NEW_MOON -> R.string.phase_new_moon
+                                    MoonPhaseName.WAXING_CRESCENT -> R.string.phase_waxing_crescent
+                                    MoonPhaseName.FIRST_QUARTER -> R.string.phase_first_quarter
+                                    MoonPhaseName.WAXING_GIBBOUS -> R.string.phase_waxing_gibbous
+                                    MoonPhaseName.FULL_MOON -> R.string.phase_full_moon
+                                    MoonPhaseName.WANING_GIBBOUS -> R.string.phase_waning_gibbous
+                                    MoonPhaseName.LAST_QUARTER -> R.string.phase_last_quarter
+                                    MoonPhaseName.WANING_CRESCENT -> R.string.phase_waning_crescent
+                                },
+                            ),
+                            Math.round(detail.illumination * 100),
+                        ),
+                    )
+                },
+            )
+        }
+        TonightOverviewUseCase.MomentKind.CIVIL_DUSK_END ->
+            twilightMark(R.string.moment_civil_dusk, NightTimeline.CIVIL_LIMIT_DEG)
+        TonightOverviewUseCase.MomentKind.NAUTICAL_DUSK_END ->
+            twilightMark(R.string.moment_nautical_dusk, NightTimeline.NAUTICAL_LIMIT_DEG)
+        TonightOverviewUseCase.MomentKind.ASTRO_DUSK ->
+            twilightMark(R.string.moment_astro_dusk, NightTimeline.ASTRONOMICAL_LIMIT_DEG)
+        TonightOverviewUseCase.MomentKind.ASTRO_DAWN ->
+            twilightMark(R.string.moment_astro_dawn, NightTimeline.ASTRONOMICAL_LIMIT_DEG)
+        TonightOverviewUseCase.MomentKind.GC_CULMINATION -> TimelineMark(
+            instant = moment.instant,
+            title = stringResource(R.string.moment_gc_culmination),
+            lines = listOf(
+                overview.galacticCenter?.let { gc ->
+                    stringResource(
+                        R.string.detail_gc_line,
+                        formatTime(gc.culmination, zone),
+                        gc.culminationAltitude.value,
+                    )
+                } ?: stringResource(R.string.detail_time_line, formatTime(moment.instant, zone)),
+            ),
+        )
+    }
+}
+
+/**
  * Location card (ui-design §7.2): positioning and light pollution in one
  * card. Coordinates are shown as numbers with an edit affordance and are
  * edited in place; the GPS button overwrites without confirmation. The
@@ -383,8 +495,16 @@ private fun LocationCard(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                // Short display composed from the grid header fields
+                // (ui-design §7.2), in the current UI language; the raw
+                // header string is the fallback when a field is missing.
+                val english = androidx.compose.ui.platform.LocalConfiguration.current
+                    .locales[0]?.language == "en"
+                val shortVersion = info.versionInfo?.let {
+                    LightPollutionVersionFormat.shortDisplay(it, english)
+                } ?: info.dataVersion
                 Text(
-                    text = stringResource(R.string.location_light_version, info.dataVersion),
+                    text = stringResource(R.string.location_light_version, shortVersion),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

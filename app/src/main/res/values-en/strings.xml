@@ -98,6 +98,26 @@
     <string name="timeline_low_moon_band">Low-moonlight window</string>
     <string name="common_close">Close</string>
 
+    <!-- Timeline mark details (ui-design §7.4) -->
+    <string name="detail_sun_title">Sun</string>
+    <string name="detail_moon_title">Moon</string>
+    <string name="detail_sunset_line">Sunset %1$s · azimuth %2$.1f°</string>
+    <string name="detail_sunrise_line">Sunrise %1$s · azimuth %2$.1f°</string>
+    <string name="detail_moonrise_line">Moonrise %1$s · azimuth %2$.1f°</string>
+    <string name="detail_moonset_line">Moonset %1$s · azimuth %2$.1f°</string>
+    <string name="detail_moon_phase_line">Phase %1$s · illumination %2$d%%</string>
+    <string name="detail_moment_altitude_line">Time %1$s · Sun altitude %2$.1f°</string>
+    <string name="detail_gc_line">Culmination %1$s · altitude %2$.1f°</string>
+    <string name="detail_time_line">Time %1$s</string>
+    <string name="phase_new_moon">New Moon</string>
+    <string name="phase_waxing_crescent">Waxing Crescent</string>
+    <string name="phase_first_quarter">First Quarter</string>
+    <string name="phase_waxing_gibbous">Waxing Gibbous</string>
+    <string name="phase_full_moon">Full Moon</string>
+    <string name="phase_waning_gibbous">Waning Gibbous</string>
+    <string name="phase_last_quarter">Last Quarter</string>
+    <string name="phase_waning_crescent">Waning Crescent</string>
+
     <string name="calc_title">Calculators</string>
     <string name="cat_landscape">Landscape + sky</string>
     <string name="cat_wide_field">Wide-field sky</string>

@@ -303,8 +303,10 @@ class UseCasesTest {
     @Test
     fun tonightTimelineDegradesWithoutAstronomicalNight() {
         // Tromsø in mid-June: the Sun never drops to -18°, so there is no
-        // astronomical night; the axis must still render (curves + bands
-        // derived from the samples) and say so via the flag.
+        // astronomical night. Per the ui-design §7.4 degradation rule the
+        // timeline then carries no background bands and no
+        // galactic-centre interval band — only the Sun/Moon curve
+        // samples and the explicit flag remain.
         val tromso = GeoLocation(
             latitude = Degrees(69.6492),
             longitude = Degrees(18.9553),
@@ -316,10 +318,41 @@ class UseCasesTest {
         assertEquals(null, result.night)
         assertFalse(result.timeline.hasAstronomicalNight)
         assertTrue(result.timeline.samples.isNotEmpty())
+        assertTrue(result.timeline.bandSegments.isEmpty())
+        assertEquals(null, result.timeline.galacticCenterInterval)
+    }
+
+    @Test
+    fun tonightMarkDetailsCarryAzimuthsAndPhaseName() {
+        // Detail data behind the timeline mark dialogs (ui-design §7.4):
+        // rise/set azimuths sampled at the event instants and the Moon
+        // phase name classified from the port's phase angle.
+        val useCase = TonightOverviewUseCase(ephemeris = ephemeris)
+        val date = LocalDate.of(2026, 8, 12)
+        val result = useCase.execute(nyc, date)
+        val sun = result.sunDetail
+        assertEquals(result.sunEvents.sunset, sun.sunset)
+        assertNotNull(sun.sunsetAzimuthDeg)
+        // Mid-August in New York the Sun sets in the west-northwest.
         assertTrue(
-            result.timeline.bandSegments.none {
-                it.band == app.astroexposure.domain.timeline.NightTimeline.SunBand.ASTRONOMICAL_NIGHT
-            },
+            "sunset azimuth ${sun.sunsetAzimuthDeg} outside the 270..310 sanity band",
+            sun.sunsetAzimuthDeg!! in 270.0..310.0,
+        )
+        assertNotNull(sun.sunrise)
+        assertNotNull(sun.sunriseAzimuthDeg)
+        assertTrue(sun.sunriseAzimuthDeg!! in 50.0..90.0)
+        val moon = result.moonDetail
+        assertEquals(result.moonrise, moon.moonrise)
+        assertEquals(result.moonset, moon.moonset)
+        if (moon.moonrise != null) assertTrue(moon.moonriseAzimuthDeg!! in 0.0..360.0)
+        if (moon.moonset != null) assertTrue(moon.moonsetAzimuthDeg!! in 0.0..360.0)
+        assertEquals(result.moonIllumination, moon.illumination, 1e-9)
+        // The phase name must be the classification of the port's angle
+        // at dusk — the same instant the illumination is sampled at.
+        val dusk = result.night!!.dusk
+        assertEquals(
+            app.astroexposure.domain.sky.MoonPhaseNames.of(ephemeris.moonPhaseAngle(dusk)),
+            moon.phaseName,
         )
     }
 
@@ -331,6 +364,24 @@ class UseCasesTest {
         val info = result.lightPollutionInfo
         assertNotNull(info)
         assertEquals(source.dataVersion, info!!.dataVersion)
+        // The structured header form rides along for the card's short
+        // display: the production grid is the full atlas grid built
+        // 2026-10-27 (header values recorded by the data pipeline).
+        assertEquals(source.versionInfo, info.versionInfo)
+        assertEquals(
+            app.astroexposure.domain.catalog.GridKind.FULL_GRID,
+            info.versionInfo!!.gridKind,
+        )
+        assertEquals(
+            "Falchi 2016 图谱 · 全量网格 2026-10-27",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat
+                .shortDisplay(info.versionInfo!!, english = false),
+        )
+        assertEquals(
+            "Falchi 2016 atlas · Full grid 2026-10-27",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat
+                .shortDisplay(info.versionInfo!!, english = true),
+        )
         assertNotNull(info.artificialMcdPerM2)
         assertTrue(info.bortleEstimate in 1..9)
         // Outside the grid's coverage (the full grid spans -60°..85°

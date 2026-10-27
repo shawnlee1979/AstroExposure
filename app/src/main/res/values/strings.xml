@@ -98,6 +98,26 @@
     <string name="timeline_low_moon_band">低月光窗口</string>
     <string name="common_close">关闭</string>
 
+    <!-- Timeline mark details (ui-design §7.4) -->
+    <string name="detail_sun_title">太阳</string>
+    <string name="detail_moon_title">月亮</string>
+    <string name="detail_sunset_line">日落 %1$s · 方位角 %2$.1f°</string>
+    <string name="detail_sunrise_line">日出 %1$s · 方位角 %2$.1f°</string>
+    <string name="detail_moonrise_line">月出 %1$s · 方位角 %2$.1f°</string>
+    <string name="detail_moonset_line">月落 %1$s · 方位角 %2$.1f°</string>
+    <string name="detail_moon_phase_line">月相 %1$s · 照明 %2$d%%</string>
+    <string name="detail_moment_altitude_line">时刻 %1$s · 太阳高度 %2$.1f°</string>
+    <string name="detail_gc_line">中天 %1$s · 中天高度 %2$.1f°</string>
+    <string name="detail_time_line">时刻 %1$s</string>
+    <string name="phase_new_moon">新月</string>
+    <string name="phase_waxing_crescent">娥眉月</string>
+    <string name="phase_first_quarter">上弦</string>
+    <string name="phase_waxing_gibbous">盈凸月</string>
+    <string name="phase_full_moon">满月</string>
+    <string name="phase_waning_gibbous">亏凸月</string>
+    <string name="phase_last_quarter">下弦</string>
+    <string name="phase_waning_crescent">残月</string>
+
     <!-- Calculators -->
     <string name="calc_title">计算器</string>
     <string name="cat_landscape">带地景星野</string>
