@@ -12,6 +12,8 @@ import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.EclipseRecord
 import app.astroexposure.domain.catalog.EclipseType
+import app.astroexposure.domain.catalog.MeteorShower
+import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.model.DeepSkyModel
@@ -276,6 +278,7 @@ class UseCasesTest {
                 it is TonightOverviewUseCase.Event.Shower && it.shower.iauCode == "PER"
             },
         )
+        assertEquals(TonightOverviewUseCase.EventsDisplay.LIST, result.eventsDisplay)
     }
 
     @Test
@@ -355,5 +358,44 @@ class UseCasesTest {
             result.events.any { it is TonightOverviewUseCase.Event.Shower },
         )
         assertNotNull(result.sunEvents.sunset)
+    }
+
+    @Test
+    fun tonightEventsDisplayIsUnavailableWhenAllEventCataloguesFail() {
+        val brokenEclipses = object : EclipseCatalog {
+            override fun eclipses(fromYear: Int, toYear: Int): List<EclipseRecord> =
+                throw JsonParseException("corrupt eclipses", 0)
+            override val dataVersion: String = "broken"
+        }
+        val brokenShowers = object : MeteorShowerCatalog {
+            override fun showers(): List<MeteorShower> =
+                throw JsonParseException("corrupt showers", 0)
+            override val dataVersion: String = "broken"
+        }
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            eclipseCatalog = brokenEclipses,
+            showerCatalog = brokenShowers,
+        )
+        val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        assertFalse(result.eventsAvailable)
+        assertTrue(result.events.isEmpty())
+        assertEquals(TonightOverviewUseCase.EventsDisplay.UNAVAILABLE, result.eventsDisplay)
+    }
+
+    @Test
+    fun tonightEventsDisplayIsNoneWhenHealthyCataloguesHaveNoNearbyEvent() {
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            eclipseCatalog = JsonEclipseCatalog(),
+            showerCatalog = JsonMeteorShowerCatalog(),
+        )
+        // 2026-06-10 sits in a genuine gap: the nearest shower peaks
+        // (ELY ~May 10, JPE ~Jul 8) and eclipses (Mar 3, Aug 12) are all
+        // far outside the ±3-day window.
+        val result = useCase.execute(nyc, LocalDate.of(2026, 6, 10))
+        assertTrue(result.eventsAvailable)
+        assertTrue(result.events.isEmpty())
+        assertEquals(TonightOverviewUseCase.EventsDisplay.NONE, result.eventsDisplay)
     }
 }

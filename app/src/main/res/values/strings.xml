@@ -57,6 +57,7 @@
     <string name="tonight_event_eclipse">%1$s · %2$s食（%3$s）</string>
     <string name="tonight_event_shower">%1$s · %2$s（峰值约 %3$s，ZHR %4$d）</string>
     <string name="tonight_events_none">±3 天内无食或流星雨峰值事件</string>
+    <string name="tonight_events_unavailable">事件不可用：事件目录加载失败</string>
     <string name="tonight_recommendations_title">今晚明亮深空目标（静态规则推荐）</string>
     <string name="tonight_recommendation_item">%1$s · %2$s 等 · 过中天 %3$s / %4$.0f°</string>
     <string name="tonight_recommendations_none">今晚无符合规则（≤6.5 等、过中天 ≥40°）的目标</string>

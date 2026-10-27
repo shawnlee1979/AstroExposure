@@ -57,6 +57,7 @@
     <string name="tonight_event_eclipse">%1$s · %2$s eclipse (%3$s)</string>
     <string name="tonight_event_shower">%1$s · %2$s (peak approx. %3$s, ZHR %4$d)</string>
     <string name="tonight_events_none">No eclipse or shower peak within ±3 days</string>
+    <string name="tonight_events_unavailable">Events unavailable: the event catalogue failed to load</string>
     <string name="tonight_recommendations_title">Bright deep-sky targets tonight (static rules)</string>
     <string name="tonight_recommendation_item">%1$s · mag %2$s · culmination %3$s / %4$.0f°</string>
     <string name="tonight_recommendations_none">No target matches the rules tonight (mag ≤ 6.5, culmination ≥ 40°)</string>

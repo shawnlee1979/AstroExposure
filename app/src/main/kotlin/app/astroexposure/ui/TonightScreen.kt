@@ -276,10 +276,12 @@ fun TonightScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 SectionTitle(stringResource(R.string.tonight_events_title))
-                if (overview.events.isEmpty()) {
-                    Text(text = stringResource(R.string.tonight_events_none))
-                } else {
-                    overview.events.forEach { event ->
+                when (overview.eventsDisplay) {
+                    TonightOverviewUseCase.EventsDisplay.UNAVAILABLE ->
+                        Text(text = stringResource(R.string.tonight_events_unavailable))
+                    TonightOverviewUseCase.EventsDisplay.NONE ->
+                        Text(text = stringResource(R.string.tonight_events_none))
+                    TonightOverviewUseCase.EventsDisplay.LIST -> overview.events.forEach { event ->
                         when (event) {
                             is TonightOverviewUseCase.Event.Eclipse -> Text(
                                 text = stringResource(

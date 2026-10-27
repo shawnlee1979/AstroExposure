@@ -50,6 +50,9 @@ class TonightOverviewUseCase(
 
     data class RecommendedObject(val obj: DeepSkyObject, val pass: TargetPass)
 
+    /** The three mutually exclusive states the events section can render. */
+    enum class EventsDisplay { UNAVAILABLE, NONE, LIST }
+
     sealed interface Event {
         data class Eclipse(val record: EclipseRecord) : Event
         data class Shower(val shower: MeteorShower, val approxPeakDate: LocalDate, val daysFromPeak: Double) : Event
@@ -75,7 +78,15 @@ class TonightOverviewUseCase(
         /** False when the object catalogue failed to load (see recommendations()). */
         val recommendationsAvailable: Boolean,
         val moments: List<Moment>,
-    )
+    ) {
+        /** Events-section state, kept out of the composable so it is unit-testable. */
+        val eventsDisplay: EventsDisplay
+            get() = when {
+                !eventsAvailable -> EventsDisplay.UNAVAILABLE
+                events.isEmpty() -> EventsDisplay.NONE
+                else -> EventsDisplay.LIST
+            }
+    }
 
     fun execute(location: GeoLocation, date: LocalDate, manualBortle: Int? = null): Result {
         val night = ephemeris.astronomicalNight(location, date)
