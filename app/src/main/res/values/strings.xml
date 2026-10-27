@@ -131,6 +131,7 @@
     <string name="landscape_step_5">5. 两帧白平衡可不同，合成在后期完成。</string>
     <string name="landscape_note">地景帧参数为经验量级，不适用 NPF / 漂移 / swamp 模型。</string>
     <string name="landscape_sky_unmeasured">天空帧按不跟踪 NPF 给出（跟踪档案未实测，见广域星空卡的公式说明）。</string>
+    <string name="landscape_blue_hour_skipped">蓝调帧已跳过（不在蓝调时刻）</string>
 
     <string name="deepsky_target_class">目标类型</string>
     <string name="deepsky_class_bright">明亮星团 / 星云（1–2 小时）</string>
@@ -146,6 +147,7 @@
     <string name="deepsky_cap_ceiling">子曝光已达单帧经验上限 600 秒，按上限拍、靠总时长补。</string>
     <string name="deepsky_degraded_title">数据不足——降级输出</string>
     <string name="deepsky_tracking_unmeasured">跟踪档案未实测：未施加跟踪封顶，子曝光只受 600 秒单帧上限约束。</string>
+    <string name="qe_defaulted_note">注：机身未记录 QE，天光速率按默认 QE 0.5 估算。</string>
 
     <string name="eclipse_mode_moon">月亮</string>
     <string name="eclipse_mode_solar">日食</string>

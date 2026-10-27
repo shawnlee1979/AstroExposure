@@ -130,6 +130,7 @@
     <string name="landscape_step_5">5. The two frames may use different white balance; compositing happens in post.</string>
     <string name="landscape_note">Foreground parameters are empirical magnitudes; the NPF / drift / swamp models do not apply to them.</string>
     <string name="landscape_sky_unmeasured">Sky frame shown at the untracked NPF value (tracking profile unmeasured — see the formula note on the wide-field card).</string>
+    <string name="landscape_blue_hour_skipped">Blue-hour frame skipped (outside blue hour)</string>
 
     <string name="deepsky_target_class">Target class</string>
     <string name="deepsky_class_bright">Bright clusters / nebulae (1–2 h)</string>
@@ -145,6 +146,7 @@
     <string name="deepsky_cap_ceiling">The sub-exposure hit the 600 s single-frame empirical ceiling; shoot at the ceiling and make it up in total time.</string>
     <string name="deepsky_degraded_title">Insufficient data — degraded output</string>
     <string name="deepsky_tracking_unmeasured">Tracking profile unmeasured: no tracking cap applied; only the 600 s single-frame ceiling constrains the sub-exposure.</string>
+    <string name="qe_defaulted_note">Note: the body records no QE; the sky rate uses the default QE 0.5.</string>
 
     <string name="eclipse_mode_moon">Moon</string>
     <string name="eclipse_mode_solar">Solar eclipse</string>

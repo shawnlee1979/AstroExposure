@@ -471,6 +471,12 @@ private fun LandscapeCalculator(
                 Text(text = stringResource(R.string.landscape_stack_frames, it.first, it.last))
             }
         }
+        if (LandscapeModel.ForegroundMethod.BLUE_HOUR in res.skippedMethods) {
+            Text(
+                text = stringResource(R.string.landscape_blue_hour_skipped),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         SectionTitle(stringResource(R.string.landscape_workflow_title))
         listOf(
             R.string.landscape_step_1, R.string.landscape_step_2, R.string.landscape_step_3,
@@ -591,6 +597,13 @@ private fun DeepSkyCalculator(
             }
             if (result.trackingUnmeasured) {
                 Text(text = stringResource(R.string.deepsky_tracking_unmeasured))
+            }
+            if (outcome.qeDefaulted) {
+                Text(
+                    text = stringResource(R.string.qe_defaulted_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Text(
                 text = outcome.skyUncertaintyNote,
@@ -898,6 +911,13 @@ private fun MeteorCalculator(
         )
         if (res.skyCapUnavailable) {
             Text(text = stringResource(R.string.meteor_sky_cap_unavailable))
+        }
+        if (res.qeDefaulted) {
+            Text(
+                text = stringResource(R.string.qe_defaulted_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Text(
             text = if (res.dataGb != null) {
