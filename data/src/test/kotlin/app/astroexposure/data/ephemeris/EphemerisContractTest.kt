@@ -1,14 +1,20 @@
 package app.astroexposure.data.ephemeris
 
+import app.astroexposure.domain.ephemeris.CelestialBody
+import app.astroexposure.domain.ephemeris.EclipseKind
 import app.astroexposure.domain.ephemeris.EphemerisProvider
+import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.units.Degrees
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 /**
@@ -25,6 +31,27 @@ import org.junit.Test
  *   90 - |lat - dec| = 90 - |40.7128 - (-29.0)| = 20.29°.
  * Tolerances follow design §4.2 (twilight ±3 min, moonrise/set ±5 min,
  * illumination ±3 points, altitude ±0.5°).
+ *
+ * Phase-2 goldens, collected 2026-10-26:
+ * - NYC sun events 2026-10-26 (timeanddate.com sun table for New York):
+ *   sunrise 07:19 EDT, sunset 17:59 EDT, civil dusk ends 18:27 EDT,
+ *   nautical dusk ends 19:00 EDT. Tolerances per the phase-2 brief:
+ *   sunset ±4 min, civil dusk end ±5 min (sunrise/nautical held to the
+ *   same fixed tolerances).
+ * - NYC Moon position 2026-10-26 21:00 EDT (timeanddate.com moon table for
+ *   New York): moonrise 17:58 EDT that evening, meridian passing the
+ *   following 01:29 EDT at 70.9 degrees altitude — so at 21:00 the Moon is
+ *   still in the EASTERN sky. Spherical geometry from those public
+ *   rise/transit anchors gives altitude about 31 degrees, azimuth about
+ *   89 degrees (tolerance ±10 degrees on azimuth, altitude > 0 with a
+ *   25–38 degree sanity band).
+ * - Galactic centre via targetPass at Los Angeles (34.0522, -118.2437):
+ *   culmination altitude by the same spherical identity,
+ *   90 - |34.0522 - (-29.0)| = 26.95 degrees (inside the 26–31 degree
+ *   band), tolerance ±1.5 degrees.
+ * - 2026 eclipse events (NASA GSFC eclipse catalogue, Espenak & Meeus):
+ *   2026-02-17 annular solar, 2026-03-03 total lunar, 2026-08-12 total
+ *   solar, 2026-08-28 partial lunar; peak dates asserted within ±1 day.
  */
 class EphemerisContractTest {
 
@@ -70,5 +97,67 @@ class EphemerisContractTest {
         val window = provider.galacticCenterWindow(nyc, LocalDate.of(2026, 6, 18))
         assertNotNull(window)
         assertEquals(20.29, window!!.culminationAltitude.value, 0.5)
+    }
+
+    @Test
+    fun `sun events match public ephemeris`() {
+        val events = provider.sunEvents(nyc, LocalDate.of(2026, 10, 26))
+        // 07:19 / 17:59 / 18:27 / 19:00 EDT = 11:19 / 21:59 / 22:27 / 23:00 UTC.
+        assertInstantClose("2026-10-26T11:19:00Z", events.sunrise, 240)
+        assertInstantClose("2026-10-26T21:59:00Z", events.sunset, 240)
+        assertInstantClose("2026-10-26T22:27:00Z", events.civilDuskEnd, 300)
+        assertInstantClose("2026-10-26T23:00:00Z", events.nauticalDuskEnd, 300)
+    }
+
+    @Test
+    fun `moon horizontal position in the eastern sky before transit`() {
+        val at2100 = ZonedDateTime.of(2026, 10, 26, 21, 0, 0, 0, ZoneId.of("America/New_York"))
+        val pos = provider.horizontalPosition(nyc, CelestialBody.MOON, at2100.toInstant())
+        assertTrue("moon altitude ${pos.altitude.value} not > 0", pos.altitude.value > 0.0)
+        assertTrue(
+            "moon altitude ${pos.altitude.value} outside the 25-38 degree sanity band",
+            pos.altitude.value in 25.0..38.0,
+        )
+        assertEquals(89.0, pos.azimuth.value, 10.0)
+    }
+
+    @Test
+    fun `target pass for the galactic centre at Los Angeles`() {
+        val losAngeles = GeoLocation(
+            latitude = Degrees(34.0522),
+            longitude = Degrees(-118.2437),
+            zone = ZoneId.of("America/Los_Angeles"),
+        )
+        val galacticCentre = EquatorialCoordinates(17.75, Degrees(-29.0))
+        val pass = provider.targetPass(losAngeles, galacticCentre, LocalDate.of(2026, 6, 18), Degrees(20.0))
+        assertNotNull(pass)
+        assertEquals(26.95, pass!!.culminationAltitude.value, 1.5)
+        assertNotNull(pass.risesAbove)
+        assertNotNull(pass.setsBelow)
+        assertTrue(pass.risesAbove!!.isBefore(pass.culmination))
+        assertTrue(pass.culmination.isBefore(pass.setsBelow))
+    }
+
+    @Test
+    fun `eclipses of 2026 match the NASA catalogue events`() {
+        val events = provider.eclipsesBetween(
+            Instant.parse("2026-01-01T00:00:00Z"),
+            Instant.parse("2027-01-01T00:00:00Z"),
+        )
+        fun assertEvent(kind: EclipseKind, type: String, date: LocalDate) {
+            val match = events.firstOrNull { e ->
+                e.kind == kind && e.type == type &&
+                    kotlin.math.abs(
+                        e.peak.atOffset(ZoneOffset.UTC).toLocalDate().toEpochDay() - date.toEpochDay(),
+                    ) <= 1
+            }
+            if (match == null) {
+                fail("no $kind $type eclipse within ±1 day of $date in $events")
+            }
+        }
+        assertEvent(EclipseKind.SOLAR, "ANNULAR", LocalDate.of(2026, 2, 17))
+        assertEvent(EclipseKind.LUNAR, "TOTAL", LocalDate.of(2026, 3, 3))
+        assertEvent(EclipseKind.SOLAR, "TOTAL", LocalDate.of(2026, 8, 12))
+        assertEvent(EclipseKind.LUNAR, "PARTIAL", LocalDate.of(2026, 8, 28))
     }
 }

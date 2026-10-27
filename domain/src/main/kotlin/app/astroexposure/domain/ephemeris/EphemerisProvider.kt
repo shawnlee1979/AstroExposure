@@ -47,7 +47,76 @@ interface EphemerisProvider {
         date: LocalDate,
         minAltitude: Degrees = Degrees(20.0),
     ): GalacticCenterWindow?
+
+    // --- Phase-2 additions (G.4: members added, none removed) ---
+
+    /** Horizontal position (altitude + azimuth, degrees) of the Sun or Moon at [instant]. */
+    fun horizontalPosition(location: GeoLocation, body: CelestialBody, instant: Instant): HorizontalCoordinates
+
+    /**
+     * Sun events for the civil [date] at [location]: sunrise, sunset and the
+     * ends of civil (-6°) and nautical (-12°) dusk. Any field is null when the
+     * event does not occur on that date (polar day/night).
+     */
+    fun sunEvents(location: GeoLocation, date: LocalDate): SunEvents
+
+    /**
+     * Passage of an arbitrary [target] during the night of [date], with the
+     * same semantics as [galacticCenterWindow] but for any coordinates and a
+     * default threshold of 30° (design §7.2 key points). Returns null when
+     * the target never reaches [threshold] that night.
+     */
+    fun targetPass(
+        location: GeoLocation,
+        target: EquatorialCoordinates,
+        date: LocalDate,
+        threshold: Degrees = Degrees(30.0),
+    ): TargetPass?
+
+    /**
+     * Eclipse events with peak in [[from], [to]) — event-level forecasts only
+     * (design §5.4.2: no local contact times at this layer).
+     */
+    fun eclipsesBetween(from: Instant, to: Instant): List<EclipseEvent>
 }
+
+/** Bodies whose horizontal position the port can report. */
+enum class CelestialBody { SUN, MOON }
+
+/** Altitude and azimuth in degrees; azimuth measured from north, eastward. */
+data class HorizontalCoordinates(val altitude: Degrees, val azimuth: Degrees)
+
+data class SunEvents(
+    val sunrise: Instant?,
+    val sunset: Instant?,
+    val civilDuskEnd: Instant?,
+    val nauticalDuskEnd: Instant?,
+)
+
+/** A target's passage above a threshold during one night (design §7.2). */
+data class TargetPass(
+    /** When the target rises above the threshold; null if already above at dusk. */
+    val risesAbove: Instant?,
+    val culmination: Instant,
+    val culminationAltitude: Degrees,
+    /** When the target drops below the threshold; null if still above at dawn. */
+    val setsBelow: Instant?,
+)
+
+/** Which body is eclipsed, at the event level of the catalogue (design §6.1). */
+enum class EclipseKind { SOLAR, LUNAR }
+
+/**
+ * One eclipse event. [type] is the engine/catalogue classification string
+ * (e.g. "Total", "Annular", "Partial", "Penumbral"); [obscuration] is the
+ * peak obscured fraction of the eclipsed body's disc in [0, 1].
+ */
+data class EclipseEvent(
+    val kind: EclipseKind,
+    val type: String,
+    val peak: Instant,
+    val obscuration: Double,
+)
 
 /** Dusk (astronomical twilight end) and dawn (astronomical twilight begin). */
 data class NightWindow(val dusk: Instant, val dawn: Instant)

@@ -39,6 +39,3 @@ data-pipeline/tmp/
 # OS / misc
 Thumbs.db
 *.log
-
-# Data pipeline cache (downloaded upstream files, regenerated)
-scripts/.cache/
