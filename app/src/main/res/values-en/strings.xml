@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AstroExposure</string>
+
+    <string name="tab_tonight">Tonight</string>
+    <string name="tab_npf">NPF Calculator</string>
+
+    <string name="sample_location_label">Built-in sample site: New York (40.7128, −74.0060)</string>
+    <string name="tonight_date">Astronomical night of %1$s</string>
+    <string name="tonight_dusk">Night begins (astronomical twilight ends)</string>
+    <string name="tonight_dawn">Night ends (astronomical twilight begins)</string>
+    <string name="tonight_no_night">No full astronomical night tonight</string>
+    <string name="moon_illumination">Moon illumination</string>
+    <string name="moonrise">Moonrise</string>
+    <string name="moonset">Moonset</string>
+    <string name="moon_event_none">none that day</string>
+    <string name="gc_title">Galactic centre window (altitude ≥ 20°)</string>
+    <string name="gc_culmination">Culmination %1$s · max %2$.1f°</string>
+    <string name="gc_window">Above 20° from %1$s · below 20° at %2$s</string>
+    <string name="gc_edge_open">Already above 20° at dusk</string>
+    <string name="gc_edge_close">Still above 20° at dawn</string>
+    <string name="gc_not_visible">The galactic centre does not reach 20° tonight</string>
+
+    <string name="npf_camera">Camera</string>
+    <string name="npf_focal">Focal length (mm)</string>
+    <string name="npf_aperture">Aperture f/</string>
+    <string name="npf_declination">Target declination (°, negative = south)</string>
+    <string name="npf_strictness">Strictness</string>
+    <string name="strictness_strict">Strict</string>
+    <string name="strictness_standard">Standard</string>
+    <string name="strictness_relaxed">Relaxed</string>
+    <string name="npf_result_label">Longest shutter (no trailing)</string>
+    <string name="npf_result_value">%1$.1f s</string>
+    <string name="npf_reason">NPF full formula: k = %1$d (%2$s tier), pixel pitch %3$.2f µm. Rule-of-500 comparison %4$.0f s — shown for reference only, not the recommendation.</string>
+    <string name="npf_capped_note">Declination capped at ±85°: near the pole, trailing stops being the limit; sky brightness and thermal noise decide instead.</string>
+
+    <string name="red_light">Red light</string>
+    <string name="language_switch">中文</string>
+</resources>

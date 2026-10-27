@@ -1,0 +1,28 @@
+name: Android
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Unit and contract tests
+        run: ./gradlew :domain:test :data:test
+
+      - name: Lint and release build
+        # Unsigned without key.properties (developer-only signing material);
+        # this step proves the release variant assembles from a clean tree.
+        run: ./gradlew lint assembleRelease

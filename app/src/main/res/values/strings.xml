@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default locale: Chinese (design §8.1). English lives in values-en. -->
+<resources>
+    <string name="app_name">曝光参谋</string>
+
+    <string name="tab_tonight">今晚概览</string>
+    <string name="tab_npf">NPF 计算器</string>
+
+    <string name="sample_location_label">内置示例地点：纽约（40.7128, −74.0060）</string>
+    <string name="tonight_date">%1$s 的天文夜</string>
+    <string name="tonight_dusk">天文夜开始（天文暮光结束）</string>
+    <string name="tonight_dawn">天文夜结束（天文暮光开始）</string>
+    <string name="tonight_no_night">今晚没有完整天文夜</string>
+    <string name="moon_illumination">月相照明比</string>
+    <string name="moonrise">月出</string>
+    <string name="moonset">月落</string>
+    <string name="moon_event_none">当日无</string>
+    <string name="gc_title">银心窗口（高度 ≥ 20°）</string>
+    <string name="gc_culmination">过中天 %1$s · 最高 %2$.1f°</string>
+    <string name="gc_window">%1$s 起高于 20° · %2$s 跌破 20°</string>
+    <string name="gc_edge_open">入夜时已高于 20°</string>
+    <string name="gc_edge_close">天亮时仍高于 20°</string>
+    <string name="gc_not_visible">今晚银心达不到 20° 高度</string>
+
+    <string name="npf_camera">相机</string>
+    <string name="npf_focal">焦距（mm）</string>
+    <string name="npf_aperture">光圈 f/</string>
+    <string name="npf_declination">目标赤纬（°，南纬为负）</string>
+    <string name="npf_strictness">严苛档位</string>
+    <string name="strictness_strict">严格</string>
+    <string name="strictness_standard">标准</string>
+    <string name="strictness_relaxed">宽松</string>
+    <string name="npf_result_label">最长快门（星点不拖线）</string>
+    <string name="npf_result_value">%1$.1f 秒</string>
+    <string name="npf_reason">NPF 完整式：k = %1$d（%2$s档），像素间距 %3$.2f µm。500 法则对照 %4$.0f 秒——仅作对照，不作推荐。</string>
+    <string name="npf_capped_note">赤纬已按 ±85° 封顶：近天极时拖线不再是限制因素，实际时长改由天光与热噪声决定。</string>
+
+    <string name="red_light">红光模式</string>
+    <string name="language_switch">EN</string>
+</resources>
