@@ -17,7 +17,10 @@ import java.time.ZoneId
  * - Known simplifications include: Arizona (listed under the mountain
  *   box, most of the state does not observe daylight saving), the
  *   Aleutian Islands (listed under Alaska), Newfoundland (listed under
- *   Atlantic Canada) and north-eastern India near the China box.
+ *   Atlantic Canada), north-eastern India near the China box and
+ *   western Iberia (the Portugal box matches before the Spain box, so
+ *   Galicia and its surroundings resolve to Europe/Lisbon, one hour
+ *   behind Madrid).
  * - Coordinates outside every box (oceans, central Asia, much of Russia,
  *   parts of Africa and South America) do not resolve at all.
  *

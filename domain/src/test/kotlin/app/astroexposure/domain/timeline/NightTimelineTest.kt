@@ -79,21 +79,29 @@ class NightTimelineTest {
     }
 
     @Test
-    fun placeMarkersStaggersRowsAndShiftsOnCollision() {
-        val markers = listOf(
-            NightTimeline.MarkerInput(0.10, 0.10),
-            NightTimeline.MarkerInput(0.13, 0.10), // collides with the first label
-            NightTimeline.MarkerInput(0.16, 0.10), // collides with both rows' occupants
-            NightTimeline.MarkerInput(0.90, 0.10),
-        )
-        val placed = NightTimeline.placeMarkers(markers)
-        assertEquals(0, placed[0].row)
-        assertEquals(1, placed[1].row) // second row instead of overlapping
-        // Third label cannot overlap row 0's first label: it must start at or after its end + gap.
-        assertTrue(placed[2].leftFraction >= placed[0].leftFraction + 0.10)
-        assertEquals(1, placed[3].row) // stagger continues: fourth label takes row 1
-        // Right-edge label is shifted back inside the axis.
-        assertTrue(placed[3].leftFraction + 0.10 <= 1.0 + 1e-9)
+    fun axisMinFollowsTheDeepestSampleWithMargin() {
+        // Deepest sample -12° -> margin and 5° step give -20°.
+        val shallow = listOf(sample(0, -12.0, -3.0), sample(5, -5.0, -8.0))
+        assertEquals(-20.0, NightTimeline.axisMinAltitudeDeg(shallow), 1e-9)
+        // A Moon well below the horizon (routine at mid latitudes: the
+        // Moon can reach about -60° to -78°) is drawn in full, not
+        // clipped at the former fixed -20° floor.
+        val deep = listOf(sample(0, -30.0, -78.0), sample(5, -20.0, -40.0))
+        assertEquals(-85.0, NightTimeline.axisMinAltitudeDeg(deep), 1e-9)
+    }
+
+    @Test
+    fun axisMinClampsAtMinusNinetyAndKeepsTheHorizonReadable() {
+        // Nothing can be sampled below -90° in practice, but the clamp
+        // is pinned so the axis can never pass the floor.
+        val extreme = listOf(sample(0, -95.0, -92.0))
+        assertEquals(-90.0, NightTimeline.axisMinAltitudeDeg(extreme), 1e-9)
+        // Polar-day style series that never set: the lower bound still
+        // reaches below 0° so the horizon line stays inside the chart.
+        val polarDay = listOf(sample(0, 8.0, 12.0), sample(5, 4.0, 20.0))
+        assertEquals(-5.0, NightTimeline.axisMinAltitudeDeg(polarDay), 1e-9)
+        // No samples: the documented fallback.
+        assertEquals(-20.0, NightTimeline.axisMinAltitudeDeg(emptyList()), 1e-9)
     }
 
     @Test

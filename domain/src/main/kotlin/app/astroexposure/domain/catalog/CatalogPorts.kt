@@ -24,6 +24,16 @@ interface LightPollutionSource {
     fun artificialBrightnessMcdPerM2(location: GeoLocation): Double?
 
     val dataVersion: String
+
+    /**
+     * The data set's header in structured form, for the location card's
+     * short display (ui-design §7.2). The default derives what it can
+     * from [dataVersion] alone (the grid kind stays unknown, so the
+     * short display falls back to the raw string); adapters whose
+     * header carries a separate grid-kind field override this.
+     */
+    val versionInfo: LightPollutionVersion
+        get() = LightPollutionVersionFormat.parse(dataVersion, null)
 }
 
 /** Deep-sky object catalogue (design §6.1: OpenNGC-derived subset). */

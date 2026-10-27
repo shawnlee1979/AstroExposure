@@ -78,6 +78,17 @@ interface EphemerisProvider {
      * (design §5.4.2: no local contact times at this layer).
      */
     fun eclipsesBetween(from: Instant, to: Instant): List<EclipseEvent>
+
+    // --- 0.4.1 addition (G.4: member added, none removed) ---
+
+    /**
+     * Moon phase angle θ at [instant]: the Moon's geocentric ecliptic
+     * longitude minus the Sun's, in [0°, 360°) (0° = new moon,
+     * 90° = first quarter, 180° = full moon, 270° = last quarter).
+     * This is the input of the phase-name classification in
+     * `MoonPhaseNames` (ui-design §7.4).
+     */
+    fun moonPhaseAngle(instant: Instant): Degrees
 }
 
 /** Bodies whose horizontal position the port can report. */

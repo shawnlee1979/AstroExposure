@@ -4,10 +4,12 @@ import java.time.Instant
 
 /**
  * Pure layout mathematics for the Tonight timeline (ui-design §7.4): the
- * background band segmentation, the Moon-above-horizon intervals and the
- * two-row marker-label placement. Everything here is a pure function of
- * its inputs — the caller samples the ephemeris port and supplies the
- * axis; nothing reads a clock, a file or a device (rules D.1/D.2).
+ * background band segmentation, the Moon-above-horizon intervals and
+ * the altitude-axis range. Everything here is a pure function of its
+ * inputs — the caller samples the ephemeris port and supplies the axis;
+ * nothing reads a clock, a file or a device (rules D.1/D.2). (Marker
+ * labels and their two-row placement were retired with the 0.4.1
+ * marker revision: marks are ticks only, details open on tap.)
  *
  * Band thresholds are the standard twilight definitions (public
  * reference values): civil twilight ends when the Sun's centre is 6°
@@ -21,9 +23,6 @@ object NightTimeline {
     const val CIVIL_LIMIT_DEG = -6.0
     const val NAUTICAL_LIMIT_DEG = -12.0
     const val ASTRONOMICAL_LIMIT_DEG = -18.0
-
-    /** Minimum horizontal gap between two marker labels on one row (layout spacing, empirical). */
-    const val MARKER_GAP_FRACTION = 0.01
 
     enum class SunBand { DAY, CIVIL_TWILIGHT, NAUTICAL_TWILIGHT, ASTRONOMICAL_TWILIGHT, ASTRONOMICAL_NIGHT }
 
@@ -110,44 +109,32 @@ object NightTimeline {
         return ((instant.epochSecond - axisStart.epochSecond).toDouble() / total).coerceIn(0.0, 1.0)
     }
 
-    data class MarkerInput(val positionFraction: Double, val labelWidthFraction: Double)
+    /** Margin below the deepest sample on the altitude axis (layout spacing, empirical). */
+    const val AXIS_MIN_MARGIN_DEG = 5.0
 
-    data class MarkerPlacement(val row: Int, val leftFraction: Double)
+    /** The axis never extends below the geometric nadir direction. */
+    const val AXIS_MIN_FLOOR_DEG = -90.0
+
+    /** Fallback lower bound when there are no samples at all. */
+    const val AXIS_MIN_DEFAULT_DEG = -20.0
+
+    /** The axis always reaches at least this far below the horizon, so the 0° line stays readable. */
+    const val AXIS_MIN_SHALLOWEST_DEG = -5.0
 
     /**
-     * Two-row staggered marker placement (ui-design §7.4): markers are
-     * placed in time order, alternating rows by position in that order;
-     * a label keeps its centred position unless it would overlap the
-     * previous label on its row, in which case it shifts right; when the
-     * preferred row cannot fit it without overflowing the axis end the
-     * other row is tried, and when neither fits the row with more room
-     * wins and the label sits at that row's free edge.
+     * Lower bound of the altitude axis (ui-design §7.4): derived from
+     * the sampled Sun/Moon series itself, not a fixed value — the
+     * deepest sample minus [AXIS_MIN_MARGIN_DEG], rounded down to a
+     * whole 5° step, clamped to [[AXIS_MIN_FLOOR_DEG],
+     * [AXIS_MIN_SHALLOWEST_DEG]] so the axis never goes below −90° and
+     * the horizon (0°) reference always stays inside the chart even on
+     * polar-day series whose samples never dip below the horizon.
      */
-    fun placeMarkers(markers: List<MarkerInput>): List<MarkerPlacement> {
-        val result = arrayOfNulls<MarkerPlacement>(markers.size)
-        val rowEnd = doubleArrayOf(0.0, 0.0)
-        val order = markers.indices.sortedBy { markers[it].positionFraction }
-        for ((sequence, index) in order.withIndex()) {
-            val width = markers[index].labelWidthFraction.coerceIn(0.0, 1.0)
-            val centred = (markers[index].positionFraction - width / 2.0).coerceIn(0.0, 1.0 - width)
-            val preferred = sequence % 2
-            var placed: MarkerPlacement? = null
-            for (row in listOf(preferred, 1 - preferred)) {
-                val left = maxOf(centred, rowEnd[row])
-                if (left + width <= 1.0 + 1e-9) {
-                    placed = MarkerPlacement(row, left)
-                    rowEnd[row] = left + width + MARKER_GAP_FRACTION
-                    break
-                }
-            }
-            if (placed == null) {
-                val row = if (rowEnd[0] <= rowEnd[1]) 0 else 1
-                val left = maxOf(centred, rowEnd[row]).coerceAtMost(1.0)
-                placed = MarkerPlacement(row, left)
-                rowEnd[row] = left + width + MARKER_GAP_FRACTION
-            }
-            result[index] = placed
-        }
-        return result.map { it!! }
+    fun axisMinAltitudeDeg(samples: List<Sample>): Double {
+        if (samples.isEmpty()) return AXIS_MIN_DEFAULT_DEG
+        val deepest = samples.minOf { minOf(it.sunAltitudeDeg, it.moonAltitudeDeg) }
+        val withMargin = deepest - AXIS_MIN_MARGIN_DEG
+        val stepped = kotlin.math.floor(withMargin / 5.0) * 5.0
+        return stepped.coerceIn(AXIS_MIN_FLOOR_DEG, AXIS_MIN_SHALLOWEST_DEG)
     }
 }
