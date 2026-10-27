@@ -52,6 +52,7 @@ enum class FormError {
     LONGITUDE_OUT_OF_RANGE,
     BORTLE_OUT_OF_RANGE,
     DRIFT_NEGATIVE,
+    NON_FINITE_VALUE,
 }
 
 sealed interface FormResult<out T> {
@@ -112,6 +113,12 @@ fun validateCustomCamera(
     pixelsY: Int,
 ): FormResult<Camera> {
     if (name.isBlank()) return FormResult.Invalid(FormError.BLANK_NAME)
+    // NaN fails every comparison below, so finiteness is checked first:
+    // a non-finite dimension must never reach the database (it would also
+    // poison the JSON backup export).
+    if (!sensorWidthMm.isFinite() || !sensorHeightMm.isFinite()) {
+        return FormResult.Invalid(FormError.NON_FINITE_VALUE)
+    }
     if (sensorWidthMm <= 0.0 || sensorHeightMm <= 0.0) {
         return FormResult.Invalid(FormError.NON_POSITIVE_DIMENSION)
     }
@@ -161,6 +168,11 @@ fun validateCustomLens(
     maxApertureAtMaxFocal: Double?,
 ): FormResult<Lens> {
     if (name.isBlank()) return FormResult.Invalid(FormError.BLANK_NAME)
+    if (!focalMinMm.isFinite() || !focalMaxMm.isFinite() || !maxAperture.isFinite() ||
+        (maxApertureAtMaxFocal != null && !maxApertureAtMaxFocal.isFinite())
+    ) {
+        return FormResult.Invalid(FormError.NON_FINITE_VALUE)
+    }
     if (focalMinMm <= 0.0 || focalMaxMm <= 0.0) {
         return FormResult.Invalid(FormError.NON_POSITIVE_DIMENSION)
     }
@@ -212,6 +224,11 @@ fun TrackingProfileEntity.toDomain(): TrackingProfile = TrackingProfile(
 
 /** Validate a baseline-measurement entry for a profile (design §2.5). */
 fun validateDriftEntry(typicalArcsecPerMin: Double?, worstArcsecPerMin: Double?): FormError? {
+    if ((typicalArcsecPerMin != null && !typicalArcsecPerMin.isFinite()) ||
+        (worstArcsecPerMin != null && !worstArcsecPerMin.isFinite())
+    ) {
+        return FormError.NON_FINITE_VALUE
+    }
     if ((typicalArcsecPerMin != null && typicalArcsecPerMin < 0.0) ||
         (worstArcsecPerMin != null && worstArcsecPerMin < 0.0)
     ) {

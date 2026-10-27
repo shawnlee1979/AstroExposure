@@ -121,4 +121,18 @@ class MappersTest {
         assertNull(validateDriftEntry(10.0, 20.0))
         assertNull(validateDriftEntry(null, null))
     }
+
+    @Test
+    fun validationRejectsNonFiniteNumbers() {
+        // NaN passes every ordered comparison, so without an explicit
+        // finiteness check it used to sail into the database.
+        val cam = validateCustomCamera("c", "Cam", Double.NaN, 24.0, 6000, 4000)
+        assertEquals(FormError.NON_FINITE_VALUE, (cam as FormResult.Invalid).error)
+        val lens = validateCustomLens("l", "L", "E", 24.0, 70.0, Double.NaN, null)
+        assertEquals(FormError.NON_FINITE_VALUE, (lens as FormResult.Invalid).error)
+        val lensInf = validateCustomLens("l", "L", "E", 24.0, Double.POSITIVE_INFINITY, 2.8, null)
+        assertEquals(FormError.NON_FINITE_VALUE, (lensInf as FormResult.Invalid).error)
+        assertEquals(FormError.NON_FINITE_VALUE, validateDriftEntry(Double.NaN, null))
+        assertEquals(FormError.NON_FINITE_VALUE, validateDriftEntry(null, Double.NEGATIVE_INFINITY))
+    }
 }

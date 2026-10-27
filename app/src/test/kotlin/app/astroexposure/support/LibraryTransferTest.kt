@@ -105,4 +105,40 @@ class LibraryTransferTest {
         assertTrue(text.contains("Perseids"))
         assertTrue(text.contains("second line"))
     }
+
+    @Test
+    fun exportIsAlwaysParseableJson() {
+        // The export must be valid JSON by construction: JsonMini (the
+        // strict reader used on import) accepts it end to end.
+        val parsed = app.astroexposure.data.catalog.JsonMini.parse(sampleExport())
+        assertTrue(parsed is app.astroexposure.data.catalog.JsonValue.Obj)
+    }
+
+    @Test
+    fun exportRefusesNonFiniteValues() {
+        // A NaN that reached the library anyway must not produce an
+        // un-importable backup: export fails loudly instead.
+        val badLens = lens.copy(maxAperture = Double.NaN)
+        try {
+            LibraryTransfer.export(
+                cameras = emptyList(),
+                lenses = listOf(badLens to true),
+                trackingProfiles = emptyList(),
+                places = emptyList(),
+                plans = emptyList(),
+                exportedAt = Instant.parse("2026-10-26T00:00:00Z"),
+            )
+            org.junit.Assert.fail("expected IllegalArgumentException for a NaN export")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("non-finite"))
+        }
+    }
+
+    @Test
+    fun deeplyNestedImportFailsCleanly() {
+        val deep = "{\"format\":\"astroexposure-backup\",\"x\":" +
+            "[".repeat(500) + "]".repeat(500) + "}"
+        val result = LibraryTransfer.import(deep)
+        assertTrue(result is LibraryTransfer.ImportResult.Failed)
+    }
 }

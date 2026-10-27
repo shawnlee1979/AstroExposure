@@ -146,12 +146,18 @@ object LibraryTransfer {
         data class Failed(val reason: String) : ImportResult
     }
 
-    fun import(text: String): ImportResult {
-        val root = try {
-            JsonMini.parse(text)
-        } catch (e: JsonParseException) {
-            return ImportResult.Failed("JSON parse error: ${e.message}")
-        }
+    fun import(text: String): ImportResult = try {
+        importDocument(text)
+    } catch (e: JsonParseException) {
+        ImportResult.Failed("JSON parse error: ${e.message}")
+    } catch (e: Exception) {
+        // Defensive: importing a user-supplied document must end in
+        // Failed, never in an uncaught error escaping to the UI.
+        ImportResult.Failed("import failed: ${e.message}")
+    }
+
+    private fun importDocument(text: String): ImportResult {
+        val root = JsonMini.parse(text)
         val obj = root as? JsonValue.Obj
             ?: return ImportResult.Failed("top level is not a JSON object")
         if (obj.str("format") != FORMAT) {
@@ -343,8 +349,12 @@ object LibraryTransfer {
     private fun obj(vararg fields: Pair<String, String>): String =
         fields.joinToString(", ", "{", "}") { (k, v) -> "${quoted(k)}: $v" }
 
-    private fun num(v: Double): String =
-        if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
+    private fun num(v: Double): String {
+        // NaN / Infinity are not legal JSON numbers: refuse the export
+        // loudly rather than writing a backup that can never be re-imported.
+        require(v.isFinite()) { "non-finite value cannot be exported as JSON: $v" }
+        return if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
+    }
 
     private fun optNum(v: Double?): String = v?.let { num(it) } ?: "null"
 
