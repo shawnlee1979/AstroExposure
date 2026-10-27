@@ -7,6 +7,7 @@ import app.astroexposure.domain.catalog.LightPollutionSource
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.ephemeris.CelestialBody
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.ephemeris.GalacticCenterWindow
@@ -15,6 +16,7 @@ import app.astroexposure.domain.ephemeris.SunEvents
 import app.astroexposure.domain.ephemeris.TargetPass
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.sky.SkyBrightness
+import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.support.ShowerDates
 import app.astroexposure.support.SkyAssembly
@@ -50,6 +52,36 @@ class TonightOverviewUseCase(
 
     data class RecommendedObject(val obj: DeepSkyObject, val pass: TargetPass)
 
+    /**
+     * Everything the static four-layer timeline draws (ui-design §7.4):
+     * the axis span, the 5-minute Sun/Moon altitude samples, the solar
+     * band segmentation and Moon-up spans derived from those samples in
+     * the domain layer, and the galactic-centre window clamped to the
+     * axis (open edges clamp to the axis ends).
+     */
+    data class Timeline(
+        val axisStart: Instant,
+        val axisEnd: Instant,
+        val samples: List<NightTimeline.Sample>,
+        val bandSegments: List<NightTimeline.BandSegment>,
+        val moonAboveIntervals: List<NightTimeline.Interval>,
+        val galacticCenterInterval: NightTimeline.Interval?,
+        /** False on nights with no astronomical night: the axis then shows curves only. */
+        val hasAstronomicalNight: Boolean,
+    )
+
+    /**
+     * Site light pollution for the location card (ui-design §7.2): the
+     * grid cell's artificial luminance and its Bortle estimate via the
+     * domain's single conversion, plus the source's recorded data
+     * version. [artificialMcdPerM2] is null where the grid has no data.
+     */
+    data class LightPollutionInfo(
+        val artificialMcdPerM2: Double?,
+        val bortleEstimate: Int?,
+        val dataVersion: String,
+    )
+
     /** The three mutually exclusive states the events section can render. */
     enum class EventsDisplay { UNAVAILABLE, NONE, LIST }
 
@@ -78,6 +110,9 @@ class TonightOverviewUseCase(
         /** False when the object catalogue failed to load (see recommendations()). */
         val recommendationsAvailable: Boolean,
         val moments: List<Moment>,
+        val timeline: Timeline,
+        /** Null when no light-pollution source is configured or it failed to load. */
+        val lightPollutionInfo: LightPollutionInfo? = null,
     ) {
         /** Events-section state, kept out of the composable so it is unit-testable. */
         val eventsDisplay: EventsDisplay
@@ -135,7 +170,84 @@ class TonightOverviewUseCase(
             recommendations = shortlist,
             recommendationsAvailable = shortlistOk,
             moments = moments,
+            timeline = buildTimeline(location, date, sun, night, gc),
+            lightPollutionInfo = lightPollutionInfo(location),
         )
+    }
+
+    /**
+     * Timeline axis and samples (ui-design §7.4). The normal span is
+     * sunset −1 h to next-morning sunrise +1 h. When rise/set events do
+     * not occur (polar day/night) the axis falls back to the astronomical
+     * night widened by three hours on each side — a display span only,
+     * never presented as rise/set precision — and when there is no
+     * night either, to the civil day containing the evening (local noon
+     * to local noon), so the curves still render without inventing
+     * events.
+     */
+    private fun buildTimeline(
+        location: GeoLocation,
+        date: LocalDate,
+        sun: SunEvents,
+        night: NightWindow?,
+        gc: GalacticCenterWindow?,
+    ): Timeline {
+        val nextSunrise = ephemeris.sunEvents(location, date.plusDays(1)).sunrise
+        val sunset = sun.sunset
+        val (axisStart, axisEnd) = when {
+            sunset != null && nextSunrise != null ->
+                sunset.minus(Duration.ofHours(1)) to nextSunrise.plus(Duration.ofHours(1))
+            night != null ->
+                night.dusk.minus(Duration.ofHours(3)) to night.dawn.plus(Duration.ofHours(3))
+            else ->
+                date.atTime(12, 0).atZone(location.zone).toInstant() to
+                    date.plusDays(1).atTime(12, 0).atZone(location.zone).toInstant()
+        }
+        val step = Duration.ofMinutes(NightTimeline.SAMPLE_STEP_MINUTES)
+        val samples = mutableListOf<NightTimeline.Sample>()
+        var t = axisStart
+        while (!t.isAfter(axisEnd)) {
+            samples += NightTimeline.Sample(
+                instant = t,
+                sunAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.SUN, t).altitude.value,
+                moonAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.MOON, t).altitude.value,
+            )
+            t = t.plus(step)
+        }
+        return Timeline(
+            axisStart = axisStart,
+            axisEnd = axisEnd,
+            samples = samples,
+            bandSegments = NightTimeline.bandSegments(samples, axisStart, axisEnd),
+            moonAboveIntervals = NightTimeline.moonAboveIntervals(samples, axisStart, axisEnd),
+            galacticCenterInterval = gc?.let {
+                NightTimeline.clampToAxis(it.risesAbove, it.setsBelow, axisStart, axisEnd)
+            },
+            hasAstronomicalNight = night != null,
+        )
+    }
+
+    /**
+     * Location-card light pollution. A source that fails to load is an
+     * explicit no-data outcome (null), never a guessed value: the card
+     * then offers the manual Bortle fallback (design §2.8).
+     */
+    private fun lightPollutionInfo(location: GeoLocation): LightPollutionInfo? {
+        val source = lightPollution ?: return null
+        return try {
+            val artificial = source.artificialBrightnessMcdPerM2(location)
+            LightPollutionInfo(
+                artificialMcdPerM2 = artificial,
+                bortleEstimate = artificial?.let {
+                    SkyBrightness.bortleFromMpsas(
+                        SkyBrightness.totalToMpsas(SkyBrightness.NATURAL_SKY_MCD_M2 + it),
+                    )
+                },
+                dataVersion = source.dataVersion,
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**

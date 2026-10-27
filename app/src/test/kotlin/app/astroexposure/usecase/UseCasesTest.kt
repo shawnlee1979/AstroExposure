@@ -267,6 +267,84 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightTimelineSpansSunsetMinusOneHourToSunrisePlusOneHour() {
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val result = useCase.execute(nyc, date)
+        val timeline = result.timeline
+        val nextSunrise = ephemeris.sunEvents(nyc, date.plusDays(1)).sunrise
+        assertNotNull(result.sunEvents.sunset)
+        assertNotNull(nextSunrise)
+        assertEquals(result.sunEvents.sunset!!.minusSeconds(3600), timeline.axisStart)
+        assertEquals(nextSunrise!!.plusSeconds(3600), timeline.axisEnd)
+        // Samples run at the 5-minute step across the whole axis.
+        assertTrue(timeline.samples.size > 100)
+        for (i in 0 until timeline.samples.size - 1) {
+            assertEquals(300L, timeline.samples[i + 1].instant.epochSecond - timeline.samples[i].instant.epochSecond)
+        }
+        // Bands cover the axis end to end and include the astronomical night.
+        assertEquals(timeline.axisStart, timeline.bandSegments.first().start)
+        assertEquals(timeline.axisEnd, timeline.bandSegments.last().end)
+        assertTrue(
+            timeline.bandSegments.any {
+                it.band == app.astroexposure.domain.timeline.NightTimeline.SunBand.ASTRONOMICAL_NIGHT
+            },
+        )
+        assertTrue(timeline.hasAstronomicalNight)
+        // The galactic-centre interval, when present, lies inside the axis.
+        timeline.galacticCenterInterval?.let {
+            assertTrue(!it.start.isBefore(timeline.axisStart) && !it.end.isAfter(timeline.axisEnd))
+        }
+    }
+
+    @Test
+    fun tonightTimelineDegradesWithoutAstronomicalNight() {
+        // Tromsø in mid-June: the Sun never drops to -18°, so there is no
+        // astronomical night; the axis must still render (curves + bands
+        // derived from the samples) and say so via the flag.
+        val tromso = GeoLocation(
+            latitude = Degrees(69.6492),
+            longitude = Degrees(18.9553),
+            heightMeters = 0.0,
+            zone = ZoneId.of("Europe/Oslo"),
+        )
+        val useCase = TonightOverviewUseCase(ephemeris = ephemeris)
+        val result = useCase.execute(tromso, LocalDate.of(2026, 6, 15))
+        assertEquals(null, result.night)
+        assertFalse(result.timeline.hasAstronomicalNight)
+        assertTrue(result.timeline.samples.isNotEmpty())
+        assertTrue(
+            result.timeline.bandSegments.none {
+                it.band == app.astroexposure.domain.timeline.NightTimeline.SunBand.ASTRONOMICAL_NIGHT
+            },
+        )
+    }
+
+    @Test
+    fun tonightLightPollutionInfoCarriesGridValueAndVersion() {
+        val source = GridLightPollutionSource()
+        val useCase = TonightOverviewUseCase(ephemeris = ephemeris, lightPollution = source)
+        val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        val info = result.lightPollutionInfo
+        assertNotNull(info)
+        assertEquals(source.dataVersion, info!!.dataVersion)
+        assertNotNull(info.artificialMcdPerM2)
+        assertTrue(info.bortleEstimate in 1..9)
+        // Open ocean has no grid data: the value is null, never guessed.
+        val ocean = GeoLocation(
+            latitude = Degrees(0.0), longitude = Degrees(-150.0),
+            heightMeters = 0.0, zone = ZoneId.of("UTC"),
+        )
+        val oceanInfo = useCase.execute(ocean, LocalDate.of(2026, 8, 12)).lightPollutionInfo
+        assertNotNull(oceanInfo)
+        assertEquals(null, oceanInfo!!.artificialMcdPerM2)
+        assertEquals(null, oceanInfo.bortleEstimate)
+    }
+
+    @Test
     fun tonightOverviewFindsPerseidsEventNearPeak() {
         val useCase = TonightOverviewUseCase(
             ephemeris = ephemeris,
