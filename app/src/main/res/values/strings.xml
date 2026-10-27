@@ -139,6 +139,7 @@
     <string name="deepsky_class_faint">极暗目标（6 小时以上）</string>
     <string name="deepsky_sub">子曝光</string>
     <string name="deepsky_other_c">另一 swamp 系数 C=%1$d 时子曝光 %2$.0f 秒（对照）</string>
+    <string name="deepsky_other_c_uncapped">另一 swamp 系数 C=%1$d 时子曝光 %2$.0f 秒（未封顶比较值）</string>
     <string name="deepsky_total">总时长约 %1$.1f 小时（经验分档 %2$.0f–%3$.0f 小时）· 约 %4$d 张 · 约 %5$s GB</string>
     <string name="deepsky_total_no_data">总时长约 %1$.1f 小时（经验分档 %2$.0f–%3$.0f 小时）· 约 %4$d 张 · 数据量未知（机身未记录单帧大小）</string>
     <string name="deepsky_unverified_gain">注意：该机身照片模式双增益点未经核实，ISO 为保守口径值。</string>

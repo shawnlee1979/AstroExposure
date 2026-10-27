@@ -138,6 +138,7 @@
     <string name="deepsky_class_faint">Very faint targets (6 h and up)</string>
     <string name="deepsky_sub">Sub-exposure</string>
     <string name="deepsky_other_c">With the other swamp coefficient C=%1$d the sub-exposure is %2$.0f s (comparison)</string>
+    <string name="deepsky_other_c_uncapped">With the other swamp coefficient C=%1$d the sub-exposure is %2$.0f s (uncapped comparison value)</string>
     <string name="deepsky_total">Total ≈ %1$.1f h (empirical band %2$.0f–%3$.0f h) · ≈ %4$d frames · ≈ %5$s GB</string>
     <string name="deepsky_total_no_data">Total ≈ %1$.1f h (empirical band %2$.0f–%3$.0f h) · ≈ %4$d frames · data volume unknown (body records no frame size)</string>
     <string name="deepsky_unverified_gain">Note: this body\'s photo-mode dual-gain point is unverified; the ISO is the conservative fallback value.</string>

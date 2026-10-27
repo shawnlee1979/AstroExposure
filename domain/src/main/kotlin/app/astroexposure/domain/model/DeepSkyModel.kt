@@ -86,6 +86,13 @@ object DeepSkyModel {
             /** Sub-exposure under the OTHER tier's C, for comparison (design §5.3). */
             val subExposureOtherCSeconds: Double,
             val otherC: Int,
+            /**
+             * True when the primary value was capped and the uncapped
+             * other-C comparison still exceeds that same cap; the UI must
+             * label the comparison as uncapped rather than imply that the
+             * guardrails were applied to it as well.
+             */
+            val otherCComparisonUncapped: Boolean,
             val capReasons: Set<CapReason>,
             val totalHoursRepresentative: Double,
             val totalHoursMin: Double,
@@ -164,6 +171,8 @@ object DeepSkyModel {
             sub = SINGLE_FRAME_CAP_SECONDS
             caps += CapReason.SINGLE_FRAME_CEILING
         }
+        val effectiveCap = listOfNotNull(trackingCap, SINGLE_FRAME_CAP_SECONDS).min()
+        val otherCComparisonUncapped = caps.isNotEmpty() && rawOther > effectiveCap
 
         val totalSeconds = input.targetClass.totalHoursRepresentative * 3600.0
         val frames = ceil(totalSeconds / sub).toInt()
@@ -181,6 +190,7 @@ object DeepSkyModel {
             subExposureSeconds = sub,
             subExposureOtherCSeconds = rawOther,
             otherC = otherC,
+            otherCComparisonUncapped = otherCComparisonUncapped,
             capReasons = caps,
             totalHoursRepresentative = input.targetClass.totalHoursRepresentative,
             totalHoursMin = input.targetClass.totalHoursMin,

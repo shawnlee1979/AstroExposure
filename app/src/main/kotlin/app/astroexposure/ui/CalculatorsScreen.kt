@@ -572,7 +572,14 @@ private fun DeepSkyCalculator(
                 BigStat(stringResource(R.string.result_frames), outcome.frameCount.toString())
             }
             Text(
-                text = stringResource(R.string.deepsky_other_c, outcome.otherC, outcome.subExposureOtherCSeconds),
+                text = stringResource(
+                    if (outcome.otherCComparisonUncapped) {
+                        R.string.deepsky_other_c_uncapped
+                    } else {
+                        R.string.deepsky_other_c
+                    },
+                    outcome.otherC, outcome.subExposureOtherCSeconds,
+                ),
             )
             Text(
                 text = if (outcome.dataGb != null) {

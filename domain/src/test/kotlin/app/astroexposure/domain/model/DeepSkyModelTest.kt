@@ -53,6 +53,7 @@ class DeepSkyModelTest {
         assertEquals(5, r.otherC)
         // Other-C comparison is the raw (uncapped) half of the C=10 value here.
         assertEquals(r.subExposureSeconds / 2, r.subExposureOtherCSeconds, 0.01)
+        assertFalse(r.otherCComparisonUncapped)
         assertTrue(r.capReasons.isEmpty())
         assertEquals(1.5, r.totalHoursRepresentative, 1e-9)
     }
@@ -98,6 +99,20 @@ class DeepSkyModelTest {
         )
         assertEquals(1.0, capped.subExposureSeconds, 1e-9)
         assertTrue(DeepSkyModel.CapReason.TRACKING_LIMIT in capped.capReasons)
+        // The other-C raw value (about 0.88 s here) does not exceed the
+        // 1 s tracking cap, so it needs no uncapped-comparison label.
+        assertFalse(capped.otherCComparisonUncapped)
+
+        val comparisonAboveCap = ready(
+            DeepSkyModel.Input(
+                camera = BuiltInCameras.A1_II, aperture = 2.0, totalSky = skyAt(20.0),
+                strictness = Strictness.STANDARD, trackingCapSeconds = Seconds(0.5),
+                targetClass = DeepSkyModel.TargetClass.BRIGHT_CLUSTER_NEBULA,
+            ),
+        )
+        assertEquals(0.5, comparisonAboveCap.subExposureSeconds, 1e-9)
+        assertTrue(comparisonAboveCap.subExposureOtherCSeconds > 0.5)
+        assertTrue(comparisonAboveCap.otherCComparisonUncapped)
 
         val ceiling = ready(
             DeepSkyModel.Input(
@@ -109,6 +124,8 @@ class DeepSkyModelTest {
         )
         assertEquals(600.0, ceiling.subExposureSeconds, 1e-9)
         assertTrue(DeepSkyModel.CapReason.SINGLE_FRAME_CEILING in ceiling.capReasons)
+        assertTrue(ceiling.subExposureOtherCSeconds > DeepSkyModel.SINGLE_FRAME_CAP_SECONDS)
+        assertTrue(ceiling.otherCComparisonUncapped)
     }
 
     @Test
