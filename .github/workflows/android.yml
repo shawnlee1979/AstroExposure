@@ -16,8 +16,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # No SDK setup step: GitHub's ubuntu runner images ship an Android SDK
+      # (ANDROID_HOME is preset, platform 34 + build-tools included), which
+      # AGP picks up automatically. A third-party setup action was tried
+      # first and its step failed before any project code ran, so the build
+      # relies on the runner image instead.
 
       - name: Unit and contract tests
         run: ./gradlew :domain:test :data:test
