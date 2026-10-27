@@ -311,7 +311,9 @@ fun TonightScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 SectionTitle(stringResource(R.string.tonight_recommendations_title))
-                if (overview.recommendations.isEmpty()) {
+                if (!overview.recommendationsAvailable) {
+                    Text(text = stringResource(R.string.tonight_recommendations_unavailable))
+                } else if (overview.recommendations.isEmpty()) {
                     Text(text = stringResource(R.string.tonight_recommendations_none))
                 } else {
                     overview.recommendations.forEach { rec ->

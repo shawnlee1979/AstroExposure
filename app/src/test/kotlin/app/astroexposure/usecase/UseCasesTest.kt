@@ -7,7 +7,12 @@ import app.astroexposure.data.catalog.JsonMeteorShowerCatalog
 import app.astroexposure.data.catalog.JsonObjectCatalog
 import app.astroexposure.data.ephemeris.AstronomyEngineEphemeris
 import app.astroexposure.domain.camera.BuiltInCameras
+import app.astroexposure.data.catalog.JsonParseException
+import app.astroexposure.domain.catalog.DeepSkyObject
+import app.astroexposure.domain.catalog.EclipseCatalog
+import app.astroexposure.domain.catalog.EclipseRecord
 import app.astroexposure.domain.catalog.EclipseType
+import app.astroexposure.domain.catalog.ObjectCatalog
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.model.DeepSkyModel
 import app.astroexposure.domain.model.DriftModel
@@ -22,6 +27,7 @@ import app.astroexposure.domain.units.Degrees
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -246,6 +252,11 @@ class UseCasesTest {
         // string in the pipeline output, and the shortlist silently
         // degraded to empty; with the catalogue healthy the rules below
         // must hold on real recommendations.)
+        assertTrue(result.recommendationsAvailable)
+        assertTrue(
+            "healthy catalogue must produce a non-empty shortlist",
+            result.recommendations.isNotEmpty(),
+        )
         assertTrue(result.recommendations.size <= 10)
         for (rec in result.recommendations) {
             assertTrue((rec.obj.magnitude ?: 99.0) <= 6.5)
@@ -271,5 +282,78 @@ class UseCasesTest {
     fun lensCatalogueSeedsFiftyTwoLenses() {
         // The settings screen seeds the equipment library from this catalogue.
         assertEquals(52, JsonLensCatalog().builtInLenses().size)
+    }
+
+    // --- Tonight degradation (review items 1/2/5/6/7) ---------------------------
+
+    private fun objectCatalogThrowing(failure: () -> Throwable): ObjectCatalog =
+        object : ObjectCatalog {
+            override fun allObjects(): List<DeepSkyObject> = throw failure()
+            override fun byId(id: String): DeepSkyObject? = null
+            override val dataVersion: String = "broken"
+        }
+
+    @Test
+    fun tonightDegradesOnEveryCatalogueFailureType() {
+        // The degradation catch must cover the whole load-failure family:
+        // schema/state errors, JSON syntax errors (an IllegalArgument
+        // Exception via JsonParseException) and date parse errors alike.
+        val failures: List<() -> Throwable> = listOf(
+            { IllegalStateException("schema mismatch") },
+            { JsonParseException("bad document", 0) },
+            { java.time.format.DateTimeParseException("bad date", "2026-13-40", 0) },
+        )
+        for (failure in failures) {
+            val useCase = TonightOverviewUseCase(
+                ephemeris = ephemeris,
+                objectCatalog = objectCatalogThrowing(failure),
+            )
+            val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+            assertFalse(result.recommendationsAvailable)
+            assertTrue(result.recommendations.isEmpty())
+            // The rest of the overview still assembles.
+            assertNotNull(result.sunEvents.sunset)
+        }
+    }
+
+    @Test
+    fun tonightAvailabilityDoesNotLeakAcrossCalls() {
+        // The use case is a singleton: a failed call must not poison the
+        // next, successful one on the same instance.
+        var fail = true
+        val flaky = object : ObjectCatalog {
+            override fun allObjects(): List<DeepSkyObject> =
+                if (fail) throw IllegalStateException("boom") else JsonObjectCatalog().allObjects()
+            override fun byId(id: String): DeepSkyObject? = null
+            override val dataVersion: String = "flaky"
+        }
+        val useCase = TonightOverviewUseCase(ephemeris = ephemeris, objectCatalog = flaky)
+        val first = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        assertFalse(first.recommendationsAvailable)
+        fail = false
+        val second = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        assertTrue(second.recommendationsAvailable)
+        assertTrue(second.recommendations.isNotEmpty())
+    }
+
+    @Test
+    fun tonightEventsDegradeWhenEclipseCatalogueFails() {
+        val brokenEclipses = object : EclipseCatalog {
+            override fun eclipses(fromYear: Int, toYear: Int): List<EclipseRecord> =
+                throw JsonParseException("corrupt eclipses", 0)
+            override val dataVersion: String = "broken"
+        }
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            eclipseCatalog = brokenEclipses,
+            showerCatalog = JsonMeteorShowerCatalog(),
+        )
+        val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
+        assertFalse(result.eventsAvailable)
+        // Showers (the healthy catalogue) still contribute their events.
+        assertTrue(
+            result.events.any { it is TonightOverviewUseCase.Event.Shower },
+        )
+        assertNotNull(result.sunEvents.sunset)
     }
 }

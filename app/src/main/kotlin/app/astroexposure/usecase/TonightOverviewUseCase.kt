@@ -69,6 +69,8 @@ class TonightOverviewUseCase(
         val moonDegraded: Boolean,
         val lowMoonlightWindows: List<LowMoonlightWindow>,
         val events: List<Event>,
+        /** False when an event catalogue failed to load and events are incomplete. */
+        val eventsAvailable: Boolean,
         val recommendations: List<RecommendedObject>,
         /** False when the object catalogue failed to load (see recommendations()). */
         val recommendationsAvailable: Boolean,
@@ -105,6 +107,8 @@ class TonightOverviewUseCase(
             }
         }.sortedBy { it.instant }
 
+        val (eventList, eventsOk) = events(date)
+        val (shortlist, shortlistOk) = recommendations(location, date)
         return Result(
             night = night,
             sunEvents = sun,
@@ -115,9 +119,10 @@ class TonightOverviewUseCase(
             skyAtDusk = sky,
             moonDegraded = sky?.totalSky?.moonDegraded ?: false,
             lowMoonlightWindows = lowMoonlightWindows(location, night, sky),
-            events = events(date),
-            recommendations = recommendations(location, date),
-            recommendationsAvailable = recommendationsAvailable,
+            events = eventList,
+            eventsAvailable = eventsOk,
+            recommendations = shortlist,
+            recommendationsAvailable = shortlistOk,
             moments = moments,
         )
     }
@@ -161,32 +166,51 @@ class TonightOverviewUseCase(
         return windows
     }
 
-    /** Eclipses and shower peaks whose dates fall within ±3 days (design §6.4). */
-    private fun events(date: LocalDate): List<Event> {
+    /**
+     * Eclipses and shower peaks whose dates fall within ±3 days
+     * (design §6.4). Same degradation policy as the object shortlist: a
+     * catalogue that fails to load (corrupt document, unparseable date,
+     * missing resource — any load failure) contributes no events and
+     * flips the availability flag; the overview itself never fails over
+     * an auxiliary catalogue.
+     */
+    private fun events(date: LocalDate): Pair<List<Event>, Boolean> {
         val from = date.minusDays(3)
         val to = date.plusDays(3)
-        val eclipses = eclipseCatalog
-            ?.eclipses(from.year, to.year)
-            ?.filter { !it.date.isBefore(from) && !it.date.isAfter(to) }
-            ?.map { Event.Eclipse(it) }
-            ?: emptyList()
-        val showers = showerCatalog
-            ?.showers()
-            ?.mapNotNull { shower ->
-                val days = ShowerDates.daysFromPeak(shower, date)
-                if (kotlin.math.abs(days) <= 3.0) {
-                    Event.Shower(shower, ShowerDates.approxDate(shower.peakLon, date), days)
-                } else {
-                    null
+        var available = true
+        val eclipses = try {
+            eclipseCatalog
+                ?.eclipses(from.year, to.year)
+                ?.filter { !it.date.isBefore(from) && !it.date.isAfter(to) }
+                ?.map { Event.Eclipse(it) }
+                ?: emptyList()
+        } catch (e: Exception) {
+            available = false
+            emptyList()
+        }
+        val showers = try {
+            showerCatalog
+                ?.showers()
+                ?.mapNotNull { shower ->
+                    val days = ShowerDates.daysFromPeak(shower, date)
+                    if (kotlin.math.abs(days) <= 3.0) {
+                        Event.Shower(shower, ShowerDates.approxDate(shower.peakLon, date), days)
+                    } else {
+                        null
+                    }
                 }
-            }
-            ?: emptyList()
-        return (eclipses + showers).sortedBy {
+                ?: emptyList()
+        } catch (e: Exception) {
+            available = false
+            emptyList()
+        }
+        val all = (eclipses + showers).sortedBy {
             when (it) {
                 is Event.Eclipse -> it.record.date
                 is Event.Shower -> it.approxPeakDate
             }
         }
+        return all to available
     }
 
     /**
@@ -195,21 +219,23 @@ class TonightOverviewUseCase(
      * are evaluated brightest-first and the scan stops once 10 qualify, so
      * the ephemeris cost stays bounded.
      */
-    private var recommendationsAvailable: Boolean = true
-
-    private fun recommendations(location: GeoLocation, date: LocalDate): List<RecommendedObject> {
-        val catalog = objectCatalog ?: return emptyList()
-        // Explicit degradation, not a silent catch: the production object
-        // catalogue currently throws on its SUPERNOVA_REMANT rows (a :data
-        // defect recorded in the phase report — the adapter's type mapping
-        // disagrees with the generated data). Until :data is fixed, the
-        // shortlist degrades to empty and [Result.recommendationsAvailable]
-        // is false so the failure stays visible to callers.
+    private fun recommendations(
+        location: GeoLocation,
+        date: LocalDate,
+    ): Pair<List<RecommendedObject>, Boolean> {
+        val catalog = objectCatalog ?: return emptyList<RecommendedObject>() to true
+        // Explicit degradation, not a silent catch: ANY catalogue load
+        // failure (malformed JSON, unparseable field, unknown record
+        // type, missing resource) degrades the shortlist to empty and
+        // reports [Result.recommendationsAvailable] = false, so the UI
+        // can say "recommendations unavailable" instead of pretending
+        // tonight simply has no targets. The outcome is computed per
+        // call and carried in the return value — no state survives
+        // between execute() calls on this (singleton) use case.
         val all = try {
             catalog.allObjects()
-        } catch (e: IllegalStateException) {
-            recommendationsAvailable = false
-            return emptyList()
+        } catch (e: Exception) {
+            return emptyList<RecommendedObject>() to false
         }
         val candidates = all
             .filter { (it.magnitude ?: Double.MAX_VALUE) <= MAX_MAGNITUDE }
@@ -227,7 +253,7 @@ class TonightOverviewUseCase(
                 out += RecommendedObject(obj, pass)
             }
         }
-        return out
+        return out to true
     }
 
     companion object {

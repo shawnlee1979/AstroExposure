@@ -60,6 +60,7 @@
     <string name="tonight_recommendations_title">Bright deep-sky targets tonight (static rules)</string>
     <string name="tonight_recommendation_item">%1$s · mag %2$s · culmination %3$s / %4$.0f°</string>
     <string name="tonight_recommendations_none">No target matches the rules tonight (mag ≤ 6.5, culmination ≥ 40°)</string>
+    <string name="tonight_recommendations_unavailable">Recommendations unavailable: the object catalogue failed to load</string>
     <string name="tonight_moments_title">Key moments</string>
     <string name="moment_sunset">Sunset</string>
     <string name="moment_civil_dusk">Civil dusk ends</string>
@@ -244,5 +245,5 @@
     <string name="language_switch">中文</string>
     <string name="settings_time_health">Time health</string>
     <string name="settings_data_sources">Data sources and licences</string>
-    <string name="data_sources_body">Object catalogue: OpenNGC + HYG (CC BY-SA 4.0) · version %1$s\nLight-pollution atlas: Falchi world atlas of night-sky brightness (CC BY-NC 4.0), stored as a sparse sample grid — points without samples return no data and fall back to manual Bortle · version %2$s\nEclipse catalogue: NASA GSFC (Espenak &amp; Meeus) · version %3$s\nMeteor shower calendar: IMO Meteor Shower Calendar 2026 · version %4$s\nLens library: compiled from the five manufacturers\' line-ups · version %5$s\nEphemeris engine: Astronomy Engine (MIT)\nShower peak dates are converted from solar longitude with mean solar motion (accurate to a few days), not an exact forecast.</string>
+    <string name="data_sources_body">Object catalogue: OpenNGC (CC BY-SA 4.0) · version %1$s\nLight-pollution atlas: Falchi world atlas of night-sky brightness (CC BY-NC 4.0), stored as a sparse sample grid — points without samples return no data and fall back to manual Bortle · version %2$s\nEclipse catalogue: NASA GSFC (Espenak &amp; Meeus) · version %3$s\nMeteor shower calendar: IMO Meteor Shower Calendar 2026 · version %4$s\nLens library: compiled from the five manufacturers\' line-ups · version %5$s\nEphemeris engine: Astronomy Engine (MIT)\nShower peak dates are converted from solar longitude with mean solar motion (accurate to a few days), not an exact forecast.</string>
 </resources>
