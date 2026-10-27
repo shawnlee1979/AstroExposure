@@ -85,6 +85,19 @@ class EphemerisContractTest {
     }
 
     @Test
+    fun `moon phase angle at the full moon instant is near 180 degrees`() {
+        // Same public full-moon instant as the illumination golden:
+        // θ (Moon minus Sun ecliptic longitude) must sit in the Full
+        // Moon sector [157.5°, 202.5°) of the ui-design §7.4 naming.
+        val theta = provider.moonPhaseAngle(Instant.parse("2026-10-26T04:12:00Z"))
+        assertTrue("phase angle ${theta.value} not in [170, 190]", theta.value in 170.0..190.0)
+        assertEquals(
+            app.astroexposure.domain.sky.MoonPhaseName.FULL_MOON,
+            app.astroexposure.domain.sky.MoonPhaseNames.of(theta),
+        )
+    }
+
+    @Test
     fun `moonrise and moonset match public ephemeris`() {
         val rs = provider.moonRiseSet(nyc, LocalDate.of(2026, 10, 26))
         // 17:58 EDT = 21:58Z; 07:56 EDT = 11:56Z.

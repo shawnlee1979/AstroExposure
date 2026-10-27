@@ -1,6 +1,8 @@
 package app.astroexposure.data.catalog
 
 import app.astroexposure.domain.catalog.LightPollutionSource
+import app.astroexposure.domain.catalog.LightPollutionVersion
+import app.astroexposure.domain.catalog.LightPollutionVersionFormat
 import app.astroexposure.domain.geo.GeoLocation
 import kotlin.math.floor
 
@@ -44,6 +46,8 @@ class GridLightPollutionSource(
 
     private data class Loaded(
         val dataVersion: String,
+        /** The header's `gridKind` token ("full-grid" / "sparse-sample"), when present. */
+        val gridKind: String?,
         val grids: List<Grid>,
         val dataArea: ByteArray,
     )
@@ -114,7 +118,8 @@ class GridLightPollutionSource(
         }
         val version = header.optionalString("dataVersion", context)
             ?: "AEGL schema $schema"
-        return Loaded(version, grids, dataArea)
+        val gridKind = header.optionalString("gridKind", context)
+        return Loaded(version, gridKind, grids, dataArea)
     }
 
     override fun artificialBrightnessMcdPerM2(location: GeoLocation): Double? {
@@ -138,6 +143,9 @@ class GridLightPollutionSource(
     }
 
     override val dataVersion: String get() = loaded.dataVersion
+
+    override val versionInfo: LightPollutionVersion
+        get() = LightPollutionVersionFormat.parse(loaded.dataVersion, loaded.gridKind)
 
     private companion object {
         val MAGIC = byteArrayOf('A'.code.toByte(), 'E'.code.toByte(), 'G'.code.toByte(), 'L'.code.toByte())

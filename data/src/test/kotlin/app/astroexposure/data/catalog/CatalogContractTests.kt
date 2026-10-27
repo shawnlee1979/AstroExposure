@@ -167,6 +167,43 @@ class LightPollutionHeaderValidationTest {
     }
 }
 
+class LightPollutionVersionInfoContractTest {
+
+    @Test
+    fun `full-grid header yields the structured version and short display`() {
+        val source = GridLightPollutionSource("/catalog/lp-grid-full.bin")
+        val info = source.versionInfo
+        assertEquals(app.astroexposure.domain.catalog.GridKind.FULL_GRID, info.gridKind)
+        assertEquals(2016, info.atlasYear)
+        assertEquals(LocalDate.of(2026, 10, 27), info.builtDate)
+        assertEquals(
+            "Falchi 2016 图谱 · 全量网格 2026-10-27",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat.shortDisplay(info, english = false),
+        )
+        assertEquals(
+            "Falchi 2016 atlas · Full grid 2026-10-27",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat.shortDisplay(info, english = true),
+        )
+    }
+
+    @Test
+    fun `sparse-sample header yields the structured version and short display`() {
+        val source = GridLightPollutionSource("/catalog/lp-grid-sparse.bin")
+        val info = source.versionInfo
+        assertEquals(app.astroexposure.domain.catalog.GridKind.SPARSE_SAMPLE, info.gridKind)
+        assertEquals(2016, info.atlasYear)
+        assertEquals(LocalDate.of(2026, 9, 30), info.builtDate)
+        assertEquals(
+            "Falchi 2016 图谱 · 样本网格 2026-09-30",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat.shortDisplay(info, english = false),
+        )
+        assertEquals(
+            "Falchi 2016 atlas · Sample grid 2026-09-30",
+            app.astroexposure.domain.catalog.LightPollutionVersionFormat.shortDisplay(info, english = true),
+        )
+    }
+}
+
 class LightPollutionContractTest {
 
     private val source: LightPollutionSource = GridLightPollutionSource()

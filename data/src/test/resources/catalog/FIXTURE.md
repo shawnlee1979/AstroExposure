@@ -30,4 +30,13 @@ Fixture facts asserted by the tests:
   (40.7128, -74.0060) stores raw 800 = 200.0 mcd/m² and whose
   (row 0, col 1) cell is 0xFFFF to exercise the coarse fallback.
 
-All fixture documents carry `"dataVersion": "test-fixture-1"`.
+- `lp-grid-full.bin` / `lp-grid-sparse.bin` — header-form variants
+  written by the same generator: one tiny grid each, with the header
+  fields the data pipeline writes for the full atlas (`gridKind`
+  `"full-grid"`, `dataVersion` ending in `(resampled 2026-10-27)`) and
+  for the sparse sample grid (`gridKind` `"sparse-sample"`,
+  `dataVersion` ending in `on 2026-09-30`). They pin the structured
+  `versionInfo` parsing behind the location card's short display.
+
+All fixture documents carry `"dataVersion": "test-fixture-1"` unless a
+variant header above says otherwise.

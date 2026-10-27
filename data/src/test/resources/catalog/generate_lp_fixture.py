@@ -40,3 +40,33 @@ out = b"AEGL" + struct.pack(">I", len(header_bytes)) + header_bytes + data
 with open("lp-grid.bin", "wb") as f:
     f.write(out)
 print("wrote lp-grid.bin", len(out), "bytes")
+
+# Header-form fixtures for the versionInfo contract tests: one tiny grid
+# each, differing only in the header fields the pipeline writes for the
+# full atlas (gridKind "full-grid", "(resampled <date>)") and for the
+# sparse sample grid (gridKind "sparse-sample", "on <date>").
+tiny_grid = [{"latMin": 30.0, "latMax": 50.0, "lonMin": -80.0, "lonMax": -70.0,
+              "stepDeg": 5.0, "rows": 4, "cols": 2, "offset": 0, "scale": 0.5}]
+tiny_data = struct.pack("<8H", *([100] * 8))
+
+
+def write_variant(name, extra_header):
+    h = {"schemaVersion": 1, "grids": tiny_grid}
+    h.update(extra_header)
+    hb = json.dumps(h, separators=(",", ":")).encode("utf-8")
+    blob = b"AEGL" + struct.pack(">I", len(hb)) + hb + tiny_data
+    with open(name, "wb") as f:
+        f.write(blob)
+    print("wrote", name, len(blob), "bytes")
+
+
+write_variant("lp-grid-full.bin", {
+    "dataVersion": ("Falchi et al. 2016 World Atlas via GFZ "
+                    "doi:10.5880/GFZ.1.4.2016.001 (resampled 2026-10-27)"),
+    "gridKind": "full-grid",
+})
+write_variant("lp-grid-sparse.bin", {
+    "dataVersion": ("Falchi et al. 2016 World Atlas values sampled "
+                    "via lightpollutionmap.info on 2026-09-30"),
+    "gridKind": "sparse-sample",
+})

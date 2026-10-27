@@ -27,6 +27,7 @@ import io.github.cosinekitty.astronomy.globalSolarEclipsesAfter
 import io.github.cosinekitty.astronomy.horizon
 import io.github.cosinekitty.astronomy.illumination
 import io.github.cosinekitty.astronomy.lunarEclipsesAfter
+import io.github.cosinekitty.astronomy.moonPhase
 import io.github.cosinekitty.astronomy.searchAltitude
 import io.github.cosinekitty.astronomy.searchHourAngle
 import io.github.cosinekitty.astronomy.searchRiseSet
@@ -75,6 +76,11 @@ class AstronomyEngineEphemeris : EphemerisProvider {
 
     override fun moonIllumination(instant: Instant): Double =
         illumination(Body.Moon, instantToAstroTime(instant)).phaseFraction.coerceIn(0.0, 1.0)
+
+    override fun moonPhaseAngle(instant: Instant): Degrees =
+        // The engine's moonPhase is exactly the port's θ: the Moon's
+        // geocentric ecliptic longitude relative to the Sun's, [0, 360).
+        Degrees(moonPhase(instantToAstroTime(instant)))
 
     override fun moonRiseSet(location: GeoLocation, date: LocalDate): MoonRiseSet {
         val observer = observerOf(location)
