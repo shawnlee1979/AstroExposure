@@ -29,6 +29,13 @@
       "sizeMajorArcmin": 20.0, "sizeMinorArcmin": 20.0,
       "type": "CLUSTER_GLOBULAR", "constellation": "Hercules",
       "surfaceBrightness": null, "surfaceBrightnessEstimated": false
+    },
+    {
+      "id": "M1", "name": "Crab Nebula", "nameZh": "蟹状星云",
+      "raHours": 5.575, "decDeg": 22.015, "magnitude": 8.4,
+      "sizeMajorArcmin": 8.0, "sizeMinorArcmin": 4.0,
+      "type": "SUPERNOVA_REMNANT", "constellation": "Taurus",
+      "surfaceBrightness": 20.8, "surfaceBrightnessEstimated": true
     }
   ]
 }

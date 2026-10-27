@@ -47,11 +47,12 @@ class ObjectCatalogContractTest {
         assertEquals(DeepSkyObjectType.NEBULA, catalog.byId("M42")!!.type)
         assertEquals(DeepSkyObjectType.OPEN_CLUSTER, catalog.byId("M45")!!.type)
         assertEquals(DeepSkyObjectType.GLOBULAR_CLUSTER, catalog.byId("M13")!!.type)
+        assertEquals(DeepSkyObjectType.SUPERNOVA_REMNANT, catalog.byId("M1")!!.type)
     }
 
     @Test
     fun `catalogue lists all fixture objects and misses unknown ids`() {
-        assertEquals(4, catalog.allObjects().size)
+        assertEquals(5, catalog.allObjects().size)
         assertNull(catalog.byId("NGC-0000"))
         assertEquals("test-fixture-1", catalog.dataVersion)
     }

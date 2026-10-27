@@ -90,6 +90,8 @@ class JsonObjectCatalog(
         "CLUSTER_GLOBULAR" -> DeepSkyObjectType.GLOBULAR_CLUSTER
         "PLANETARY_NEBULA" -> DeepSkyObjectType.PLANETARY_NEBULA
         "SUPERNOVA_REMNANT" -> DeepSkyObjectType.SUPERNOVA_REMNANT
+        "DOUBLE_STAR" -> DeepSkyObjectType.DOUBLE_STAR
+        "ASTERISM" -> DeepSkyObjectType.ASTERISM
         "OTHER" -> DeepSkyObjectType.OTHER
         else -> throw IllegalStateException("$context: unknown object type '$raw'")
     }
