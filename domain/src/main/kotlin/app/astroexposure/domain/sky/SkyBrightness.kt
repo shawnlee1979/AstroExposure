@@ -52,6 +52,7 @@ object SkyBrightness {
 
     /** Bortle class estimate from a total-sky mpsas value (empirical mapping, ±1 class). */
     fun bortleFromMpsas(mpsas: Double): Int {
+        require(mpsas.isFinite()) { "mpsas must be finite, was $mpsas" }
         for (b in 1..9) {
             if (mpsas > BORTLE_LOWER_MPSAS[b - 1] && mpsas <= BORTLE_UPPER_MPSAS[b - 1]) return b
         }

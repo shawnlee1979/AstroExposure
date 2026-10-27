@@ -107,7 +107,11 @@ fun skyElectronRate(
     camera: Camera,
     qe: Double,
 ): Double {
+    require(totalMpsas.isFinite()) { "total sky brightness must be finite, was $totalMpsas" }
+    require(aperture.isFinite() && aperture > 0.0) { "aperture must be positive and finite, was $aperture" }
+    require(qe.isFinite() && qe > 0.0) { "QE must be positive and finite, was $qe" }
     val p = camera.pixelPitch.value
+    require(p.isFinite() && p > 0.0) { "pixel pitch must be positive and finite, was $p" }
     return 3.174e8 * Math.pow(10.0, -0.4 * totalMpsas) * (p * p / (aperture * aperture)) * qe
 }
 

@@ -5,6 +5,7 @@ import app.astroexposure.domain.strictness.Strictness
 import app.astroexposure.domain.units.Degrees
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +39,24 @@ class NpfModelTest {
         assertEquals(3.3, npf(BuiltInCameras.ZV_E1, 1.4), 0.06)
         assertEquals(3.5, npf(BuiltInCameras.ZV_E1, 2.0), 0.06)
         assertEquals(3.8, npf(BuiltInCameras.ZV_E1, 2.8), 0.06)
+    }
+
+    @Test
+    fun `non-positive focal length or aperture is rejected`() {
+        for (focal in listOf(0.0, -50.0, Double.NaN)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                NpfModel.evaluate(
+                    NpfModel.Input(BuiltInCameras.A1_II, focal, 2.0, Degrees(-29.0), Strictness.STRICT),
+                )
+            }
+        }
+        for (aperture in listOf(0.0, -2.0, Double.POSITIVE_INFINITY)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                NpfModel.evaluate(
+                    NpfModel.Input(BuiltInCameras.A1_II, 50.0, aperture, Degrees(-29.0), Strictness.STRICT),
+                )
+            }
+        }
     }
 
     @Test

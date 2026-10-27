@@ -45,6 +45,12 @@ object NpfModel {
         val f = input.focalLengthMm
         val n = input.aperture
         val p = input.camera.pixelPitch.value
+        require(f.isFinite() && f > 0.0) { "focal length must be positive and finite, was $f" }
+        require(n.isFinite() && n > 0.0) { "aperture must be positive and finite, was $n" }
+        require(p.isFinite() && p > 0.0) { "pixel pitch must be positive and finite, was $p" }
+        require(input.declination.value.isFinite()) {
+            "declination must be finite, was ${input.declination.value}"
+        }
         val decDeg = input.declination.value
         val capped = abs(decDeg) > DECLINATION_CAP_DEG
         val effectiveDecDeg = decDeg.coerceIn(-DECLINATION_CAP_DEG, DECLINATION_CAP_DEG)

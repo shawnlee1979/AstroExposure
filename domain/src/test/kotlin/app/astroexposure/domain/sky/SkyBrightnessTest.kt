@@ -1,6 +1,7 @@
 package app.astroexposure.domain.sky
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,6 +36,15 @@ class SkyBrightnessTest {
         assertEquals(7, SkyBrightness.bortleFromMpsas(18.65))
         assertEquals(8, SkyBrightness.bortleFromMpsas(18.10))
         assertEquals(9, SkyBrightness.bortleFromMpsas(17.50))
+    }
+
+    @Test
+    fun `non-finite mpsas is rejected instead of silently mapping to a class`() {
+        for (mpsas in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                SkyBrightness.bortleFromMpsas(mpsas)
+            }
+        }
     }
 
     @Test

@@ -4,6 +4,7 @@ import app.astroexposure.domain.camera.BuiltInCameras
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,8 +68,23 @@ class TotalSkyTest {
     }
 
     @Test
+    fun `sky electron rate rejects non-positive divisor inputs instead of returning infinity`() {
+        for (aperture in listOf(0.0, -2.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                skyElectronRate(22.0, aperture, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
+            }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            skyElectronRate(22.0, 2.0, BuiltInCameras.A1_II, 0.0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            skyElectronRate(Double.NaN, 2.0, BuiltInCameras.A1_II, DEFAULT_QE_WHEN_UNRECORDED)
+        }
+    }
+
+    @Test
     fun `effective QE uses the recorded value or the documented default`() {
-        // Neither built-in records a QE (design SS2.3 allows empty), so the
+        // Neither built-in records a QE (design §2.3 allows empty), so the
         // documented default applies and is flagged as defaulted.
         val (qeBuiltIn, defaultedBuiltIn) = effectiveQe(BuiltInCameras.A1_II)
         assertEquals(DEFAULT_QE_WHEN_UNRECORDED, qeBuiltIn, 1e-12)
