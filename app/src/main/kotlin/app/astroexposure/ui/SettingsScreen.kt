@@ -312,7 +312,8 @@ private fun ProfileRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(text = profile.name, style = MaterialTheme.typography.titleSmall)
-            if (profile.typicalDrift == null) {
+            val typicalDrift = profile.typicalDrift
+            if (typicalDrift == null) {
                 Text(
                     text = stringResource(R.string.settings_profile_unmeasured),
                     style = MaterialTheme.typography.bodySmall,
@@ -322,8 +323,8 @@ private fun ProfileRow(
                 Text(
                     text = stringResource(
                         R.string.settings_profile_measured,
-                        profile.typicalDrift.value,
-                        profile.worstDrift?.value ?: profile.typicalDrift.value,
+                        typicalDrift.value,
+                        profile.worstDrift?.value ?: typicalDrift.value,
                         profile.measuredOn?.toString() ?: "—",
                     ),
                     style = MaterialTheme.typography.bodySmall,

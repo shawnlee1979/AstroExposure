@@ -162,7 +162,11 @@ object LibraryTransfer {
         val cameras = mutableListOf<Camera>()
         val customCameras = mutableSetOf<String>()
         for (item in obj.arr("cameras")) {
-            val o = item as? JsonValue.Obj ?: run { skipped++; continue }
+            val o = item as? JsonValue.Obj
+            if (o == null) {
+                skipped++
+                continue
+            }
             val parsed = parseCamera(o)
             if (parsed == null) {
                 skipped++
@@ -175,7 +179,11 @@ object LibraryTransfer {
         val lenses = mutableListOf<Lens>()
         val customLenses = mutableSetOf<String>()
         for (item in obj.arr("lenses")) {
-            val o = item as? JsonValue.Obj ?: run { skipped++; continue }
+            val o = item as? JsonValue.Obj
+            if (o == null) {
+                skipped++
+                continue
+            }
             val parsed = parseLens(o)
             if (parsed == null) {
                 skipped++
@@ -187,21 +195,33 @@ object LibraryTransfer {
 
         val profiles = mutableListOf<TrackingProfile>()
         for (item in obj.arr("trackingProfiles")) {
-            val o = item as? JsonValue.Obj ?: run { skipped++; continue }
+            val o = item as? JsonValue.Obj
+            if (o == null) {
+                skipped++
+                continue
+            }
             val parsed = parseProfile(o)
             if (parsed == null) skipped++ else profiles += parsed
         }
 
         val places = mutableListOf<SavedPlace>()
         for (item in obj.arr("places")) {
-            val o = item as? JsonValue.Obj ?: run { skipped++; continue }
+            val o = item as? JsonValue.Obj
+            if (o == null) {
+                skipped++
+                continue
+            }
             val parsed = parsePlace(o)
             if (parsed == null) skipped++ else places += parsed
         }
 
         val plans = mutableListOf<SavedPlan>()
         for (item in obj.arr("plans")) {
-            val o = item as? JsonValue.Obj ?: run { skipped++; continue }
+            val o = item as? JsonValue.Obj
+            if (o == null) {
+                skipped++
+                continue
+            }
             val parsed = parsePlan(o)
             if (parsed == null) skipped++ else plans += parsed
         }

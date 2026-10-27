@@ -339,6 +339,6 @@ fun SectionTitle(text: String) {
 }
 
 @Composable
-fun ActionButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(onClick = onClick, modifier = modifier.fillMaxWidth()) { Text(text) }
 }

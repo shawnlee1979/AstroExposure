@@ -339,7 +339,6 @@ private fun LandscapeCalculator(
     skyFor: (EquatorialCoordinates) -> SkyContext,
     location: GeoLocation,
     date: LocalDate,
-    defaultStrictness: Strictness,
     sampleInstant: Instant,
     onSavePlan: (String, String, String, String) -> Unit,
 ) {
