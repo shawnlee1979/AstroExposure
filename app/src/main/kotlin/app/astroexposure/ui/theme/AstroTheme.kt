@@ -20,7 +20,9 @@ import androidx.compose.ui.unit.sp
  *
  * Both schemes assign every role in the spec §2 role table —
  * including outline/outlineVariant (the spec border), errorContainer
- * and secondaryContainer (chip selected state) — so no component
+ * and secondaryContainer (chip selected state), and the roles no
+ * component references yet (primaryContainer, the inverse trio,
+ * surfaceDim / surfaceBright / surfaceTint, scrim) — so no component
  * falls back to library-default blue-grey/pink tints, which the red
  * theme in particular must never show (spec §2: red spectrum only).
  * The defined table is the contract, not the subset currently
@@ -29,6 +31,8 @@ import androidx.compose.ui.unit.sp
 private val NightScheme = darkColorScheme(
     primary = Color(0xFFF2C66D),
     onPrimary = Color(0xFF1A1405),
+    primaryContainer = Color(0xFF3D2F0E),
+    onPrimaryContainer = Color(0xFFF2C66D),
     secondary = Color(0xFF6EA8FE),
     onSecondary = Color(0xFF05070D),
     secondaryContainer = Color(0xFF22304F),
@@ -54,11 +58,20 @@ private val NightScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF131B31),
     outline = Color(0xFF22304F),
     outlineVariant = Color(0xFF22304F),
+    inverseSurface = Color(0xFFE9EEF8),
+    inverseOnSurface = Color(0xFF0C1120),
+    inversePrimary = Color(0xFF7A5E1E),
+    surfaceDim = Color(0xFF05070D),
+    surfaceBright = Color(0xFF131B31),
+    surfaceTint = Color(0xFFF2C66D),
+    scrim = Color(0xFF000000),
 )
 
 private val RedScheme = darkColorScheme(
     primary = Color(0xFFFF9D8A),
     onPrimary = Color(0xFF2B0500),
+    primaryContainer = Color(0xFF471512),
+    onPrimaryContainer = Color(0xFFFF9D8A),
     secondary = Color(0xFFFF9D8A),
     onSecondary = Color(0xFF2B0500),
     secondaryContainer = Color(0xFF471512),
@@ -84,6 +97,13 @@ private val RedScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF220707),
     outline = Color(0xFF471512),
     outlineVariant = Color(0xFF471512),
+    inverseSurface = Color(0xFFFF7A6B),
+    inverseOnSurface = Color(0xFF180404),
+    inversePrimary = Color(0xFF8F2B21),
+    surfaceDim = Color(0xFF0A0202),
+    surfaceBright = Color(0xFF220707),
+    surfaceTint = Color(0xFFFF9D8A),
+    scrim = Color(0xFF000000),
 )
 
 /**
