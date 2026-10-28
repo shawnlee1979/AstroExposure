@@ -51,6 +51,7 @@ import app.astroexposure.support.PlanTextExport
 import app.astroexposure.support.SkyAssembly
 import app.astroexposure.support.SkyContext
 import app.astroexposure.support.TimeHealthCheck
+import app.astroexposure.ui.CalcCategory
 import app.astroexposure.ui.CalculatorsScreen
 import app.astroexposure.ui.PlansScreen
 import app.astroexposure.ui.SettingsScreen
@@ -93,6 +94,7 @@ private fun AstroApp(container: AppContainer) {
     val repo = container.repository
 
     var tab by rememberSaveable { mutableStateOf(Tab.TONIGHT) }
+    var calcCategory by remember { mutableStateOf(CalcCategory.WIDE_FIELD) }
     var redLight by rememberSaveable { mutableStateOf(false) }
     var redLightAuto by rememberSaveable { mutableStateOf(false) }
     var defaultStrictness by rememberSaveable { mutableStateOf(Strictness.STANDARD) }
@@ -382,6 +384,10 @@ private fun AstroApp(container: AppContainer) {
                             gpsFailed = false
                         },
                         onDateChange = { selectedDate = it },
+                        onOpenCategory = { cat ->
+                            calcCategory = cat
+                            tab = Tab.CALCULATE
+                        },
                         onEvaluateCursor = { instant, activeObjectId ->
                             container.tonightOverview.evaluateCursor(
                                 location, tonightDate, instant, result.timeline, manualBortle,
@@ -403,6 +409,8 @@ private fun AstroApp(container: AppContainer) {
                     defaultStrictness = defaultStrictness,
                     sampleInstant = sampleInstant,
                     skyFor = skyFor,
+                    category = calcCategory,
+                    onCategoryChange = { calcCategory = it },
                     onSavePlan = { category, title, body, payload ->
                         scope.launch(Dispatchers.IO) {
                             repo.addPlan(

@@ -23,6 +23,7 @@ out/
 
 # Kotlin / Java
 *.class
+.kotlin/
 
 # Signing material — NEVER commit keys or credentials
 *.keystore

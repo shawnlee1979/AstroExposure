@@ -88,6 +88,7 @@ fun TonightScreen(
     onManualBortleChange: (Int?) -> Unit,
     onManualLocation: (Double, Double) -> Unit,
     onDateChange: (LocalDate) -> Unit,
+    onOpenCategory: (CalcCategory) -> Unit,
     onEvaluateCursor: (Instant, String?) -> TonightOverviewUseCase.CursorEvaluation,
     modifier: Modifier = Modifier,
 ) {
@@ -484,6 +485,36 @@ fun TonightScreen(
                                     event.approxPeakDate.toString(),
                                     event.shower.peakZhr,
                                 ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Five-category entry grid (ui-design §3 / §4.1): the tonight
+        // page's flow ends in direct entries to each calculator.
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SectionTitle(stringResource(R.string.tonight_entries_title))
+                CalcCategory.entries.chunked(3).forEach { rowCats ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rowCats.forEach { cat ->
+                            OutlinedButton(
+                                onClick = { onOpenCategory(cat) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp),
+                            ) {
+                                Text(stringResource(categoryNameRes(cat)))
+                            }
+                        }
+                        repeat(3 - rowCats.size) {
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }

@@ -54,6 +54,7 @@
     <string name="tonight_low_moonlight_item">%1$s – %2$s</string>
     <string name="tonight_low_moonlight_none">No low-moonlight window of ≥1 hour tonight</string>
     <string name="tonight_events_title">Events within ±3 days</string>
+    <string name="tonight_entries_title">Calculators</string>
     <string name="tonight_event_eclipse">%1$s · %2$s eclipse (%3$s)</string>
     <string name="tonight_event_shower">%1$s · %2$s (peak approx. %3$s, ZHR %4$d)</string>
     <string name="tonight_events_none">No eclipse or shower peak within ±3 days</string>

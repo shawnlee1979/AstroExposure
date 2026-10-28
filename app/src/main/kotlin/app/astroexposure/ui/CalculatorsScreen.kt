@@ -84,9 +84,10 @@ fun CalculatorsScreen(
     sampleInstant: Instant,
     skyFor: (EquatorialCoordinates) -> SkyContext,
     onSavePlan: (category: String, title: String, bodyText: String, payloadJson: String) -> Unit,
+    category: CalcCategory,
+    onCategoryChange: (CalcCategory) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var category by remember { mutableStateOf(CalcCategory.WIDE_FIELD) }
     var camera by remember(cameras) { mutableStateOf(cameras.firstOrNull()) }
     var lens by remember(lenses) { mutableStateOf(lenses.firstOrNull()) }
     var focalMm by remember(lens) { mutableStateOf(lens?.focalMinMm ?: 50.0) }
@@ -131,7 +132,7 @@ fun CalculatorsScreen(
                 FilterChip(
                     modifier = Modifier.heightIn(min = 48.dp),
                     selected = category == cat,
-                    onClick = { category = cat },
+                    onClick = { onCategoryChange(cat) },
                     label = { Text(stringResource(categoryNameRes(cat))) },
                 )
             }
