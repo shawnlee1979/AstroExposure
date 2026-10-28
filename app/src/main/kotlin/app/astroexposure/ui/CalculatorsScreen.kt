@@ -32,6 +32,7 @@ import app.astroexposure.AppContainer
 import app.astroexposure.R
 import app.astroexposure.domain.camera.ApertureStops
 import app.astroexposure.domain.camera.Camera
+import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseType
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
@@ -88,6 +89,8 @@ fun CalculatorsScreen(
     onSavePlan: (category: String, title: String, bodyText: String, payloadJson: String) -> Unit,
     category: CalcCategory,
     onCategoryChange: (CalcCategory) -> Unit,
+    prefillObject: DeepSkyObject? = null,
+    onPrefillConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var camera by remember(cameras) { mutableStateOf(cameras.firstOrNull()) }
@@ -108,6 +111,20 @@ fun CalculatorsScreen(
     // Fixed bottom calculate button (ui-design §4.3): each press bumps
     // the signal and the visible calculator runs its compute once.
     var computeSignal by remember { mutableStateOf(0) }
+
+    // The wide-field declination field is hoisted to this screen (it
+    // used to live inside the wide-field calculator) so a target
+    // handed over from the tonight page's detail dialog can prefill
+    // it: the declination is the one catalogue parameter a calculator
+    // field accepts (ui-design §7.5). The handover is consumed once.
+    var declinationText by remember { mutableStateOf("-29") }
+    var declinationError by remember { mutableStateOf(false) }
+    LaunchedEffect(prefillObject) {
+        val obj = prefillObject ?: return@LaunchedEffect
+        declinationText = obj.decDeg.toString()
+        declinationError = false
+        onPrefillConsumed()
+    }
 
     val recommendation = StrictnessRecommendation.recommend(
         tracked = profile?.kind == TrackingKind.TRACKED,
@@ -197,6 +214,10 @@ fun CalculatorsScreen(
             when (category) {
                 CalcCategory.WIDE_FIELD -> WideFieldCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan, computeSignal,
+                    declinationText = declinationText,
+                    onDeclinationChange = { declinationText = it },
+                    declinationError = declinationError,
+                    onDeclinationErrorChange = { declinationError = it },
                 )
                 CalcCategory.LANDSCAPE -> LandscapeCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan, computeSignal,
@@ -267,9 +288,11 @@ private fun WideFieldCalculator(
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
     computeSignal: Int,
+    declinationText: String,
+    onDeclinationChange: (String) -> Unit,
+    declinationError: Boolean,
+    onDeclinationErrorChange: (Boolean) -> Unit,
 ) {
-    var declinationText by remember { mutableStateOf("-29") }
-    var declinationError by remember { mutableStateOf(false) }
     var card by remember { mutableStateOf<WideFieldUseCase.Card?>(null) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
@@ -277,8 +300,8 @@ private fun WideFieldCalculator(
     OutlinedTextField(
         value = declinationText,
         onValueChange = {
-            declinationText = it
-            declinationError = false
+            onDeclinationChange(it)
+            onDeclinationErrorChange(false)
         },
         label = { Text(stringResource(R.string.calc_declination)) },
         modifier = Modifier.fillMaxWidth(),
@@ -296,7 +319,7 @@ private fun WideFieldCalculator(
         // silently replaced by a default value.
         val dec = declinationText.toDoubleOrNull()
         if (dec == null || dec !in -90.0..90.0) {
-            declinationError = true
+            onDeclinationErrorChange(true)
             return
         }
         val sky = skyFor(

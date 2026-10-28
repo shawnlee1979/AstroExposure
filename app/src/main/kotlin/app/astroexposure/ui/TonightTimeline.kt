@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -254,7 +253,6 @@ fun NightTimelineCard(
     bubbleMoonText: String? = null,
     bubbleSnapLabel: String? = null,
     arcs: List<TimelineArc> = emptyList(),
-    highlightedArc: Int? = null,
     onCursorTap: (Instant) -> Unit = {},
     onCursorDrag: (Instant) -> Unit = {},
     onCursorStep: (Long) -> Unit = {},
@@ -608,15 +606,16 @@ fun NightTimelineCard(
                             )
                         }
                         // Cursor bubble (ui-design §7.5): cursor time
-                        // plus the Moon's altitude and illumination at
-                        // that moment, readable while dragging. When
+                        // plus the Moon's altitude, its phase
+                        // illumination and the site's light pollution
+                        // at that moment, readable while dragging. When
                         // the cursor is snapped to a key moment the
                         // moment's name is appended.
                         if (cursorActive && cursorInstant != null && bubbleTimeText != null) {
                             val fraction = NightTimeline.fractionOf(
                                 cursorInstant, timeline.axisStart, timeline.axisEnd,
                             )
-                            val bubbleWidth = 128.0
+                            val bubbleWidth = 184.0
                             val bubbleLeft = (fraction * widthDp - bubbleWidth / 2)
                                 .coerceIn(0.0, max(0.0, widthDp - bubbleWidth))
                             Column(
@@ -722,17 +721,12 @@ fun NightTimelineCard(
                     // shooting window's overlap with the arc is framed
                     // with a thick bright border over the fills — a
                     // shape, not just a colour, so it survives the red
-                    // theme. Tapping a lane activates its target for
-                    // the detail card.
+                    // theme. Tapping a lane opens its target's detail
+                    // dialog.
                     if (cursorActive && arcs.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             arcs.forEachIndexed { index, arc ->
-                                val highlighted = highlightedArc == index
-                                val baseColor = if (highlighted) {
-                                    sunColor
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -788,9 +782,7 @@ fun NightTimelineCard(
                                             )
                                             segment(
                                                 phases.culminationSpan,
-                                                sunColor.copy(
-                                                    alpha = if (highlighted) 0.85f else 0.55f,
-                                                ),
+                                                sunColor.copy(alpha = 0.55f),
                                                 sunColor,
                                             )
                                             segment(
@@ -991,15 +983,10 @@ fun NightTimelineCard(
     }
 
     selectedMark?.let { mark ->
-        AlertDialog(
-            onDismissRequest = { selectedMark = null },
-            title = { Text(mark.title) },
-            text = { Text(mark.lines.joinToString("\n")) },
-            confirmButton = {
-                TextButton(onClick = { selectedMark = null }) {
-                    Text(stringResource(R.string.common_close))
-                }
-            },
+        DetailDialog(
+            title = mark.title,
+            lines = mark.lines,
+            onDismiss = { selectedMark = null },
         )
     }
 }

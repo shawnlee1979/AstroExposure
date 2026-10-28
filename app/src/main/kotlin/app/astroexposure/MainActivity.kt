@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astroexposure.domain.camera.Camera
+import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.geo.SiteTimeZone
@@ -95,6 +96,10 @@ private fun AstroApp(container: AppContainer) {
 
     var tab by rememberSaveable { mutableStateOf(Tab.TONIGHT) }
     var calcCategory by remember { mutableStateOf(CalcCategory.WIDE_FIELD) }
+    // A catalogue target handed over from the tonight page's detail
+    // dialog (ui-design §7.5): the calculators screen consumes it once
+    // to prefill the declination field.
+    var calcPrefill by remember { mutableStateOf<DeepSkyObject?>(null) }
     var redLight by rememberSaveable { mutableStateOf(false) }
     var redLightAuto by rememberSaveable { mutableStateOf(false) }
     var defaultStrictness by rememberSaveable { mutableStateOf(Strictness.STANDARD) }
@@ -388,11 +393,21 @@ private fun AstroApp(container: AppContainer) {
                             calcCategory = cat
                             tab = Tab.CALCULATE
                         },
-                        onEvaluateCursor = { instant, activeObjectId ->
+                        onEvaluateCursor = { instant ->
                             container.tonightOverview.evaluateCursor(
                                 location, tonightDate, instant, result.timeline, manualBortle,
-                                activeObjectId,
                             )
+                        },
+                        onEvaluateTarget = { instant, objectId ->
+                            container.tonightOverview.evaluateTargetAtCursor(
+                                location, tonightDate, instant, result.timeline, manualBortle,
+                                objectId,
+                            )
+                        },
+                        onOpenTargetCalculator = { category, obj ->
+                            calcCategory = category
+                            calcPrefill = obj
+                            tab = Tab.CALCULATE
                         },
                         modifier = Modifier.padding(padding),
                     )
@@ -411,6 +426,8 @@ private fun AstroApp(container: AppContainer) {
                     skyFor = skyFor,
                     category = calcCategory,
                     onCategoryChange = { calcCategory = it },
+                    prefillObject = calcPrefill,
+                    onPrefillConsumed = { calcPrefill = null },
                     onSavePlan = { category, title, body, payload ->
                         scope.launch(Dispatchers.IO) {
                             repo.addPlan(

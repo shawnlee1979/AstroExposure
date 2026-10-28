@@ -39,6 +39,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.astroexposure.R
+import app.astroexposure.domain.catalog.DeepSkyObject
+import app.astroexposure.domain.catalog.DeepSkyObjectType
 import app.astroexposure.domain.catalog.LightPollutionVersionFormat
 import app.astroexposure.domain.geo.Coordinates
 import app.astroexposure.domain.sky.BaselineSource
@@ -89,7 +91,9 @@ fun TonightScreen(
     onManualLocation: (Double, Double) -> Unit,
     onDateChange: (LocalDate) -> Unit,
     onOpenCategory: (CalcCategory) -> Unit,
-    onEvaluateCursor: (Instant, String?) -> TonightOverviewUseCase.CursorEvaluation,
+    onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
+    onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
+    onOpenTargetCalculator: (CalcCategory, DeepSkyObject) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -102,11 +106,14 @@ fun TonightScreen(
     var cursorActive by remember(date) { mutableStateOf(false) }
     var retainedCursor by remember(date) { mutableStateOf<Instant?>(null) }
     var cursorEval by remember(date) { mutableStateOf<TonightOverviewUseCase.CursorEvaluation?>(null) }
-    // The activated target of the detail card (ui-design §7.5, 0.5.1):
-    // an object id, not a list index, so the activation survives the
-    // cursor moving to moments where the ranking changes — the card
-    // keeps its target and shows its honest state there.
-    var activeTargetId by remember(date) { mutableStateOf<String?>(null) }
+    // The detail dialog's target (ui-design §7.5): set by tapping an
+    // arc lane; its detail is evaluated on demand at the cursor
+    // instant. There is no activation — entering the cursor state
+    // selects nothing, and the cursor evaluates no single target.
+    var detailObjectId by remember(date) { mutableStateOf<String?>(null) }
+    var targetDetail by remember(date) {
+        mutableStateOf<TonightOverviewUseCase.TargetDetail?>(null)
+    }
     var lastSnappedMoment by remember(date) { mutableStateOf<Int?>(null) }
     // Cursor lock (ui-design §7.5, 0.5.2 anti-mistouch): bound to the
     // selected night like every other cursor state — switching the
@@ -143,14 +150,12 @@ fun TonightScreen(
     }
 
     // The evaluation follows the settled cursor position (short
-    // debounce so a drag does not evaluate every intermediate minute),
-    // carrying the activated target's id so its detail state is
-    // evaluated for the same instant.
-    LaunchedEffect(cursorActive, retainedCursor, overview, activeTargetId) {
+    // debounce so a drag does not evaluate every intermediate minute).
+    LaunchedEffect(cursorActive, retainedCursor, overview) {
         cursorEval = if (cursorActive && retainedCursor != null) {
             delay(120)
             withContext(Dispatchers.Default) {
-                onEvaluateCursor(retainedCursor!!, activeTargetId)
+                onEvaluateCursor(retainedCursor!!)
             }
         } else {
             null
@@ -159,15 +164,17 @@ fun TonightScreen(
 
     val evalMatchesCursor = cursorEval != null && cursorEval!!.instant == retainedCursor
 
-    // Default activation (ui-design §7.5, 0.5.1): entering the cursor
-    // state with no activated target activates the top-ranked one as
-    // soon as its evaluation lands.
-    LaunchedEffect(cursorEval, cursorActive) {
-        val evaluation = cursorEval
-        if (cursorActive && evaluation != null && evaluation.instant == retainedCursor &&
-            activeTargetId == null
-        ) {
-            evaluation.targets.firstOrNull()?.let { activeTargetId = it.obj.id }
+    // The detail dialog's evaluation: runs when a lane tap names a
+    // target, against the cursor instant at that moment (the dialog
+    // is modal, so the cursor cannot move while it is open).
+    LaunchedEffect(detailObjectId, overview) {
+        val id = detailObjectId
+        targetDetail = if (id != null && retainedCursor != null) {
+            withContext(Dispatchers.Default) {
+                onEvaluateTarget(retainedCursor!!, id)
+            }
+        } else {
+            null
         }
     }
 
@@ -191,10 +198,11 @@ fun TonightScreen(
         } else {
             TimelineCursor.moonAltitudeAt(overview.timeline.samples, retainedCursor!!)
         }
-        // Both bubble figures describe the cursor instant: while the
+        // All bubble figures describe the cursor instant: while the
         // evaluation is in flight the illumination is interpolated
         // from the timeline's own samples at the cursor, not taken
-        // from dusk.
+        // from dusk. The light-pollution figure is the location
+        // card's value for this site (same source, same format).
         val illumination = if (evalMatchesCursor) {
             cursorEval!!.moonIllumination
         } else {
@@ -204,6 +212,9 @@ fun TonightScreen(
         moonAlt?.let {
             stringResource(
                 R.string.cursor_bubble_moon, it, Math.round(illumination * 100),
+                overview.lightPollutionInfo?.artificialMcdPerM2?.let { lp ->
+                    "%.2f".format(lp)
+                } ?: "—",
             )
         }
     } else {
@@ -313,12 +324,6 @@ fun TonightScreen(
             } else {
                 emptyList()
             },
-            highlightedArc = if (cursorActive && evalMatchesCursor) {
-                cursorEval!!.targets.indexOfFirst { it.obj.id == activeTargetId }
-                    .takeIf { it >= 0 }
-            } else {
-                null
-            },
             onCursorTap = { tapped ->
                 if (!cursorActive && retainedCursor != null) {
                     // After "whole night", the next tap restores the
@@ -370,13 +375,43 @@ fun TonightScreen(
                 cursorActive = false
             },
             onArcTap = { index ->
-                // Tapping a lane activates its target (ui-design §7.5,
-                // 0.5.1): the detail card below switches to it.
+                // Tapping a lane opens its target's detail dialog
+                // (ui-design §7.5): the detail is evaluated on demand
+                // for the tapped target at the cursor instant.
                 if (evalMatchesCursor) {
-                    cursorEval!!.targets.getOrNull(index)?.let { activeTargetId = it.obj.id }
+                    cursorEval!!.targets.getOrNull(index)?.let { detailObjectId = it.obj.id }
                 }
             },
         )
+
+        // Target detail dialog (ui-design §7.5): the full detail set
+        // that used to live in the card below the axis, in the shared
+        // DetailDialog. The calculator action appears only when the
+        // target's category maps to a calculator (targetCalcCategory).
+        detailObjectId?.let { id ->
+            val detail = targetDetail?.takeIf { it.obj.id == id }
+            val tappedName = cursorEval?.targets?.firstOrNull { it.obj.id == id }?.obj
+                ?.let { it.nameZh ?: it.name }
+            val category = detail?.let { targetCalcCategory(it.obj.type) }
+            DetailDialog(
+                title = detail?.obj?.let { it.nameZh ?: it.name } ?: tappedName ?: "…",
+                lines = detail?.let { targetDetailLines(it, zone) } ?: listOf("…"),
+                onDismiss = { detailObjectId = null },
+                actionLabel = if (detail != null && category != null) {
+                    stringResource(R.string.cursor_detail_goto_calculator)
+                } else {
+                    null
+                },
+                onAction = if (detail != null && category != null) {
+                    {
+                        onOpenTargetCalculator(category, detail.obj)
+                        detailObjectId = null
+                    }
+                } else {
+                    null
+                },
+            )
+        }
 
         // Moon / total-sky verdict card (the Bortle fallback lives in the
         // location card now; the source annotation stays here).
@@ -419,11 +454,10 @@ fun TonightScreen(
         }
 
         if (cursorActive && retainedCursor != null) {
-            // Cursor state (ui-design §7.5): the recommendation area
-            // switches to "shootable at this moment".
-            CursorTargetsCard(
+            // Cursor state (ui-design §7.5): below the axis only the
+            // status row remains — target details live in the dialog.
+            CursorStatusCard(
                 evaluation = if (evalMatchesCursor) cursorEval else null,
-                cursorTimeText = formatTime(retainedCursor!!, zone),
                 zone = zone,
             )
         } else {
@@ -912,21 +946,17 @@ private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = st
 )
 
 /**
- * The "shootable at this moment" card (ui-design §7.5): title with the
- * cursor time, the four-item status row, and — since the 0.5.1
- * revision — the detail of the ONE activated target instead of the
- * ranked list. Tapping an arc lane on the timeline switches the
- * activation. Since the 0.5.2 revision the card carries no qualifying
- * count line: with only the activated target's detail shown, the count
- * had nothing left to refer to. [evaluation] is null while an
- * evaluation for the current cursor position is still in flight — the
- * card then shows its title only, never stale results presented as
- * current.
+ * The cursor state's strip below the axis (ui-design §7.5): ONLY the
+ * four-item status row. Target details moved into the dialog opened
+ * from the arc lanes; the whole "shootable at this moment" section —
+ * title, ranked content and the activated target's detail card — is
+ * gone. [evaluation] is null while an evaluation for the current
+ * cursor position is still in flight — the strip then shows an
+ * ellipsis, never stale results presented as current.
  */
 @Composable
-private fun CursorTargetsCard(
+private fun CursorStatusCard(
     evaluation: TonightOverviewUseCase.CursorEvaluation?,
-    cursorTimeText: String,
     zone: ZoneId,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -934,7 +964,6 @@ private fun CursorTargetsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            SectionTitle(stringResource(R.string.cursor_title, cursorTimeText))
             if (evaluation == null) {
                 Text(text = "…", style = MaterialTheme.typography.bodyMedium)
                 return@Column
@@ -977,61 +1006,51 @@ private fun CursorTargetsCard(
             )
             if (!evaluation.targetsAvailable) {
                 Text(text = stringResource(R.string.tonight_recommendations_unavailable))
-            } else if (evaluation.activeTarget != null) {
-                ActiveTargetDetail(active = evaluation.activeTarget, zone = zone)
-            } else if (evaluation.targets.isEmpty()) {
-                Text(text = stringResource(R.string.cursor_none))
-            } else {
-                // Targets qualify and an activation is being resolved
-                // (the default activation lands with the next frame).
-                Text(text = "…", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
 }
 
 /**
- * The activated target's detail (ui-design §7.5, 0.5.1 revision;
- * 0.6.0 additions noted inline): catalogue facts (only the fields the
- * catalogue actually has — a missing magnitude, size or constellation
- * is omitted, never filled in), the target's state at the cursor
- * instant, tonight's ≥20° window with its culmination, the
- * recommended shooting window with the cursor's state against it,
- * the true Moon separation and moonlight interference toward this
- * target at the cursor (a pinned target in the exclusion zone is
- * flagged, not dropped), and the full-frame framing advice.
+ * The target detail dialog's lines (ui-design §7.5): catalogue facts
+ * (only the fields the catalogue actually has — a missing magnitude,
+ * size or constellation is omitted, never filled in), the target's
+ * state at the cursor instant, tonight's ≥20° window with its
+ * culmination, the recommended shooting window with the cursor's
+ * state against it, the true Moon separation and moonlight
+ * interference toward this target at the cursor, and the full-frame
+ * framing advice. The lines are plain text — the dialog gives no
+ * per-line styling, so the moon-exclusion flag is carried by its
+ * wording, not by a colour. The target's name is the dialog title,
+ * not a line.
  */
 @Composable
-private fun ActiveTargetDetail(
-    active: TonightOverviewUseCase.ActiveTarget,
+private fun targetDetailLines(
+    active: TonightOverviewUseCase.TargetDetail,
     zone: ZoneId,
-) {
+): List<String> = buildList {
     val obj = active.obj
-    Text(
-        text = obj.nameZh ?: obj.name,
-        style = MaterialTheme.typography.titleMedium,
-    )
     val catalogParts = buildList {
         add(
             stringResource(
                 when (obj.type) {
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.GALAXY ->
+                    DeepSkyObjectType.GALAXY ->
                         R.string.obj_type_galaxy
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.OPEN_CLUSTER ->
+                    DeepSkyObjectType.OPEN_CLUSTER ->
                         R.string.obj_type_open_cluster
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.GLOBULAR_CLUSTER ->
+                    DeepSkyObjectType.GLOBULAR_CLUSTER ->
                         R.string.obj_type_globular_cluster
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.NEBULA ->
+                    DeepSkyObjectType.NEBULA ->
                         R.string.obj_type_nebula
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.PLANETARY_NEBULA ->
+                    DeepSkyObjectType.PLANETARY_NEBULA ->
                         R.string.obj_type_planetary_nebula
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.SUPERNOVA_REMNANT ->
+                    DeepSkyObjectType.SUPERNOVA_REMNANT ->
                         R.string.obj_type_supernova_remnant
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.DOUBLE_STAR ->
+                    DeepSkyObjectType.DOUBLE_STAR ->
                         R.string.obj_type_double_star
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.ASTERISM ->
+                    DeepSkyObjectType.ASTERISM ->
                         R.string.obj_type_asterism
-                    app.astroexposure.domain.catalog.DeepSkyObjectType.OTHER ->
+                    DeepSkyObjectType.OTHER ->
                         R.string.obj_type_other
                 },
             ),
@@ -1053,11 +1072,7 @@ private fun ActiveTargetDetail(
         }
         obj.constellation?.let { add(stringResource(R.string.cursor_detail_constellation, it)) }
     }
-    Text(
-        text = catalogParts.joinToString(" · "),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    add(catalogParts.joinToString(" · "))
     // State at the cursor instant. The phase wording covers the whole
     // pass (ui-design §7.5): rising before the culmination span, "near
     // culmination" inside it, setting from its end — an altitude below
@@ -1069,25 +1084,22 @@ private fun ActiveTargetDetail(
         TimelineCursor.PassPhase.SETTING -> stringResource(R.string.cursor_target_setting)
         null -> stringResource(R.string.cursor_phase_no_window)
     }
-    Text(
-        text = stringResource(
+    add(
+        stringResource(
             R.string.cursor_detail_state,
             active.altitudeDeg, active.azimuthDeg, phaseText,
         ),
-        style = MaterialTheme.typography.bodyMedium,
     )
     val phases = active.phases
     if (phases != null) {
-        Text(
-            text = stringResource(
+        add(
+            stringResource(
                 R.string.cursor_detail_window,
                 formatTime(phases.window.start, zone),
                 formatTime(phases.window.end, zone),
                 formatTime(phases.culmination.instant, zone),
                 phases.culmination.altitudeDeg,
             ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
     // Recommended shooting window (ui-design §7.5, 0.6.0): the full
@@ -1098,17 +1110,15 @@ private fun ActiveTargetDetail(
     val recommended = active.recommended
     if (recommended != null) {
         if (recommended.relativeBest) {
-            Text(
-                text = stringResource(
+            add(
+                stringResource(
                     R.string.cursor_recommended_relative_best,
                     recommended.culminationAltitudeDeg,
                 ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            text = stringResource(
+        add(
+            stringResource(
                 R.string.cursor_detail_recommended,
                 formatTime(recommended.interval.start, zone),
                 formatTime(recommended.interval.end, zone),
@@ -1116,38 +1126,28 @@ private fun ActiveTargetDetail(
                     recommended.interval.start, recommended.interval.end,
                 ).toMinutes(),
             ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         when (active.recommendedState) {
-            TimelineCursor.RecommendedState.INSIDE -> Text(
-                text = stringResource(R.string.cursor_recommended_inside),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TimelineCursor.RecommendedState.BEFORE -> Text(
-                text = stringResource(
+            TimelineCursor.RecommendedState.INSIDE ->
+                add(stringResource(R.string.cursor_recommended_inside))
+            TimelineCursor.RecommendedState.BEFORE -> add(
+                stringResource(
                     R.string.cursor_recommended_before,
                     active.recommendedMinutesUntil,
                     formatTime(recommended.interval.start, zone),
                 ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TimelineCursor.RecommendedState.AFTER -> Text(
-                text = stringResource(R.string.cursor_recommended_after),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            TimelineCursor.RecommendedState.AFTER ->
+                add(stringResource(R.string.cursor_recommended_after))
             null -> Unit
         }
     }
     // Moon separation (ui-design §7.5, 0.6.0): the TRUE spherical
     // angle to the Moon at the cursor is a standing data item, next
-    // to the interference tier toward this target. A pinned target
-    // that falls into the exclusion zone keeps its card and is
-    // flagged in the error colour instead of vanishing; with the
-    // Moon down the angle is reference only and says so.
+    // to the interference tier toward this target. The exclusion
+    // wording names the state plainly (the dialog has no error
+    // colour to carry it); with the Moon down the angle is
+    // reference only and says so.
     val interferenceLabel = stringResource(
         when (active.moonInterference) {
             TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
@@ -1155,47 +1155,37 @@ private fun ActiveTargetDetail(
             TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
         },
     )
-    Text(
-        text = stringResource(
+    add(
+        stringResource(
             R.string.cursor_detail_moon_separation,
             Math.round(active.moonSeparationDeg),
             interferenceLabel,
         ),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     if (!active.moonUp) {
-        Text(
-            text = stringResource(R.string.cursor_moon_below_horizon),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        add(stringResource(R.string.cursor_moon_below_horizon))
     } else if (active.moonProximity == TimelineCursor.MoonProximity.EXCLUDED) {
-        Text(
-            text = stringResource(
+        add(
+            stringResource(
                 R.string.cursor_moon_excluded,
                 Math.round(active.moonSeparationDeg),
             ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
         )
     } else if (active.moonProximity == TimelineCursor.MoonProximity.CAUTION) {
-        Text(
-            text = stringResource(
+        add(
+            stringResource(
                 R.string.cursor_moon_caution,
                 Math.round(active.moonSeparationDeg),
                 interferenceLabel,
             ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
     // Full-frame framing advice (36.0 x 24.0 mm; domain FullFrameFraming
-    // owns the formulas and the boundary rules — the card renders the
-    // result form it is given, including the honest capped forms).
+    // owns the formulas and the boundary rules — the lines render the
+    // result form they are given, including the honest capped forms).
     val framing = active.framing
-    Text(
-        text = when (framing) {
+    add(
+        when (framing) {
             is app.astroexposure.domain.camera.FullFrameFraming.Advice.NoSizeData ->
                 stringResource(R.string.cursor_framing_no_size)
             is app.astroexposure.domain.camera.FullFrameFraming.Advice.Range ->
@@ -1223,9 +1213,27 @@ private fun ActiveTargetDetail(
                     Math.round(framing.shareAtMinFocal * 100),
                 )
         },
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/**
+ * Which calculator a catalogue target's detail dialog jumps to
+ * (ui-design §7.5): every catalogue type is a deep-sky object, so the
+ * table maps them all to the deep-sky calculator. A type with no
+ * calculator would map to null and the dialog would show no jump
+ * action — a destination is never invented.
+ */
+fun targetCalcCategory(type: DeepSkyObjectType): CalcCategory? = when (type) {
+    DeepSkyObjectType.GALAXY,
+    DeepSkyObjectType.OPEN_CLUSTER,
+    DeepSkyObjectType.GLOBULAR_CLUSTER,
+    DeepSkyObjectType.NEBULA,
+    DeepSkyObjectType.PLANETARY_NEBULA,
+    DeepSkyObjectType.SUPERNOVA_REMNANT,
+    DeepSkyObjectType.DOUBLE_STAR,
+    DeepSkyObjectType.ASTERISM,
+    DeepSkyObjectType.OTHER,
+    -> CalcCategory.DEEP_SKY
 }
 
 @Composable

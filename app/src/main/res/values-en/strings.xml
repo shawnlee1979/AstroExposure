@@ -101,14 +101,12 @@
     <string name="common_close">Close</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">Moon %1$.0f° · phase illum. %2$d%%</string>
+    <string name="cursor_bubble_moon">Moon %1$.0f°, phase %2$d%%, LP %3$s</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">Whole night ✕</string>
-    <string name="cursor_title">Shootable now · %1$s</string>
     <string name="cursor_lock">Lock</string>
     <string name="cursor_locked">Locked</string>
-    <string name="cursor_none">No target at altitude ≥20° at this moment</string>
     <string name="cursor_status">%1$s · Sun %2$.0f° · moonlight %3$s · %4$s</string>
     <string name="cursor_segment_day">Daytime</string>
     <string name="cursor_segment_civil">Civil twilight</string>
@@ -131,6 +129,7 @@
     <string name="cursor_detail_size_major">Size %1$d′</string>
     <string name="cursor_detail_constellation">Constellation %1$s</string>
     <string name="cursor_detail_state">Altitude %1$.0f° · azimuth %2$.0f° · %3$s</string>
+    <string name="cursor_detail_goto_calculator">Open calculator</string>
     <string name="cursor_detail_window">Shootable window %1$s–%2$s · culmination %3$s · %4$.0f°</string>
     <string name="cursor_detail_moon_separation">Moon separation %1$d° · interference %2$s</string>
     <string name="cursor_moon_below_horizon">Moon below the horizon — separation is reference only</string>

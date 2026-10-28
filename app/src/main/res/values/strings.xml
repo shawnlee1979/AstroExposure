@@ -101,14 +101,12 @@
     <string name="common_close">关闭</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">月高 %1$.0f° · 月相照明 %2$d%%</string>
+    <string name="cursor_bubble_moon">月高 %1$.0f°，月相 %2$d%%，光害 %3$s</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">看整晚 ✕</string>
-    <string name="cursor_title">此时可拍 · %1$s</string>
     <string name="cursor_lock">锁定</string>
     <string name="cursor_locked">已锁定</string>
-    <string name="cursor_none">此时无高度 ≥20° 的目标</string>
     <string name="cursor_status">%1$s · 日高 %2$.0f° · 月光干扰 %3$s · %4$s</string>
     <string name="cursor_segment_day">日间</string>
     <string name="cursor_segment_civil">民用暮光</string>
@@ -131,6 +129,7 @@
     <string name="cursor_detail_size_major">角尺寸 %1$d′</string>
     <string name="cursor_detail_constellation">星座 %1$s</string>
     <string name="cursor_detail_state">高度 %1$.0f° · 方位 %2$.0f° · %3$s</string>
+    <string name="cursor_detail_goto_calculator">去计算</string>
     <string name="cursor_detail_window">可拍窗口 %1$s–%2$s · 中天 %3$s · %4$.0f°</string>
     <string name="cursor_detail_moon_separation">距月 %1$d° · 月光干扰 %2$s</string>
     <string name="cursor_moon_below_horizon">月亮在地平线下，夹角仅供参考</string>

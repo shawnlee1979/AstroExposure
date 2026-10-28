@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -20,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -376,4 +378,36 @@ fun SectionTitle(text: String) {
 @Composable
 fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(onClick = onClick, modifier = modifier.fillMaxWidth()) { Text(text) }
+}
+
+/**
+ * The one detail dialog (ui-design §7.4 / §7.5): a title, plain text
+ * lines and a close button. Timeline mark details and target details
+ * render through this single component so every popup on the tonight
+ * page shares one shape; a caller with a follow-on action (the target
+ * detail's calculator jump) adds it beside the close button.
+ */
+@Composable
+fun DetailDialog(
+    title: String,
+    lines: List<String>,
+    onDismiss: () -> Unit,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(lines.joinToString("\n")) },
+        confirmButton = {
+            Row {
+                if (actionLabel != null && onAction != null) {
+                    TextButton(onClick = onAction) { Text(actionLabel) }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_close))
+                }
+            }
+        },
+    )
 }
