@@ -1,5 +1,6 @@
 package app.astroexposure.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -316,7 +317,7 @@ fun ResultCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .androidx.compose.foundation.background(
+                    .background(
                         app.astroexposure.ui.theme.LocalStateColors.current.warn,
                     )
                     .padding(horizontal = 16.dp, vertical = 10.dp),

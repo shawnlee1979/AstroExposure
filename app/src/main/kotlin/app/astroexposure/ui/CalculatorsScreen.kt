@@ -1,10 +1,12 @@
 package app.astroexposure.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -821,10 +823,8 @@ private fun EclipseCalculator(
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .androidx.compose.foundation.layout.height(6.dp)
-                        .androidx.compose.foundation.background(
-                            MaterialTheme.colorScheme.error,
-                        ),
+                        .height(6.dp)
+                        .background(MaterialTheme.colorScheme.error),
                 )
             Column(
                 modifier = Modifier.padding(16.dp),
