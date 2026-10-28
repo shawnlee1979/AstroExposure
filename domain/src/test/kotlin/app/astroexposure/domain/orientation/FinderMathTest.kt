@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Finder pure functions (target detail dialog redesign §2.4/§2.5/§3.3/
- * §3.5, 0.8.0): hand-computed cases for the signed azimuth wrap, the
+ * Finder pure functions (target detail dialog redesign, ui-design
+ * §7.5 as revised for 0.8.0): hand-computed cases for the signed azimuth wrap, the
  * clamped pitch difference, the flat-posture boundary, the two-axis
  * hysteresis (enter 3° / exit 5°) and every cue branch of
  * [finderReadout] in its documented priority order.
