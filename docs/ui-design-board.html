@@ -580,6 +580,346 @@
 <div class="cap">⑨ 今晚页 · 时间轴游标态（0.5.0–0.7.0）<small>游标金线 + 气泡（时刻 + 第二行固定格式：月高、月相、光害）；目标弧段 26dp 泳道内分上升｜中天（金）｜下降三段，目标名与中天标注写进块内，推荐拍摄区间以亮框框出（0.6.0）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；轴下只留状态行，点按弧段弹出目标详情窗（高度/方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）——0.7.0 改版。</small></div>
 </div>
 
+<style>
+  .pf-board {display:flex; flex-wrap:wrap; gap:28px 22px; }
+  .pf-cell {width:344px; }
+  .pf-cap {margin-top:10px; font-size:13px; color:#E9EEF8; font-weight:600; }
+  .pf-cap small {display:block; color:#5D6C8C; font-weight:400; margin-top:3px; line-height:1.6; }
+  .pf-phone {width:344px; height:716px; border-radius:38px; border:1px solid #2A3757; background:#05070D; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 14px 44px rgba(0,0,0,.55); position:relative; }
+  .pf-statusbar {display:flex; justify-content:space-between; padding:12px 20px 4px; font-size:12px; color:#96A3BE; }
+  .pf-behind {flex:1; padding:14px; opacity:.38; }
+  .pf-behind .pf-blk {background:#0C1120; border:1px solid #22304F; border-radius:16px; height:120px; margin-bottom:12px; }
+  .pf-behind .pf-blk.pf-tall {height:250px; }
+  .pf-scrim {position:absolute; inset:0; background:rgba(2,3,6,.55); display:flex; align-items:flex-start; justify-content:center; padding-top:52px; }
+  /* 弹出窗：近全屏宽、高约 80% */
+  .pf-sheet {width:328px; height:600px; background:#05070D; border:1px solid #22304F; border-radius:20px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 18px 50px rgba(0,0,0,.65); }
+  .pf-shead {padding:14px 16px 10px; border-bottom:1px solid #1A2440; }
+  .pf-shead .pf-row1 {display:flex; justify-content:space-between; align-items:flex-start; }
+  .pf-shead .pf-tname {font-size:19px; font-weight:700; }
+  .pf-shead .pf-x {width:40px; height:40px; margin:-8px -8px 0 0; text-align:center; line-height:40px; font-size:17px; color:#96A3BE; }
+  .pf-shead .pf-meta {font-size:12px; color:#96A3BE; margin-top:3px; }
+  .pf-shead .pf-verdict {font-size:16px; font-weight:700; color:#F2C66D; margin-top:8px; }
+  .pf-warnbar {margin:10px 12px 0; border-radius:10px; padding:9px 11px; font-size:12px; line-height:1.55; }
+  .pf-warnbar.pf-bad {background:#220B0A; border:1px solid #5F2320; border-top:4px solid #E5484D; color:#FFB3AB; }
+  .pf-sbody {flex:1; padding:12px; overflow:hidden; }
+  .pf-finder {border:1px solid #22304F; border-radius:16px; background:#0C1120; padding:12px 12px 10px; }
+  .pf-finder.pf-aligned {border:2px solid #F2C66D; }
+  .pf-finder .pf-frow {display:flex; gap:10px; }
+  .pf-dialwrap {position:relative; width:212px; height:212px; flex:none; }
+  .pf-topmark {position:absolute; left:50%; top:-2px; transform:translateX(-50%); font-size:13px; color:#96A3BE; z-index:3; }
+  .pf-finder.pf-aligned .pf-topmark {color:#F2C66D; }
+  .pf-tgtmark {position:absolute; width:20px; height:20px; margin:-10px 0 0 -10px; color:#F2C66D; font-size:16px; text-align:center; line-height:20px; z-index:2; text-shadow:0 0 6px rgba(0,0,0,.8); }
+  .pf-altrail {position:relative; width:52px; height:212px; flex:none; }
+  .pf-altrail .pf-rail {position:absolute; right:14px; top:6px; bottom:6px; width:10px; background:#131B31; border:1px solid #22304F; border-radius:5px; overflow:visible; }
+  .pf-altrail .pf-fill {position:absolute; right:15px; bottom:7px; width:8px; background:#3D5
+...[truncated 11673 chars]A8C; border-radius:4px; }
+  .pf-altrail .pf-tgt {position:absolute; right:8px; height:2px; width:22px; background:#F2C66D; }
+  .pf-altrail .pf-tgt b {position:absolute; right:-2px; top:-16px; font-size:11px; color:#F2C66D; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pf-altrail .pf-cur {position:absolute; right:33px; width:0; height:0; border-top:6px solid transparent; border-bottom:6px solid transparent; border-left:9px solid #E9EEF8; }
+  .pf-altrail .pf-hz {position:absolute; right:2px; bottom:5px; font-size:10px; color:#5D6C8C; }
+  .pf-altrail .pf-deg60 {position:absolute; right:28px; font-size:10px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
+  .pf-deltas {margin-top:10px; border-top:1px dashed #1A2440; padding-top:9px; }
+  .pf-deltas .pf-d1 {display:flex; justify-content:space-between; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pf-deltas .pf-d1 .pf-gold {color:#F2C66D; }
+  .pf-deltas .pf-d2 {font-size:12px; color:#96A3BE; margin-top:5px; }
+  .pf-deltas .pf-d2.pf-gold {color:#F2C66D; font-size:14px; font-weight:700; }
+  .pf-calib {margin-top:9px; border:1px solid #22304F; border-radius:10px; padding:8px 10px; font-size:12px; color:#96A3BE; display:flex; justify-content:space-between; gap:8px; line-height:1.5; }
+  .pf-calib .pf-x2 {color:#5D6C8C; flex:none; }
+  .pf-grid4 {display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:12px; border:1px solid #22304F; border-radius:16px; background:#0C1120; padding:13px 14px; }
+  .pf-kv .pf-k {font-size:11px; color:#5D6C8C; }
+  .pf-kv .pf-v {font-size:15px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .pf-kv .pf-v.pf-gold {color:#F2C66D; }
+  .pf-fold {margin-top:12px; border:1px solid #22304F; border-radius:16px; background:#0C1120; padding:13px 14px; font-size:14px; color:#96A3BE; display:flex; justify-content:space-between; }
+  .pf-sfoot {display:flex; gap:10px; padding:12px; border-top:1px solid #1A2440; background:#070A14; }
+  .pf-btn {flex:1; text-align:center; padding:13px 0; border-radius:12px; font-size:15px; font-weight:600; }
+  .pf-btn.pf-primary {background:#F2C66D; color:#191203; }
+  .pf-btn.pf-ghost {background:#0C1120; border:1px solid #22304F; color:#E9EEF8; }
+  /* 红光主题 */
+  .pf-redsheet {background:#0A0202; border-color:#471512; }
+  .pf-redsheet .pf-shead {border-color:#471512; }
+  .pf-redsheet .pf-tname, .pf-redsheet .pf-deltas .pf-d1 {color:#FF7A6B; }
+  .pf-redsheet .pf-verdict, .pf-redsheet .pf-kv .pf-v.pf-gold, .pf-redsheet .pf-deltas .pf-d1 .pf-gold {color:#FF9D8A; }
+  .pf-redsheet .pf-meta, .pf-redsheet .pf-kv .pf-k, .pf-redsheet .pf-fold, .pf-redsheet .pf-deltas .pf-d2 {color:#C04434; }
+  .pf-redsheet .pf-finder, .pf-redsheet .pf-grid4, .pf-redsheet .pf-fold {background:#180404; border-color:#471512; }
+  .pf-redsheet .pf-finder.pf-aligned {border-color:#FF9D8A; }
+  .pf-redsheet .pf-altrail .pf-tgt {background:#FF9D8A; }
+  .pf-redsheet .pf-altrail .pf-tgt b {color:#FF9D8A; }
+  .pf-redsheet .pf-altrail .pf-fill {background:#7E2A20; }
+  .pf-redsheet .pf-altrail .pf-cur {border-left-color:#FF7A6B; }
+  .pf-redsheet .pf-warnbar.pf-bad {background:#1C0505; border-color:#5C1A14; border-top-color:#FF4A3D; color:#FFB0A2; }
+  .pf-redsheet .pf-sfoot {background:#0D0303; border-color:#471512; }
+  .pf-redsheet .pf-btn.pf-primary {background:#FF9D8A; color:#2B0500; }
+  .pf-redsheet .pf-btn.pf-ghost {background:#180404; border-color:#471512; color:#FF7A6B; }
+  .pf-redsheet .pf-calib {border-color:#471512; color:#C04434; }
+</style>
+<h2 style="font-size:18px;margin:34px 0 6px;">目标详情弹出窗指向区样张（0.8.0）</h2>
+<p class="sub">规格见 docs/ui-design.md §7.5「详情弹出窗」条（指向助手改版）：固定头与固定警告条、指向区（罗盘 + 右侧竖直高度尺）、两列关键数据网格、折叠区「整晚详情」、固定尾。样张数值为示意。</p>
+<div class="pf-board">
+<div class="pf-cell">
+<div class="pf-cell">
+<div class="pf-phone">
+  <div class="pf-statusbar"><span>22:14</span><span>曝光参谋</span><span>5G ▰▰▰</span></div>
+  <div class="pf-behind"><div class="pf-blk"></div><div class="pf-blk pf-tall"></div><div class="pf-blk"></div></div>
+  <div class="pf-scrim">
+  <div class="pf-sheet">
+    <div class="pf-shead">
+      <div class="pf-row1"><div class="pf-tname">M31 仙女座星系</div><div class="pf-x">✕</div></div>
+      <div class="pf-meta">深空 · 星系 · 3.4 等 · 仙女座</div>
+      <div class="pf-verdict">现在可拍 · 正在推荐区间内</div>
+    </div>
+    <div class="pf-sbody">
+      <div class="pf-finder">
+        <div class="pf-frow">
+          <div class="pf-dialwrap">
+            <div class="pf-topmark">▼</div>
+            <div class="pf-tgtmark" style="left:156px;top:22px;">◆</div>
+            <svg width="212" height="212" viewBox="0 0 212 212">
+              <circle cx="106" cy="106" r="103" fill="#0A0F1E" stroke="#22304F"/>
+              <circle cx="106" cy="106" r="88" fill="none" stroke="#22304F" stroke-width="7" stroke-dasharray="2.5 21.55"/>
+              <g transform="rotate(-34 106 106)">
+                <text x="106" y="30" fill="#E9EEF8" font-size="15" font-weight="700" text-anchor="middle">N</text>
+                <text x="188" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">E</text>
+                <text x="106" y="196" fill="#96A3BE" font-size="13" text-anchor="middle">S</text>
+                <text x="24" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">W</text>
+                <text x="168" y="52" fill="#5D6C8C" font-size="10" text-anchor="middle">90</text>
+                <text x="52" y="168" fill="#5D6C8C" font-size="10" text-anchor="middle">270</text>
+              </g>
+              <circle cx="106" cy="106" r="3" fill="#22304F"/>
+            </svg>
+          </div>
+          <div class="pf-altrail">
+            <div class="pf-rail"></div>
+            <div class="pf-fill" style="height:80px;"></div>
+            <div class="pf-tgt" style="bottom:96px;"><b>42°</b></div>
+            <div class="pf-cur" style="bottom:83px;"></div>
+            <div class="pf-deg60" style="bottom:138px;">60</div>
+            <div class="pf-hz">地平线</div>
+          </div>
+        </div>
+        <div class="pf-deltas">
+          <div class="pf-d1"><span>右转 24°</span><span>再上抬 5°</span></div>
+          <div class="pf-d2">先转方位，再调高度</div>
+        </div>
+        <div class="pf-calib"><span>i 指南针精度低：手持手机在空中画「8」字数次可校准</span><span class="pf-x2">✕</span></div>
+      </div>
+      <div class="pf-grid4">
+        <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">37°</div></div>
+        <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:40 – 01:20</div></div>
+        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">在区间内</div></div>
+        <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
+        <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+      </div>
+      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+    </div>
+    <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
+  </div>
+  </div>
+</div>
+<div class="pf-cap">⑩ 目标详情弹出窗 · 指向中（未对准）<small>点按弧段打开的新弹窗（0.8.0）：固定头（目标名 + 元信息 + 金色结论）不滚走；指向区排在数据网格之前——罗盘盘面反转、金菱形标目标方位，右侧竖直高度尺以金线标目标高度、三角与提亮填充标当前仰角；差值三行文字与图形同步（右转 24° / 再上抬 5° / 先转方位，再调高度）。精度低时校准提示细条可消、不阻断。</small></div>
+</div>
+
+<div class="pf-cell">
+<div class="pf-cell">
+<div class="pf-phone">
+  <div class="pf-statusbar"><span>22:14</span><span>曝光参谋</span><span>5G ▰▰▰</span></div>
+  <div class="pf-behind"><div class="pf-blk"></div><div class="pf-blk pf-tall"></div><div class="pf-blk"></div></div>
+  <div class="pf-scrim">
+  <div class="pf-sheet">
+    <div class="pf-shead">
+      <div class="pf-row1"><div class="pf-tname">M31 仙女座星系</div><div class="pf-x">✕</div></div>
+      <div class="pf-meta">深空 · 星系 · 3.4 等 · 仙女座</div>
+      <div class="pf-verdict">现在可拍 · 正在推荐区间内</div>
+    </div>
+    <div class="pf-sbody">
+      <div class="pf-finder pf-aligned">
+        <div class="pf-frow">
+          <div class="pf-dialwrap">
+            <div class="pf-topmark">▼</div>
+            <div class="pf-tgtmark" style="left:106px;top:8px;">◆</div>
+            <svg width="212" height="212" viewBox="0 0 212 212">
+              <circle cx="106" cy="106" r="103" fill="#0A0F1E" stroke="#22304F"/>
+              <path d="M 88 12 A 95 95 0 0 1 124 12" fill="none" stroke="#F2C66D" stroke-width="4"/>
+              <circle cx="106" cy="106" r="88" fill="none" stroke="#22304F" stroke-width="7" stroke-dasharray="2.5 21.55"/>
+              <g transform="rotate(-58 106 106)">
+                <text x="106" y="30" fill="#E9EEF8" font-size="15" font-weight="700" text-anchor="middle">N</text>
+                <text x="188" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">E</text>
+                <text x="106" y="196" fill="#96A3BE" font-size="13" text-anchor="middle">S</text>
+                <text x="24" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">W</text>
+                <text x="168" y="52" fill="#5D6C8C" font-size="10" text-anchor="middle">90</text>
+                <text x="52" y="168" fill="#5D6C8C" font-size="10" text-anchor="middle">270</text>
+              </g>
+              <circle cx="106" cy="106" r="3" fill="#22304F"/>
+            </svg>
+          </div>
+          <div class="pf-altrail">
+            <div class="pf-rail"></div>
+            <div class="pf-fill" style="height:92px;"></div>
+            <div class="pf-tgt" style="bottom:96px;"><b>42°</b></div>
+            <div class="pf-cur" style="bottom:95px;border-left-color:#F2C66D;"></div>
+            <div class="pf-deg60" style="bottom:138px;">60</div>
+            <div class="pf-hz">地平线</div>
+          </div>
+        </div>
+        <div class="pf-deltas">
+          <div class="pf-d1"><span class="pf-gold">方位已对准</span><span class="pf-gold">高度已对准</span></div>
+          <div class="pf-d2 pf-gold">◎ 目标应在视野中央附近</div>
+        </div>
+      </div>
+      <div class="pf-grid4">
+        <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">42°</div></div>
+        <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:40 – 01:20</div></div>
+        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">在区间内</div></div>
+        <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
+        <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+      </div>
+      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+    </div>
+    <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
+  </div>
+  </div>
+</div>
+<div class="pf-cap">⑪ 目标详情弹出窗 · 双对准<small>双轴 |Δ| ≤ 3°（滞回退出线 5°）：盘顶 ▼ 变金、对准扇区亮起、指向卡整圈金边框、高度三角与金线重合，合成行升为结论「目标应在视野中央附近」（按传感器精度留余量，不说「正中」），进入时轻震动一次（10 秒节流）。</small></div>
+</div>
+
+<div class="pf-cell">
+<div class="pf-cell">
+<div class="pf-phone">
+  <div class="pf-statusbar"><span>23:05</span><span>曝光参谋 · 红光</span><span>5G ▰▰▰</span></div>
+  <div class="pf-behind"><div class="pf-blk"></div><div class="pf-blk pf-tall"></div><div class="pf-blk"></div></div>
+  <div class="pf-scrim">
+  <div class="pf-sheet pf-redsheet">
+    <div class="pf-shead">
+      <div class="pf-row1"><div class="pf-tname">M42 猎户座大星云</div><div class="pf-x" style="color:#C04434;">✕</div></div>
+      <div class="pf-meta">深空 · 发射星云 · 4.0 等 · 猎户座</div>
+      <div class="pf-verdict">现在可拍 · 距推荐区间结束还有 38 分钟</div>
+    </div>
+    <div class="pf-warnbar pf-bad">▲ 月光干扰强：距月仅 32°，该方向月光污染严重，曝光明显打折</div>
+    <div class="pf-sbody">
+      <div class="pf-finder">
+        <div class="pf-frow">
+          <div class="pf-dialwrap">
+            <div class="pf-topmark" style="color:#C04434;">▼</div>
+            <div class="pf-tgtmark" style="left:76px;top:14px;color:#FF9D8A;">◆</div>
+            <svg width="212" height="212" viewBox="0 0 212 212">
+              <circle cx="106" cy="106" r="103" fill="#140303" stroke="#471512"/>
+              <circle cx="106" cy="106" r="88" fill="none" stroke="#471512" stroke-width="7" stroke-dasharray="2.5 21.55"/>
+              <g transform="rotate(-176 106 106)">
+                <text x="106" y="30" fill="#FF7A6B" font-size="15" font-weight="700" text-anchor="middle">N</text>
+                <text x="188" y="112" fill="#C04434" font-size="13" text-anchor="middle">E</text>
+                <text x="106" y="196" fill="#C04434" font-size="13" text-anchor="middle">S</text>
+                <text x="24" y="112" fill="#C04434" font-size="13" text-anchor="middle">W</text>
+                <text x="168" y="52" fill="#8F2B21" font-size="10" text-anchor="middle">90</text>
+                <text x="52" y="168" fill="#8F2B21" font-size="10" text-anchor="middle">270</text>
+              </g>
+              <circle cx="106" cy="106" r="3" fill="#471512"/>
+            </svg>
+          </div>
+          <div class="pf-altrail">
+            <div class="pf-rail" style="background:#220707;border-color:#471512;"></div>
+            <div class="pf-fill" style="height:64px;"></div>
+            <div class="pf-tgt" style="bottom:76px;"><b>34°</b></div>
+            <div class="pf-cur" style="bottom:67px;"></div>
+            <div class="pf-deg60" style="bottom:138px;color:#8F2B21;">60</div>
+            <div class="pf-hz" style="color:#8F2B21;">地平线</div>
+          </div>
+        </div>
+        <div class="pf-deltas">
+          <div class="pf-d1"><span>左转 11°</span><span>再上抬 3°</span></div>
+          <div class="pf-d2">先转方位，再调高度</div>
+        </div>
+      </div>
+      <div class="pf-grid4">
+        <div class="pf-kv"><div class="pf-k">高度（23:05）</div><div class="pf-v" style="color:#FF7A6B;">31°</div></div>
+        <div class="pf-kv"><div class="pf-k">方位（23:05）</div><div class="pf-v" style="color:#FF7A6B;">176°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v" style="color:#FF7A6B;">23:12</div></div>
+        <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v" style="color:#FF7A6B;">35°</div></div>
+        <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:58 – 23:43</div></div>
+        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v" style="color:#FF7A6B;">在区间内</div></div>
+        <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v" style="color:#FF7A6B;">32°</div></div>
+        <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v" style="color:#FF7A6B;">强</div></div>
+      </div>
+      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+    </div>
+    <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
+  </div>
+  </div>
+</div>
+<div class="pf-cap">⑫ 目标详情弹出窗 · 红光版（带警告条）<small>红光整套红阶：目标标记与金线取最亮红阶，状态靠亮度 + 线型 + 文字三通道。月光剔除级提示升为固定警告条（粗顶栏 + ▲），紧贴固定头、滚动不消失、不折叠。</small></div>
+</div>
+
+<div class="pf-cell">
+<div class="pf-cell">
+<div class="pf-phone">
+  <div class="pf-statusbar"><span>22:14</span><span>曝光参谋</span><span>5G ▰▰▰</span></div>
+  <div class="pf-behind"><div class="pf-blk"></div><div class="pf-blk pf-tall"></div><div class="pf-blk"></div></div>
+  <div class="pf-scrim">
+  <div class="pf-sheet">
+    <div class="pf-shead">
+      <div class="pf-row1"><div class="pf-tname">M31 仙女座星系</div><div class="pf-x">✕</div></div>
+      <div class="pf-meta">深空 · 星系 · 3.4 等 · 仙女座</div>
+      <div class="pf-verdict">尚未升起 · 21:47 升起</div>
+    </div>
+    <div class="pf-sbody">
+      <div class="pf-finder">
+        <div class="pf-frow">
+          <div class="pf-dialwrap">
+            <div class="pf-topmark">▼</div>
+            <div class="pf-tgtmark" style="left:156px;top:22px;">◆</div>
+            <svg width="212" height="212" viewBox="0 0 212 212">
+              <circle cx="106" cy="106" r="103" fill="#0A0F1E" stroke="#22304F"/>
+              <circle cx="106" cy="106" r="88" fill="none" stroke="#22304F" stroke-width="7" stroke-dasharray="2.5 21.55"/>
+              <g transform="rotate(-34 106 106)">
+                <text x="106" y="30" fill="#E9EEF8" font-size="15" font-weight="700" text-anchor="middle">N</text>
+                <text x="188" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">E</text>
+                <text x="106" y="196" fill="#96A3BE" font-size="13" text-anchor="middle">S</text>
+                <text x="24" y="112" fill="#96A3BE" font-size="13" text-anchor="middle">W</text>
+                <text x="168" y="52" fill="#5D6C8C" font-size="10" text-anchor="middle">90</text>
+                <text x="52" y="168" fill="#5D6C8C" font-size="10" text-anchor="middle">270</text>
+              </g>
+              <circle cx="106" cy="106" r="3" fill="#22304F"/>
+            </svg>
+          </div>
+          <div class="pf-altrail">
+            <div class="pf-rail"></div>
+            <div class="pf-fill" style="height:14px;"></div>
+            <div class="pf-tgt" style="bottom:3px;"><b>−8°</b></div>
+            <div class="pf-cur" style="bottom:15px;"></div>
+            <div class="pf-deg60" style="bottom:138px;">60</div>
+            <div style="position:absolute;right:4px;bottom:0;width:30px;height:11px;background:repeating-linear-gradient(45deg,#22304F 0 1px,transparent 1px 5px);"></div>
+            <div class="pf-hz">地平线</div>
+          </div>
+        </div>
+        <div class="pf-deltas">
+          <div class="pf-d1"><span>右转 24°</span><span>目标还在地平线下 8° · 预计 21:47 升起</span></div>
+          <div class="pf-d2">先对准方位，等目标升起</div>
+        </div>
+      </div>
+      <div class="pf-grid4">
+        <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">−8°</div></div>
+        <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v">—</div></div>
+        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">—</div></div>
+        <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
+        <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+      </div>
+      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+    </div>
+    <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
+  </div>
+  </div>
+</div>
+<div class="pf-cap">⑬ 目标详情弹出窗 · 目标未升起<small>游标时刻高度 &lt; 0°：高度尺金线沉入地平线下斜纹区并标负值，高度差值行改事实陈述（还在地平线下 8° · 预计 21:47 升起）；方位轴照常工作、可先对准等升起，合成状态只评方位轴、不出现双对准结论；固定头结论同步为未升起口径。已落下同理（金线同在负区、文案改「已于 HH:MM 落下」）。</small></div>
+</div>
+</div>
+
 <div class="tokens">
   <h2>设计令牌速览（深色主题）</h2>
   <div class="swatches">
