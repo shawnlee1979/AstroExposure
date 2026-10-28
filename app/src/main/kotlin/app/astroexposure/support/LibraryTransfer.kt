@@ -11,6 +11,7 @@ import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.ArcsecPerMinute
 import app.astroexposure.persistence.SavedPlace
 import app.astroexposure.persistence.SavedPlan
+import app.astroexposure.persistence.validateDriftEntry
 import app.astroexposure.persistence.validateCustomCamera
 import app.astroexposure.persistence.validateCustomLens
 import app.astroexposure.persistence.validatePlace
@@ -295,12 +296,18 @@ object LibraryTransfer {
         val kind = o.str("kind")?.let {
             runCatching { TrackingKind.valueOf(it) }.getOrNull()
         } ?: return null
+        val typicalDrift = o.num("typicalDriftArcsecPerMin")
+        val worstDrift = o.num("worstDriftArcsecPerMin")
+        // Imported drift goes through the same validation as the settings
+        // form: a negative, zero or non-finite value rejects the entry
+        // instead of poisoning the store (and every later JSON export).
+        if (validateDriftEntry(typicalDrift, worstDrift) != null) return null
         return TrackingProfile(
             id = id,
             name = name,
             kind = kind,
-            typicalDrift = o.num("typicalDriftArcsecPerMin")?.let { ArcsecPerMinute(it) },
-            worstDrift = o.num("worstDriftArcsecPerMin")?.let { ArcsecPerMinute(it) },
+            typicalDrift = typicalDrift?.let { ArcsecPerMinute(it) },
+            worstDrift = worstDrift?.let { ArcsecPerMinute(it) },
             morphology = o.str("morphology")?.let {
                 runCatching { DriftMorphology.valueOf(it) }.getOrNull()
             },

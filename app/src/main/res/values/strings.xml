@@ -340,6 +340,8 @@
     <string name="settings_profile_drift_typical">典型漂移（″/min）</string>
     <string name="settings_profile_drift_worst">最差漂移（″/min）</string>
     <string name="settings_profile_save_drift">保存实测值</string>
+    <string name="settings_drift_error_not_positive">漂移率须为大于 0 的数，未保存。</string>
+    <string name="settings_drift_error_invalid">漂移率不是有效数值，未保存。</string>
     <string name="settings_places">收藏地点</string>
     <string name="settings_add_place">添加收藏地点</string>
     <string name="settings_place_use">设为当前地点</string>

@@ -306,6 +306,7 @@ private fun ProfileRow(
 ) {
     var typical by remember(profile.id) { mutableStateOf(profile.typicalDrift?.value?.toString() ?: "") }
     var worst by remember(profile.id) { mutableStateOf(profile.worstDrift?.value?.toString() ?: "") }
+    var driftError by remember(profile.id) { mutableStateOf<Int?>(null) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -341,9 +342,40 @@ private fun ProfileRow(
                     label = { Text(stringResource(R.string.settings_profile_drift_worst)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (driftError != null) {
+                    Text(
+                        text = stringResource(driftError!!),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 OutlinedButton(
                     onClick = {
-                        onSaveDrift(profile, typical.toDoubleOrNull(), worst.toDoubleOrNull())
+                        // Validate before saving: a blank field clears the
+                        // value, but a present value must parse and pass
+                        // the shared drift validation (finite, > 0) —
+                        // invalid input is reported here and not saved.
+                        val typicalText = typical.trim()
+                        val worstText = worst.trim()
+                        val typicalValue = typicalText.takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+                        val worstValue = worstText.takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+                        driftError = when {
+                            (typicalText.isNotEmpty() && typicalValue == null) ||
+                                (worstText.isNotEmpty() && worstValue == null) ->
+                                R.string.settings_drift_error_invalid
+                            else -> when (
+                                app.astroexposure.persistence.validateDriftEntry(typicalValue, worstValue)
+                            ) {
+                                app.astroexposure.persistence.FormError.NON_FINITE_VALUE ->
+                                    R.string.settings_drift_error_invalid
+                                app.astroexposure.persistence.FormError.DRIFT_NEGATIVE ->
+                                    R.string.settings_drift_error_not_positive
+                                else -> null
+                            }
+                        }
+                        if (driftError == null) {
+                            onSaveDrift(profile, typicalValue, worstValue)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.settings_profile_save_drift)) }

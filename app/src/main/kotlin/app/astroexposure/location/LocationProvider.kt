@@ -75,8 +75,29 @@ class LocationProvider(private val context: Context) {
                 return
             }
         }
-        val listener = object : LocationListener {
+        // One-shot delivery guard: whichever path fires first (a real fix
+        // or the timeout fallback) delivers exactly once. Without it the
+        // 15 s timeout still called back with the last-known fix after a
+        // successful delivery, silently overriding a place the user had
+        // picked in the meantime.
+        val delivered = java.util.concurrent.atomic.AtomicBoolean(false)
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        lateinit var listener: LocationListener
+        // Timeout fallback: deliver whatever last-known fix exists
+        // (possibly null) — but only if no real fix arrived first.
+        val timeoutTask = Runnable {
+            if (!delivered.compareAndSet(false, true)) return@Runnable
+            try {
+                lm.removeUpdates(listener)
+            } catch (e: SecurityException) {
+                // Removal failing only leaks this one-shot listener.
+            }
+            callback(lastKnown(zone))
+        }
+        listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                if (!delivered.compareAndSet(false, true)) return
+                handler.removeCallbacks(timeoutTask)
                 try {
                     lm.removeUpdates(this)
                 } catch (e: SecurityException) {
@@ -100,15 +121,7 @@ class LocationProvider(private val context: Context) {
             callback(null)
             return
         }
-        // Timeout fallback: deliver whatever last-known fix exists (possibly null).
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            try {
-                lm.removeUpdates(listener)
-            } catch (e: SecurityException) {
-                // See above.
-            }
-            callback(lastKnown(zone))
-        }, timeoutMs)
+        handler.postDelayed(timeoutTask, timeoutMs)
     }
 
     private fun toSite(location: Location, fallbackZone: ZoneId): LocatedSite = LocatedSite(

@@ -222,15 +222,23 @@ fun TrackingProfileEntity.toDomain(): TrackingProfile = TrackingProfile(
     measuredOn = measuredOnEpochDay?.let { LocalDate.ofEpochDay(it) },
 )
 
-/** Validate a baseline-measurement entry for a profile (design §2.5). */
+/**
+ * Validate a baseline-measurement entry for a profile (design §2.5).
+ * A present value must be finite and strictly positive: a negative drift
+ * would produce negative shutter times downstream, NaN would poison the
+ * store (and break JSON export), and an exact zero is not a physical
+ * measurement — it would divide by zero in the drift model. Every entry
+ * point (settings form, save wiring, library import) must run this check;
+ * it previously existed with tests but was wired to nothing.
+ */
 fun validateDriftEntry(typicalArcsecPerMin: Double?, worstArcsecPerMin: Double?): FormError? {
     if ((typicalArcsecPerMin != null && !typicalArcsecPerMin.isFinite()) ||
         (worstArcsecPerMin != null && !worstArcsecPerMin.isFinite())
     ) {
         return FormError.NON_FINITE_VALUE
     }
-    if ((typicalArcsecPerMin != null && typicalArcsecPerMin < 0.0) ||
-        (worstArcsecPerMin != null && worstArcsecPerMin < 0.0)
+    if ((typicalArcsecPerMin != null && typicalArcsecPerMin <= 0.0) ||
+        (worstArcsecPerMin != null && worstArcsecPerMin <= 0.0)
     ) {
         return FormError.DRIFT_NEGATIVE
     }

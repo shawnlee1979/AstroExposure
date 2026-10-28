@@ -337,6 +337,8 @@
     <string name="settings_profile_drift_typical">Typical drift (″/min)</string>
     <string name="settings_profile_drift_worst">Worst drift (″/min)</string>
     <string name="settings_profile_save_drift">Save measurement</string>
+    <string name="settings_drift_error_not_positive">Drift rate must be greater than 0; not saved.</string>
+    <string name="settings_drift_error_invalid">Drift rate is not a valid number; not saved.</string>
     <string name="settings_places">Favourite places</string>
     <string name="settings_add_place">Add favourite place</string>
     <string name="settings_place_use">Use as current site</string>

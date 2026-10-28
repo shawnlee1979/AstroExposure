@@ -502,6 +502,11 @@ private fun AstroApp(container: AppContainer) {
                         }
                     },
                     onSaveProfileDrift = { profile, typical, worst ->
+                        // Second line of defence behind the settings form:
+                        // an invalid drift value never reaches the store.
+                        if (app.astroexposure.persistence.validateDriftEntry(typical, worst) != null) {
+                            return@SettingsScreen
+                        }
                         scope.launch(Dispatchers.IO) {
                             repo.upsertProfile(
                                 profile.copy(
