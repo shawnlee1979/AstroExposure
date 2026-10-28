@@ -172,6 +172,56 @@ class EphemerisContractTest {
     }
 
     @Test
+    fun `moon separation via horizontal coordinates matches the equatorial route`() {
+        // The cursor's Moon separation (ui-design §7.5, 0.6.0) is the
+        // TRUE spherical angle, computed in the domain from the port's
+        // horizontal coordinates. Independent check: the same angle
+        // from equatorial coordinates — the Moon's RA/Dec straight
+        // from the engine and M31's catalogue position — must agree
+        // within refraction-scale tolerance (both bodies are high, so
+        // refraction shifts altitudes by only a few arcminutes). An
+        // altitude-difference impostor would miss by tens of degrees
+        // in this geometry (Moon ~31° up in the east, M31 far higher).
+        val at2100 = ZonedDateTime.of(2026, 10, 26, 21, 0, 0, 0, ZoneId.of("America/New_York"))
+        val instant = at2100.toInstant()
+        val m31 = EquatorialCoordinates(0.7123, Degrees(41.269))
+        val moonHorizontal = provider.horizontalPosition(nyc, CelestialBody.MOON, instant)
+        val targetHorizontal = app.astroexposure.domain.ephemeris.HorizontalCoordinates(
+            provider.altitudeOf(nyc, m31, instant),
+            provider.azimuthOf(nyc, m31, instant),
+        )
+        val viaHorizontal = app.astroexposure.domain.timeline.TimelineCursor
+            .angularSeparationDeg(moonHorizontal, targetHorizontal)
+
+        val observer = io.github.cosinekitty.astronomy.Observer(
+            nyc.latitude.value, nyc.longitude.value, nyc.heightMeters,
+        )
+        val time = io.github.cosinekitty.astronomy.Time(
+            instant.toEpochMilli() / 86_400_000.0 - 10_957.5,
+        )
+        val moonEq = io.github.cosinekitty.astronomy.equator(
+            io.github.cosinekitty.astronomy.Body.Moon, time, observer,
+            io.github.cosinekitty.astronomy.EquatorEpoch.OfDate,
+            io.github.cosinekitty.astronomy.Aberration.Corrected,
+        )
+        fun separationFromEquatorial(
+            raHoursA: Double, decDegA: Double, raHoursB: Double, decDegB: Double,
+        ): Double {
+            val decA = Math.toRadians(decDegA)
+            val decB = Math.toRadians(decDegB)
+            val deltaRa = Math.toRadians((raHoursA - raHoursB) * 15.0)
+            val cosSep = kotlin.math.sin(decA) * kotlin.math.sin(decB) +
+                kotlin.math.cos(decA) * kotlin.math.cos(decB) * kotlin.math.cos(deltaRa)
+            return Math.toDegrees(kotlin.math.acos(cosSep.coerceIn(-1.0, 1.0)))
+        }
+        val viaEquatorial = separationFromEquatorial(
+            moonEq.ra, moonEq.dec, m31.raHours, m31.declination.value,
+        )
+        assertEquals(viaEquatorial, viaHorizontal, 0.5)
+        assertTrue("separation $viaHorizontal outside sanity band", viaHorizontal in 20.0..120.0)
+    }
+
+    @Test
     fun `eclipses of 2026 match the NASA catalogue events`() {
         val events = provider.eclipsesBetween(
             Instant.parse("2026-01-01T00:00:00Z"),
