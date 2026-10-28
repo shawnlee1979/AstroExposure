@@ -123,6 +123,7 @@ object NightTimeline {
      * the per-target altitude series share.
      */
     fun sampleInstants(start: Instant, end: Instant, stepMinutes: Long = SAMPLE_STEP_MINUTES): List<Instant> {
+        require(stepMinutes > 0) { "sampling step must be positive, was $stepMinutes" }
         val out = mutableListOf<Instant>()
         var t = start
         while (!t.isAfter(end)) {
@@ -152,8 +153,11 @@ object NightTimeline {
 
     /**
      * The instant at [fraction] along the axis — the inverse of
-     * [fractionOf]. Sub-second remainders truncate, the convention the
-     * axis labels and the cursor placement always used.
+     * [fractionOf]. The premise is a fraction in [0, 1] as produced
+     * by [fractionOf] (which clamps); an out-of-range fraction is
+     * not re-clamped here and extrapolates past the axis end.
+     * Sub-second remainders truncate, the convention the axis labels
+     * and the cursor placement always used.
      */
     fun instantAtFraction(fraction: Double, axisStart: Instant, axisEnd: Instant): Instant {
         val total = axisEnd.epochSecond - axisStart.epochSecond

@@ -91,6 +91,11 @@ object EclipseModel {
         val col = nearestColumn(aperture)
         // The cell value comes through [tableSeconds] so the table has a
         // single access path; [col] is still needed for the anchor.
+        // [tableSeconds] recomputes the same nearest column internally —
+        // a deliberate, accepted duplication: [nearestColumn] is a
+        // deterministic pure function over five columns, so the second
+        // scan is tiny, cannot disagree, and keeps the single access
+        // path instead of widening either signature.
         val base = tableSeconds(phenomenon, aperture) ?: return null
         val corrected = scaleSeconds(base, aperture, TABLE_APERTURES[col], iso)
         // The table's longest cell is 32 s, beyond the dial scale's 30 s top;
