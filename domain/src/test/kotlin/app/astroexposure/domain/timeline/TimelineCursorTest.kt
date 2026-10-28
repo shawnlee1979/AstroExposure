@@ -211,6 +211,100 @@ class TimelineCursorTest {
         assertNull(TimelineCursor.moonAltitudeAt(emptyList(), t(0)))
     }
 
+    // --- Bubble moon illumination interpolation -------------------------------------------
+
+    @Test
+    fun moonIlluminationInterpolatesBetweenSamples() {
+        val axisSamples = listOf(
+            NightTimeline.Sample(t(0), -10.0, 10.0, 0.40),
+            NightTimeline.Sample(t(5), -12.0, 20.0, 0.50),
+            NightTimeline.Sample(t(10), -14.0, 30.0, 0.60),
+        )
+        assertEquals(0.45, TimelineCursor.moonIlluminationAt(axisSamples, t(2).plusSeconds(30))!!, 1e-9)
+        assertEquals(0.50, TimelineCursor.moonIlluminationAt(axisSamples, t(5))!!, 1e-9)
+        assertEquals(0.40, TimelineCursor.moonIlluminationAt(axisSamples, t(-30))!!, 1e-9)
+        assertEquals(0.60, TimelineCursor.moonIlluminationAt(axisSamples, t(60))!!, 1e-9)
+        assertNull(TimelineCursor.moonIlluminationAt(emptyList(), t(0)))
+    }
+
+    // --- Arc phases (0.5.1 segmentation) ------------------------------------------------------
+
+    @Test
+    fun arcPhasesSplitRisingCulminationAndSetting() {
+        // 5-minute samples: rises through 20° at index 1, peaks 50° at
+        // index 4, sets below 20° after index 7. The culmination band
+        // (>= 45°) covers indices 3..5.
+        val phases = TimelineCursor.arcPhases(
+            samples(10.0, 25.0, 38.0, 46.0, 50.0, 47.0, 39.0, 26.0, 12.0), 20.0, t(45),
+        )!!
+        assertEquals(TimelineCursor.AltitudeSample(t(20), 50.0), phases.culmination)
+        assertEquals(NightTimeline.Interval(t(5), t(40)), phases.window)
+        assertEquals(NightTimeline.Interval(t(5), t(15)), phases.rising)
+        assertEquals(NightTimeline.Interval(t(15), t(30)), phases.culminationSpan)
+        assertEquals(NightTimeline.Interval(t(30), t(40)), phases.setting)
+    }
+
+    @Test
+    fun arcPhasesMonotonicRiseHasNoSettingSegment() {
+        // Still rising at the last sample: the culmination is the final
+        // sample, the span closes at the axis end and there is no
+        // setting segment.
+        val phases = TimelineCursor.arcPhases(samples(10.0, 30.0, 44.0, 49.0), 20.0, t(20))!!
+        assertEquals(NightTimeline.Interval(t(5), t(20)), phases.window)
+        assertEquals(NightTimeline.Interval(t(10), t(20)), phases.culminationSpan)
+        assertEquals(NightTimeline.Interval(t(5), t(10)), phases.rising)
+        assertNull(phases.setting)
+    }
+
+    @Test
+    fun arcPhasesMonotonicSettingHasNoRisingSegment() {
+        val phases = TimelineCursor.arcPhases(samples(49.0, 44.0, 30.0, 10.0), 20.0, t(20))!!
+        assertEquals(NightTimeline.Interval(t(0), t(15)), phases.window)
+        assertEquals(NightTimeline.Interval(t(0), t(10)), phases.culminationSpan)
+        assertNull(phases.rising)
+        assertEquals(NightTimeline.Interval(t(10), t(15)), phases.setting)
+    }
+
+    @Test
+    fun arcPhasesEntireWindowInsideBandHasNoSideSegments() {
+        // Peak 24°, threshold 20°: the band floor is the threshold
+        // itself, so the whole window is the culmination span.
+        val phases = TimelineCursor.arcPhases(samples(10.0, 21.0, 24.0, 22.0, 8.0), 20.0, t(25))!!
+        assertEquals(phases.window, phases.culminationSpan)
+        assertNull(phases.rising)
+        assertNull(phases.setting)
+    }
+
+    @Test
+    fun arcPhasesCulminationAtWindowEdgeSample() {
+        // Peak exactly at the first above-threshold sample.
+        val phases = TimelineCursor.arcPhases(samples(15.0, 48.0, 30.0, 21.0, 5.0), 20.0, t(25))!!
+        assertEquals(t(5), phases.culmination.instant)
+        assertNull(phases.rising)
+        assertEquals(NightTimeline.Interval(t(5), t(10)), phases.culminationSpan)
+        assertEquals(NightTimeline.Interval(t(10), t(20)), phases.setting)
+    }
+
+    @Test
+    fun arcPhasesNullWhenNeverAboveThreshold() {
+        assertNull(TimelineCursor.arcPhases(samples(5.0, 19.9, 10.0), 20.0, t(15)))
+        assertNull(TimelineCursor.arcPhases(emptyList(), 20.0, t(15)))
+    }
+
+    @Test
+    fun phaseAtClassifiesAroundTheCulminationSpan() {
+        val phases = TimelineCursor.arcPhases(
+            samples(10.0, 25.0, 38.0, 46.0, 50.0, 47.0, 39.0, 26.0, 12.0), 20.0, t(45),
+        )!!
+        // Span = [t(15), t(30)).
+        assertEquals(TimelineCursor.PassPhase.RISING, TimelineCursor.phaseAt(phases, t(0)))
+        assertEquals(TimelineCursor.PassPhase.RISING, TimelineCursor.phaseAt(phases, t(14)))
+        assertEquals(TimelineCursor.PassPhase.NEAR_CULMINATION, TimelineCursor.phaseAt(phases, t(15)))
+        assertEquals(TimelineCursor.PassPhase.NEAR_CULMINATION, TimelineCursor.phaseAt(phases, t(29)))
+        assertEquals(TimelineCursor.PassPhase.SETTING, TimelineCursor.phaseAt(phases, t(30)))
+        assertEquals(TimelineCursor.PassPhase.SETTING, TimelineCursor.phaseAt(phases, t(44)))
+    }
+
     private companion object {
         val BASE: Instant = Instant.parse("2026-10-27T22:00:00Z")
     }

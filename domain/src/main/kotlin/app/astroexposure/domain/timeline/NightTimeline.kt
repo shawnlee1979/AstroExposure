@@ -27,7 +27,13 @@ object NightTimeline {
     enum class SunBand { DAY, CIVIL_TWILIGHT, NAUTICAL_TWILIGHT, ASTRONOMICAL_TWILIGHT, ASTRONOMICAL_NIGHT }
 
     /** One sampled point on the axis: Sun and Moon altitude in degrees. */
-    data class Sample(val instant: Instant, val sunAltitudeDeg: Double, val moonAltitudeDeg: Double)
+    data class Sample(
+        val instant: Instant,
+        val sunAltitudeDeg: Double,
+        val moonAltitudeDeg: Double,
+        /** Moon illumination fraction 0..1 at [instant]; 0 when the caller did not sample it. */
+        val moonIllumination: Double = 0.0,
+    )
 
     /** A span of the axis classified as one solar band. */
     data class BandSegment(val start: Instant, val end: Instant, val band: SunBand)

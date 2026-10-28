@@ -161,4 +161,115 @@ object TimelineCursor {
         val fraction = (instant.epochSecond - lower.instant.epochSecond) / span
         return lower.moonAltitudeDeg + fraction * (upper.moonAltitudeDeg - lower.moonAltitudeDeg)
     }
+
+    /**
+     * Moon illumination fraction at an arbitrary instant, interpolated
+     * between the timeline samples exactly like [moonAltitudeAt] — so
+     * the bubble's two Moon figures always describe the SAME instant
+     * (the cursor's), never a mixture of cursor time and dusk.
+     */
+    fun moonIlluminationAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? {
+        if (samples.isEmpty()) return null
+        if (!instant.isAfter(samples.first().instant)) return samples.first().moonIllumination
+        if (!instant.isBefore(samples.last().instant)) return samples.last().moonIllumination
+        val upper = samples.first { !it.instant.isBefore(instant) }
+        val lower = samples.last { !it.instant.isAfter(instant) }
+        if (lower.instant == upper.instant) return lower.moonIllumination
+        val span = (upper.instant.epochSecond - lower.instant.epochSecond).toDouble()
+        val fraction = (instant.epochSecond - lower.instant.epochSecond) / span
+        return lower.moonIllumination + fraction * (upper.moonIllumination - lower.moonIllumination)
+    }
+
+    /** Drop from the night's peak altitude that still counts as "near culmination" (ui-design §7.5). */
+    const val CULMINATION_BAND_DROP_DEG = 5.0
+
+    /**
+     * The three phases of one target pass over its shootable window
+     * (ui-design §7.5, 0.5.1 revision): [rising] runs from the window
+     * start to the culmination span, [culminationSpan] is the maximal
+     * run of samples at or above (peak − [CULMINATION_BAND_DROP_DEG]),
+     * and [setting] runs from the span's end to the window end. Either
+     * side segment is null when it has zero length (a monotonic pass, or
+     * a pass spent entirely inside the culmination band). Intervals use
+     * the [aboveThresholdIntervals] convention: an interval ends at the
+     * first sample after its run, or at [NightTimeline] axis end.
+     */
+    data class ArcPhases(
+        val window: NightTimeline.Interval,
+        val rising: NightTimeline.Interval?,
+        val culminationSpan: NightTimeline.Interval,
+        val setting: NightTimeline.Interval?,
+        val culmination: AltitudeSample,
+    )
+
+    /**
+     * Phases of the above-[thresholdDeg] run that contains the night's
+     * highest sample of a target, or null when the target never reaches
+     * the threshold. Ties for the highest sample resolve to the FIRST
+     * such sample (maxByOrNull semantics), so a flat-topped pass takes
+     * its culmination at the plateau's start.
+     */
+    fun arcPhases(
+        samples: List<AltitudeSample>,
+        thresholdDeg: Double,
+        axisEnd: Instant,
+    ): ArcPhases? {
+        if (samples.isEmpty()) return null
+        val peakIndex = samples.indices.maxByOrNull { samples[it].altitudeDeg } ?: return null
+        val peak = samples[peakIndex]
+        if (peak.altitudeDeg < thresholdDeg) return null
+        fun endAfter(index: Int): Instant =
+            if (index + 1 < samples.size) samples[index + 1].instant else axisEnd
+        // The shootable window: expand from the peak while samples stay
+        // at or above the threshold.
+        var windowStart = peakIndex
+        while (windowStart > 0 && samples[windowStart - 1].altitudeDeg >= thresholdDeg) windowStart--
+        var windowEnd = peakIndex
+        while (windowEnd + 1 < samples.size && samples[windowEnd + 1].altitudeDeg >= thresholdDeg) {
+            windowEnd++
+        }
+        // The culmination span: expand from the peak while samples stay
+        // within the drop band (never below the shootable threshold).
+        val bandFloor = maxOf(thresholdDeg, peak.altitudeDeg - CULMINATION_BAND_DROP_DEG)
+        var spanStart = peakIndex
+        while (spanStart > windowStart && samples[spanStart - 1].altitudeDeg >= bandFloor) spanStart--
+        var spanEnd = peakIndex
+        while (spanEnd < windowEnd && samples[spanEnd + 1].altitudeDeg >= bandFloor) spanEnd++
+        val window = NightTimeline.Interval(samples[windowStart].instant, endAfter(windowEnd))
+        val span = NightTimeline.Interval(samples[spanStart].instant, endAfter(spanEnd))
+        val rising = if (spanStart > windowStart) {
+            NightTimeline.Interval(samples[windowStart].instant, samples[spanStart].instant)
+        } else {
+            null
+        }
+        val setting = if (spanEnd < windowEnd) {
+            NightTimeline.Interval(span.end, window.end)
+        } else {
+            null
+        }
+        return ArcPhases(
+            window = window,
+            rising = rising,
+            culminationSpan = span,
+            setting = setting,
+            culmination = peak,
+        )
+    }
+
+    /** Where an instant sits in a target's pass (ui-design §7.5 detail-card wording). */
+    enum class PassPhase { RISING, NEAR_CULMINATION, SETTING }
+
+    /**
+     * The pass phase at [instant]: before the culmination span the
+     * target is rising, inside the span it is near culmination, from
+     * the span's end on it is setting. Instants outside the shootable
+     * window follow the same rule (before the window = still rising,
+     * after it = setting) — the altitude shown beside the phase says
+     * how far below the threshold the target is.
+     */
+    fun phaseAt(phases: ArcPhases, instant: Instant): PassPhase = when {
+        instant.isBefore(phases.culminationSpan.start) -> PassPhase.RISING
+        !instant.isBefore(phases.culminationSpan.end) -> PassPhase.SETTING
+        else -> PassPhase.NEAR_CULMINATION
+    }
 }

@@ -38,6 +38,14 @@ interface EphemerisProvider {
     fun altitudeOf(location: GeoLocation, target: EquatorialCoordinates, instant: Instant): Degrees
 
     /**
+     * Azimuth of [target] at [instant], degrees from north, eastward
+     * (0 = N, 90 = E) — the same convention as [horizontalPosition].
+     * Added for the cursor detail card (ui-design §7.5, 0.5.1 revision);
+     * members are only ever added to this port, never removed (G.4).
+     */
+    fun azimuthOf(location: GeoLocation, target: EquatorialCoordinates, instant: Instant): Degrees
+
+    /**
      * The window during the night of [date] in which the galactic centre
      * (RA 17h45m, Dec -29.0°, design §4.1) is above [minAltitude].
      * Returns null when the centre never reaches [minAltitude] that night.
