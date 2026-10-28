@@ -104,8 +104,8 @@
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">Whole night ✕</string>
     <string name="cursor_title">Shootable now · %1$s</string>
-    <string name="cursor_count">%1$d qualify · showing first %2$d</string>
-    <string name="cursor_count_all">%1$d qualify</string>
+    <string name="cursor_lock">Lock</string>
+    <string name="cursor_locked">Locked</string>
     <string name="cursor_none">No target at altitude ≥20° at this moment</string>
     <string name="cursor_status">%1$s · Sun %2$.0f° · moonlight %3$s · %4$s</string>
     <string name="cursor_segment_day">Daytime</string>

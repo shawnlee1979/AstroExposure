@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.changedToDown
+
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +57,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.max
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * One tappable mark on the timeline (ui-design §7.4, 0.4.1 revision):
@@ -122,6 +128,61 @@ private fun cursorInstantAt(
 }
 
 /**
+ * Long-press drag detector for cursor repositioning (ui-design §7.5,
+ * 0.5.2 anti-mistouch rule): a press that stays within the touch slop
+ * for [timeoutMs] "grabs" the cursor — [onGrab] fires once (the caller
+ * gives the haptic tick) — and from then on the pointer's horizontal
+ * position is reported to [onDragTo] until it lifts. A press released
+ * early, or one that moves beyond the slop before the timeout, is not
+ * a grab and is left entirely to the plain tap/drag detectors. The
+ * detector observes events without consuming them. [enabled] is
+ * consulted at press time; when it is false the gesture is ignored.
+ */
+private suspend fun PointerInputScope.detectCursorLongPressDrag(
+    timeoutMs: Long,
+    enabled: () -> Boolean,
+    onGrab: () -> Unit,
+    onDragTo: (Float) -> Unit,
+) {
+    awaitPointerEventScope {
+        while (true) {
+            val down = awaitPointerEvent().changes.firstOrNull { it.changedToDown() }
+                ?: continue
+            if (!enabled()) continue
+            val pointerId: PointerId = down.id
+            val start = down.position
+            var lastX = start.x
+            // Wait out the hold: released or moved early means no grab.
+            val grabbed = withTimeoutOrNull(timeoutMs) {
+                while (true) {
+                    val change = awaitPointerEvent().changes
+                        .firstOrNull { it.id == pointerId } ?: continue
+                    if (!change.pressed) {
+                        return@withTimeoutOrNull false
+                    }
+                    lastX = change.position.x
+                    if ((change.position - start).getDistance() > viewConfiguration.touchSlop) {
+                        return@withTimeoutOrNull false
+                    }
+                }
+                @Suppress("UNREACHABLE_CODE")
+                false
+            } == null
+            if (!grabbed) continue
+            onGrab()
+            onDragTo(lastX)
+            // Follow the grabbed pointer until it lifts.
+            while (true) {
+                val change = awaitPointerEvent().changes
+                    .firstOrNull { it.id == pointerId } ?: continue
+                if (!change.pressed) break
+                onDragTo(change.position.x)
+            }
+        }
+    }
+}
+
+/**
  * The static four-layer timeline (ui-design §7.4): solar background
  * bands, Sun/Moon altitude curves sampled every 5 minutes, the
  * low-moonlight and galactic-centre window bands, and the nine key
@@ -151,6 +212,17 @@ private fun cursorInstantAt(
  * place the cursor; a tap anywhere else places it. A drag anywhere
  * takes over the cursor — the drag consumes its moves, which also
  * cancels any hot-zone press in progress.
+ *
+ * Anti-mistouch (ui-design §7.5, 0.5.2): the plain tap and drag paths
+ * above place the cursor only while none exists — the drag detector
+ * snapshots that at gesture start, so the gesture that first places
+ * the cursor keeps following the finger, while any later plain drag
+ * is inert. Once the cursor is placed, repositioning goes through the
+ * long-press drag detector (hold ~300ms to grab, then drag); while
+ * [cursorLocked] is set, no axis gesture moves the cursor at all and
+ * only the time bar's step buttons (deliberate actions) still apply.
+ * The pure state machine behind this lives in
+ * [TimelineCursor.mayMoveCursor] and is unit-tested there.
  */
 @Composable
 fun NightTimelineCard(
@@ -173,8 +245,19 @@ fun NightTimelineCard(
     onCursorStep: (Long) -> Unit = {},
     onExitCursor: () -> Unit = {},
     onArcTap: (Int) -> Unit = {},
+    cursorLocked: Boolean = false,
+    onCursorLongPressDrag: (Instant) -> Unit = {},
+    onCursorGrab: () -> Unit = {},
+    onToggleCursorLock: () -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
+    // Anti-mistouch gesture state (ui-design §7.5): snapshots read at
+    // gesture start — deliberately NOT pointerInput keys, since a key
+    // change would restart a detector mid-gesture. The plain drag owns
+    // the cursor only when its gesture began with no cursor placed.
+    val cursorPlacedState = rememberUpdatedState(cursorInstant != null)
+    val cursorLockedState = rememberUpdatedState(cursorLocked)
+    var plainDragMovesCursor by remember { mutableStateOf(false) }
     val sunColor = if (redLight) Color(0xFFFF7A45) else Color(0xFFF2C66D)
     val moonColor = if (redLight) Color(0xFFFF9D8A) else Color(0xFF6EA8FE)
     val bandBase = if (redLight) Color(0xFFFF4A3D) else Color(0xFF6EA8FE)
@@ -239,12 +322,47 @@ fun NightTimelineCard(
                             .pointerInput(timeline.axisStart, timeline.axisEnd) {
                                 detectDragGestures(
                                     onDragStart = { offset ->
-                                        onCursorDrag(cursorInstantAt(offset.x, size.width, timeline))
+                                        // Snapshot (anti-mistouch,
+                                        // ui-design §7.5): a plain drag
+                                        // moves the cursor only when its
+                                        // gesture began with none placed;
+                                        // the snapshot then carries the
+                                        // whole gesture, so the placing
+                                        // drag keeps following the finger.
+                                        plainDragMovesCursor = !cursorPlacedState.value
+                                        if (plainDragMovesCursor) {
+                                            onCursorDrag(
+                                                cursorInstantAt(offset.x, size.width, timeline),
+                                            )
+                                        }
                                     },
                                     onDrag = { change, _ ->
-                                        change.consume()
-                                        onCursorDrag(
-                                            cursorInstantAt(change.position.x, size.width, timeline),
+                                        if (plainDragMovesCursor) {
+                                            change.consume()
+                                            onCursorDrag(
+                                                cursorInstantAt(
+                                                    change.position.x, size.width, timeline,
+                                                ),
+                                            )
+                                        }
+                                    },
+                                    onDragEnd = { plainDragMovesCursor = false },
+                                    onDragCancel = { plainDragMovesCursor = false },
+                                )
+                            }
+                            .pointerInput(timeline.axisStart, timeline.axisEnd) {
+                                // Repositioning a placed cursor
+                                // (ui-design §7.5): hold ~300ms to grab
+                                // it, then drag. Refused while locked.
+                                detectCursorLongPressDrag(
+                                    timeoutMs = TimelineCursor.LONG_PRESS_REPOSITION_MS,
+                                    enabled = {
+                                        cursorPlacedState.value && !cursorLockedState.value
+                                    },
+                                    onGrab = onCursorGrab,
+                                    onDragTo = { x ->
+                                        onCursorLongPressDrag(
+                                            cursorInstantAt(x, size.width, timeline),
                                         )
                                     },
                                 )
@@ -708,7 +826,8 @@ fun NightTimelineCard(
                     }
                     // Time bar (ui-design §7.5): −1′ / +1′ minute steps
                     // (long press repeats in 10-minute steps), the
-                    // cursor time, and the whole-night exit.
+                    // cursor time, the lock toggle and the whole-night
+                    // exit.
                     if (cursorActive && bubbleTimeText != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -737,6 +856,52 @@ fun NightTimelineCard(
                                 borderColor = borderColor,
                                 onStep = { minutes -> onCursorStep(minutes) },
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            // Lock toggle (ui-design §7.5, 0.5.2): while
+                            // locked no axis gesture moves the cursor;
+                            // the step buttons stay live. The locked
+                            // state reads by fill AND label, not colour
+                            // alone (in the red theme the fill uses
+                            // the same accent family).
+                            Box(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .then(
+                                        if (cursorLocked) {
+                                            Modifier.background(
+                                                sunColor, RoundedCornerShape(8.dp),
+                                            )
+                                        } else {
+                                            Modifier.border(
+                                                1.dp, borderColor, RoundedCornerShape(8.dp),
+                                            )
+                                        },
+                                    )
+                                    .clickable { onToggleCursorLock() }
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        if (cursorLocked) {
+                                            R.string.cursor_locked
+                                        } else {
+                                            R.string.cursor_lock
+                                        },
+                                    ),
+                                    color = if (cursorLocked) {
+                                        Color(0xFF131313)
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                    fontWeight = if (cursorLocked) {
+                                        FontWeight.SemiBold
+                                    } else {
+                                        FontWeight.Normal
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
                             Spacer(modifier = Modifier.weight(1f))
                             TextButton(onClick = onExitCursor) {
                                 Text(stringResource(R.string.cursor_show_whole_night))

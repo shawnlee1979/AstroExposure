@@ -105,6 +105,15 @@ fun TonightScreen(
     // keeps its target and shows its honest state there.
     var activeTargetId by remember(date) { mutableStateOf<String?>(null) }
     var lastSnappedMoment by remember(date) { mutableStateOf<Int?>(null) }
+    // Cursor lock (ui-design §7.5, 0.5.2 anti-mistouch): bound to the
+    // selected night like every other cursor state — switching the
+    // date resets it together with the cursor itself.
+    var cursorLocked by remember(date) { mutableStateOf(false) }
+    val cursorPlacement = when {
+        retainedCursor == null -> TimelineCursor.CursorPlacement.NO_CURSOR
+        cursorLocked -> TimelineCursor.CursorPlacement.PLACED_LOCKED
+        else -> TimelineCursor.CursorPlacement.PLACED_UNLOCKED
+    }
 
     // Placement shared by tap and drag: minute precision, axis clamp,
     // snapping to a key moment within the §7.5 window with one haptic
@@ -305,13 +314,38 @@ fun TonightScreen(
             onCursorTap = { tapped ->
                 if (!cursorActive && retainedCursor != null) {
                     // After "whole night", the next tap restores the
-                    // retained cursor position (ui-design §7.5).
+                    // retained cursor position (ui-design §7.5) — a
+                    // restore, not a new placement, so the lock does
+                    // not block it.
                     cursorActive = true
-                } else {
+                } else if (
+                    TimelineCursor.mayMoveCursor(
+                        cursorPlacement, TimelineCursor.CursorGesture.TAP,
+                    )
+                ) {
                     placeCursor(tapped)
                 }
+                // A placed cursor is never moved by a plain tap
+                // (anti-mistouch, ui-design §7.5): repositioning takes
+                // the long-press drag below.
             },
             onCursorDrag = { dragged -> placeCursor(dragged) },
+            cursorLocked = cursorLocked,
+            onCursorLongPressDrag = { dragged ->
+                if (
+                    TimelineCursor.mayMoveCursor(
+                        cursorPlacement, TimelineCursor.CursorGesture.LONG_PRESS_DRAG,
+                    )
+                ) {
+                    placeCursor(dragged)
+                }
+            },
+            onCursorGrab = {
+                // One haptic tick when the hold grabs the cursor
+                // (ui-design §7.5, 0.5.2).
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            },
+            onToggleCursorLock = { cursorLocked = !cursorLocked },
             onCursorStep = { deltaMinutes ->
                 retainedCursor?.let { current ->
                     retainedCursor = TimelineCursor.clampToAxis(
@@ -831,12 +865,15 @@ private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = st
 
 /**
  * The "shootable at this moment" card (ui-design §7.5): title with the
- * cursor time and the qualifying count, the four-item status row, and —
- * since the 0.5.1 revision — the detail of the ONE activated target
- * instead of the ranked list. Tapping an arc lane on the timeline
- * switches the activation. [evaluation] is null while an evaluation
- * for the current cursor position is still in flight — the card then
- * shows its title only, never stale results presented as current.
+ * cursor time, the four-item status row, and — since the 0.5.1
+ * revision — the detail of the ONE activated target instead of the
+ * ranked list. Tapping an arc lane on the timeline switches the
+ * activation. Since the 0.5.2 revision the card carries no qualifying
+ * count line: with only the activated target's detail shown, the count
+ * had nothing left to refer to. [evaluation] is null while an
+ * evaluation for the current cursor position is still in flight — the
+ * card then shows its title only, never stale results presented as
+ * current.
  */
 @Composable
 private fun CursorTargetsCard(
@@ -853,23 +890,6 @@ private fun CursorTargetsCard(
             if (evaluation == null) {
                 Text(text = "…", style = MaterialTheme.typography.bodyMedium)
                 return@Column
-            }
-            // The qualifying count is rendered only when the catalogue
-            // actually loaded: on failure the count is unknown, not
-            // zero, and the unavailable line below says so instead.
-            if (evaluation.targetsAvailable) {
-                Text(
-                    text = if (evaluation.totalShootable > evaluation.targets.size) {
-                        stringResource(
-                            R.string.cursor_count,
-                            evaluation.totalShootable, evaluation.targets.size,
-                        )
-                    } else {
-                        stringResource(R.string.cursor_count_all, evaluation.totalShootable)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
             // Status row: segment, Sun altitude, moonlight tier,
             // low-moonlight window membership (ui-design §7.5).
