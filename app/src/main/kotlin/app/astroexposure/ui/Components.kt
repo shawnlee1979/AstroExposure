@@ -74,11 +74,12 @@ fun formatCoordinateValue(value: Double): String = "%.4f".format(value)
 
 /**
  * Data volume with one decimal (the deep-sky and meteor result
- * cards' format). The value is nullable — a camera without a
- * recorded RAW file size has no data volume — and passes to the
- * formatter exactly as the call sites always did.
+ * cards' format). The parameter is the value itself: a camera
+ * without a recorded RAW file size has no data volume, and that
+ * case is the call sites' own no-data line — it never reaches
+ * this formatter.
  */
-fun formatDataGb(dataGb: Double?): String = "%.1f".format(dataGb)
+fun formatDataGb(dataGb: Double): String = "%.1f".format(dataGb)
 
 /** A label + button + dropdown selection control (large touch targets, no tiny spinners). */
 @Composable
