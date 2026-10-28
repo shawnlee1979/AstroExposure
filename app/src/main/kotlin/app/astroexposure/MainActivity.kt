@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -146,14 +147,20 @@ private fun AstroApp(container: AppContainer) {
     }
 
     // Time health + auto red light are evaluated on every resume (design §2.2/§7.4).
+    // The observer is registered once, so it must read the CURRENT site
+    // through an updated-state handle: capturing the composition's first
+    // `location` value would judge the auto red light by the initial
+    // sample site's sunset forever, whatever place is selected later.
+    val currentLocation by rememberUpdatedState(location)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 healthTick++
                 if (redLightAuto) {
+                    val siteNow = currentLocation
                     val sunset = container.ephemeris
-                        .sunEvents(location, LocalDate.now(location.zone)).sunset
+                        .sunEvents(siteNow, LocalDate.now(siteNow.zone)).sunset
                     if (sunset != null && Instant.now().isAfter(sunset)) {
                         redLight = true
                     }
