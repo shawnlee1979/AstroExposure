@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -119,7 +122,7 @@ fun TargetDetailDialog(
                             R.string.cursor_moon_excluded,
                             Math.round(detail.moonSeparationDeg),
                         ),
-                        color = LocalStateColors.current.bad,
+                        severity = WarningSeverity.BAD,
                     )
                 } else if (moonDegraded) {
                     DetailWarningBar(
@@ -127,7 +130,7 @@ fun TargetDetailDialog(
                             R.string.tonight_moon_degraded,
                             percentRounded(moonIllumination),
                         ),
-                        color = LocalStateColors.current.warn,
+                        severity = WarningSeverity.WARN,
                     )
                 }
             }
@@ -171,21 +174,59 @@ fun TargetDetailDialog(
     )
 }
 
-/** One fixed warning bar in the dialog head: full width, state colour, glyph first. */
+/** Which of the two house warning forms a [DetailWarningBar] takes. */
+private enum class WarningSeverity { BAD, WARN }
+
+/**
+ * One fixed warning bar in the dialog head. The form follows the
+ * house line-type rule (ui-design §7.5), so severity is carried by
+ * line type and glyph as well as colour: BAD is a thick solid top
+ * bar over the glyph line (the eclipse gate's form), WARN is a
+ * dashed border around it. Neither form fills the whole bar.
+ */
 @Composable
-private fun DetailWarningBar(text: String, color: Color) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = text,
-            color = MaterialTheme.colorScheme.onPrimary,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+private fun DetailWarningBar(text: String, severity: WarningSeverity) {
+    val stateColors = LocalStateColors.current
+    when (severity) {
+        WarningSeverity.BAD -> Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .background(stateColors.bad),
+            )
+            Text(
+                text = text,
+                color = stateColors.bad,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+        WarningSeverity.WARN -> Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawWithContent {
+                    drawRect(
+                        color = stateColors.warn,
+                        style = Stroke(
+                            width = 1.5.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(
+                                floatArrayOf(8.dp.toPx(), 5.dp.toPx()),
+                            ),
+                        ),
+                    )
+                    drawContent()
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = text,
+                color = stateColors.warn,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
