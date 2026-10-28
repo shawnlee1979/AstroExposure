@@ -65,8 +65,8 @@ interface DeviceOrientationProvider {
      *
      * [headingTrueDeg] is the heading of the device's top edge in
      * true-north terms; [pitchDeg] is the elevation angle of the device's
-     * top edge above the horizon (the aiming posture of the redesign:
-     * portrait hold, top edge pointing at the sky); [screenNormalTiltDeg]
+     * top edge above the horizon (the aiming posture of ui-design
+     * §7.5: portrait hold, top edge pointing at the sky); [screenNormalTiltDeg]
      * is the angle between the screen normal and the vertical, the input
      * of the flat-posture judgement in [holdingPosture] (interpreted on
      * [0, 90]); [elapsedMillis] is the sample's elapsed-time stamp on the

@@ -15,8 +15,8 @@ import kotlin.math.abs
 
 /**
  * Finder thresholds, each with its source category noted (E.4 — no
- * unexplained constants; the derivations are those of the redesign
- * document cited per constant).
+ * unexplained constants; the derivations are those of ui-design
+ * §7.5, cited per constant).
  */
 object FinderThresholds {
 
@@ -24,20 +24,20 @@ object FinderThresholds {
      * Alignment entry line in degrees. Derivation from accuracy: the
      * fused, smoothed reading has a stationary noise of roughly
      * ±1–1.5°, and the entry line is about twice that, so noise alone
-     * cannot fake an alignment (redesign §2.4).
+     * cannot fake an alignment (ui-design §7.5).
      */
     const val ALIGN_ENTER_DEG = 3.0
 
     /**
      * Hysteresis exit line in degrees: an aligned axis only drops out
      * beyond this, so it must be greater than [ALIGN_ENTER_DEG]
-     * (redesign §2.4).
+     * (ui-design §7.5).
      */
     const val ALIGN_EXIT_DEG = 5.0
 
     /**
      * Flat-posture line in degrees. Empirical rule: a screen-normal tilt
-     * below this is read as the phone lying flat (redesign §3.5).
+     * below this is read as the phone lying flat (ui-design §7.5).
      */
     const val FLAT_TILT_MAX_DEG = 20.0
 
@@ -46,7 +46,7 @@ object FinderThresholds {
      * the cursor instant and now, the finder notes that its pointing is
      * computed for the cursor instant, not the current sky — inside it
      * the azimuth drift (< 1.5°) stays within the sensor noise
-     * (redesign §2.5).
+     * (ui-design §7.5).
      */
     const val STALE_CURSOR_MINUTES = 5L
 
@@ -54,7 +54,7 @@ object FinderThresholds {
      * Target refresh period in seconds: even at its fastest (near the
      * zenith) a target's position drifts by at most about 0.3° in this
      * span, far below the alignment thresholds, so re-evaluating the
-     * target this often is enough (redesign §2.2).
+     * target this often is enough (ui-design §7.5).
      */
     const val TARGET_REFRESH_SECONDS = 30L
 }
@@ -91,7 +91,7 @@ fun pitchDeltaDeg(currentDeg: Double, targetDeg: Double): Double =
 enum class HoldingPosture { AIMING, FLAT }
 
 /**
- * The holding-posture judgement (redesign §3.5): the input is the angle
+ * The holding-posture judgement (ui-design §7.5): the input is the angle
  * between the screen normal and the vertical, interpreted clamped to
  * [0, 90] — values outside that range are read as the nearest end of it.
  * A clamped tilt strictly below [FinderThresholds.FLAT_TILT_MAX_DEG]

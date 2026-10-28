@@ -39,7 +39,7 @@ import kotlin.math.roundToInt
 
 /**
  * The target detail dialog's 0.8.0 layout (ui-design §7.5 as revised
- * for 0.8.0; redesign document POPUP-REDESIGN.md): the shared
+ * for 0.8.0): the shared
  * [DetailDialog] shell carries a fixed head in its title slot — the
  * target's name, its catalogue meta line, one gold conclusion line
  * and the warning bar, none of which scroll away — a scrolling
@@ -108,7 +108,7 @@ fun TargetDetailDialog(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 // The warning bar: bad news lives in the fixed head,
-                // never in the scrolling body (redesign §1.2). The
+                // never in the scrolling body (ui-design §7.5). The
                 // moonlight exclusion is the target's own verdict;
                 // the full-moon downgrade is tonight's, passed in.
                 if (detail.moonUp &&
@@ -275,7 +275,7 @@ private fun detailConclusion(
 }
 
 /**
- * The key-data grid (redesign §1.2): four fixed rows of two cells —
+ * The key-data grid (ui-design §7.5): four fixed rows of two cells —
  * cursor altitude / azimuth, culmination time / altitude, the
  * recommended window / the cursor's state against it, Moon
  * separation / interference tier. A missing datum shows the dash,
@@ -396,7 +396,7 @@ private fun GridCell(
 }
 
 /**
- * The folded whole-night section (redesign §1.2): collapsed on every
+ * The folded whole-night section (ui-design §7.5): collapsed on every
  * open (the state is remembered per dialog, never saved), holding
  * the low-frequency facts — rise/set, the ≥20° window, the catalogue
  * size and coordinates, and the full-frame framing advice. Nothing

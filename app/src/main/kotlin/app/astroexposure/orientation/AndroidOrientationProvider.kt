@@ -32,8 +32,8 @@ import kotlin.math.sin
  *
  * Two product practices are borrowed, with attribution, from
  * Trail-Sense / the Andromeda libraries by Kyle Corry (MIT License,
- * Copyright (c) Kyle Corry; see COMPASS-SURVEY.md at the project
- * root): the true-north handling shape (platform rotation matrix,
+ * Copyright (c) Kyle Corry; see docs/compass-survey.md): the
+ * true-north handling shape (platform rotation matrix,
  * declination from the platform geomagnetic model applied inside the
  * adapter, only true-north values leaving it) was cross-checked
  * against Andromeda's published approach, and the near-metal
