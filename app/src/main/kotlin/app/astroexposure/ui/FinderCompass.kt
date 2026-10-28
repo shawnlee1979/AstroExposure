@@ -1,6 +1,7 @@
 package app.astroexposure.ui
 
 import android.os.SystemClock
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -187,7 +188,14 @@ fun FinderSection(
 
     val liveSample = if (noReading) null else sample
     val readout = finderReadout(targetAltDeg, targetAzDeg, liveSample, alignmentState)
-    val posture = liveSample?.let { holdingPosture(it.screenNormalTiltDeg) }
+    // While the stream is interrupted, the dial and the gauge freeze
+    // on the last received sample (ui-design §7.5 boundary table):
+    // [sample] is never cleared once set, so it IS that last frame.
+    // The readout above is still assembled from no sample in that
+    // state, so every text line reports the interruption instead of
+    // the frozen graphics posing as a live reading.
+    val frameSample = sample
+    val posture = frameSample?.let { holdingPosture(it.screenNormalTiltDeg) }
         ?: HoldingPosture.AIMING
 
     // --- Readout line texts (the textual channel; §7.5: the dial is
@@ -231,22 +239,33 @@ fun FinderSection(
         else -> stringResource(R.string.finder_no_reading)
     }
     val combinedText: Pair<String, Boolean> = when {
+        // An interrupted stream never presents the gold conclusion,
+        // even if the state machine was aligned when it stalled.
+        noReading -> stringResource(R.string.finder_no_reading) to false
         readout.alignment == FinderAlignment.ALIGNED ->
             stringResource(R.string.finder_aligned_centre) to true
         targetAltDeg < 0.0 && alignmentState.azimuthAligned ->
             stringResource(R.string.finder_aligned_wait_rise) to false
+        targetAltDeg < 0.0 ->
+            stringResource(R.string.finder_hint_azimuth_below_horizon) to false
         readout.alignment == FinderAlignment.AZIMUTH_ONLY ->
             stringResource(R.string.finder_hint_finish_altitude) to false
         readout.alignment == FinderAlignment.ALTITUDE_ONLY ->
             stringResource(R.string.finder_hint_finish_azimuth) to false
         else -> stringResource(R.string.finder_hint_azimuth_first) to false
     }
+    // The one gold condition for the whole card (conclusion line and
+    // the 2dp border alike): dual-aligned on a live reading.
+    val dualAligned = !noReading && readout.alignment == FinderAlignment.ALIGNED
     val a11ySummary = stringResource(R.string.finder_a11y_summary, azimuthText, altitudeText)
 
     // The pointing speaks for the cursor instant like everything in
     // this dialog; a cursor far from now earns one warning line, the
     // target is never silently switched to the current sky.
-    val staleMinutes = abs(Duration.between(cursor, Instant.now()).toMinutes())
+    // The staleness line compares on raw seconds: truncating the
+    // difference to whole minutes first would silently move the
+    // 5-minute line out to a full 6 minutes.
+    val staleSeconds = abs(Duration.between(cursor, Instant.now()).seconds)
     val accuracy = sample?.accuracy
     val showCalibration = when (accuracy) {
         DeviceOrientationProvider.OrientationAccuracy.LOW ->
@@ -256,7 +275,14 @@ fun FinderSection(
         else -> false
     }
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        border = if (dualAligned) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            null
+        },
+    ) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -264,11 +290,11 @@ fun FinderSection(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SectionTitle(stringResource(R.string.finder_section_title))
-            if (staleMinutes > FinderThresholds.STALE_CURSOR_MINUTES) {
+            if (staleSeconds > FinderThresholds.STALE_CURSOR_MINUTES * 60) {
                 Text(
                     text = stringResource(
                         R.string.finder_stale_cursor,
-                        formatTime(cursor, zone), staleMinutes,
+                        formatTime(cursor, zone), staleSeconds / 60,
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = app.astroexposure.ui.theme.LocalStateColors.current.warn,
@@ -280,12 +306,12 @@ fun FinderSection(
                 verticalAlignment = Alignment.Top,
             ) {
                 CompassDial(
-                    headingDeg = liveSample?.headingTrueDeg ?: 0.0,
+                    headingDeg = frameSample?.headingTrueDeg ?: 0.0,
                     targetAzDeg = targetAzDeg,
                     azimuthAligned = alignmentState.azimuthAligned,
                 )
                 AltitudeGauge(
-                    currentPitchDeg = liveSample?.pitchDeg,
+                    currentPitchDeg = frameSample?.pitchDeg,
                     targetAltDeg = targetAltDeg,
                     flat = posture == HoldingPosture.FLAT,
                 )
@@ -506,7 +532,7 @@ private fun AltitudeGauge(
     val accent = MaterialTheme.colorScheme.primary
     val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
     val track = MaterialTheme.colorScheme.outline
-    val fill = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+    val fill = MaterialTheme.colorScheme.surfaceVariant
     val negZone = 12.dp
 
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {

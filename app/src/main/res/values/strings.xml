@@ -142,6 +142,7 @@
     <string name="finder_lower">再下压 %1$d°</string>
     <string name="finder_altitude_aligned">高度已对准</string>
     <string name="finder_hint_azimuth_first">先转方位，再调高度</string>
+    <string name="finder_hint_azimuth_below_horizon">先转方位，目标升起后再对高度</string>
     <string name="finder_hint_finish_altitude">方位到位，再对高度</string>
     <string name="finder_hint_finish_azimuth">高度到位，再对方位</string>
     <string name="finder_aligned_centre">目标应在视野中央附近</string>

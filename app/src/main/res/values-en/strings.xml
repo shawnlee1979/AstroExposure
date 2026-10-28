@@ -142,6 +142,7 @@
     <string name="finder_lower">Lower %1$d°</string>
     <string name="finder_altitude_aligned">Altitude aligned</string>
     <string name="finder_hint_azimuth_first">Align azimuth first, then altitude</string>
+    <string name="finder_hint_azimuth_below_horizon">Azimuth first — altitude once it has risen</string>
     <string name="finder_hint_finish_altitude">Azimuth set — now altitude</string>
     <string name="finder_hint_finish_azimuth">Altitude set — now azimuth</string>
     <string name="finder_aligned_centre">Target should be near the centre of the field</string>
