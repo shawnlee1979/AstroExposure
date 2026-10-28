@@ -15,6 +15,8 @@ import app.astroexposure.domain.catalog.EclipseType
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.ephemeris.EphemerisProvider
+import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.model.DeepSkyModel
 import app.astroexposure.domain.model.DriftModel
@@ -26,6 +28,7 @@ import app.astroexposure.domain.tracking.BuiltInTrackingProfiles
 import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.ArcsecPerMinute
 import app.astroexposure.domain.units.Degrees
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -420,6 +423,26 @@ class UseCasesTest {
         assertEquals(1328.73, framing.highFocalMm, 1.0)
         assertEquals(996.50, framing.referenceFocalMm, 1.0)
         assertTrue(active.azimuthDeg >= 0.0 && active.azimuthDeg < 360.0)
+        // Moon separation is a true angle in range (0.6.0), and the
+        // recommended window follows the sanctioned threshold rule
+        // against the same sampled peak the arc phases report.
+        assertTrue(active.moonSeparationDeg in 0.0..180.0)
+        val recommended = active.recommended
+        assertTrue(recommended != null)
+        assertEquals(
+            active.phases!!.culmination.altitudeDeg, recommended!!.culminationAltitudeDeg, 1e-9,
+        )
+        assertEquals(
+            maxOf(40.0, recommended.culminationAltitudeDeg - 10.0),
+            recommended.thresholdDeg, 1e-9,
+        )
+        assertFalse(recommended.relativeBest)
+        assertEquals(
+            app.astroexposure.domain.timeline.TimelineCursor.recommendedState(
+                recommended, evaluation.instant,
+            ),
+            active.recommendedState,
+        )
         if (active.phases != null) {
             assertEquals(
                 app.astroexposure.domain.timeline.TimelineCursor.phaseAt(
@@ -436,7 +459,96 @@ class UseCasesTest {
         for (target in plain.targets) {
             assertTrue(target.phases != null)
             assertEquals(target.culmination, target.phases!!.culmination.instant)
+            // The framed recommended span never leaves the arc window.
+            target.recommendedFrame?.let { frame ->
+                assertTrue(!frame.start.isBefore(target.phases!!.window.start))
+                assertTrue(!frame.end.isAfter(target.phases!!.window.end))
+            }
         }
+    }
+
+    @Test
+    fun tonightCursorMoonExclusionRemovesTargetButKeepsPinnedCard() {
+        // The 0.6.0 exclusion end to end: with the Moon parked exactly
+        // on the control evaluation's top target (full illumination,
+        // no light-pollution baseline so the tier line is the natural
+        // sky alone), that target must leave the shootable set — while
+        // its pinned detail card stays and reports EXCLUDED. With the
+        // Moon parked below the horizon instead, nothing is excluded.
+        val date = LocalDate.of(2026, 8, 12)
+        val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
+        val control = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = null,
+        )
+        val controlOverview = control.execute(nyc, date)
+        val controlEval = control.evaluateCursor(nyc, date, cursor, controlOverview.timeline)
+        assertTrue(controlEval.targets.isNotEmpty())
+        val chosen = controlEval.targets.first()
+        val chosenCoords = EquatorialCoordinates(
+            chosen.obj.raHours, Degrees(chosen.obj.decDeg),
+        )
+
+        val moonOnTarget = object : EphemerisProvider by ephemeris {
+            override fun horizontalPosition(
+                location: app.astroexposure.domain.geo.GeoLocation,
+                body: app.astroexposure.domain.ephemeris.CelestialBody,
+                instant: Instant,
+            ) = if (body == app.astroexposure.domain.ephemeris.CelestialBody.MOON) {
+                app.astroexposure.domain.ephemeris.HorizontalCoordinates(
+                    ephemeris.altitudeOf(location, chosenCoords, instant),
+                    ephemeris.azimuthOf(location, chosenCoords, instant),
+                )
+            } else {
+                ephemeris.horizontalPosition(location, body, instant)
+            }
+
+            override fun moonIllumination(instant: Instant): Double = 1.0
+        }
+        val excludedUseCase = TonightOverviewUseCase(
+            ephemeris = moonOnTarget,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = null,
+        )
+        val excludedOverview = excludedUseCase.execute(nyc, date)
+        val excludedEval = excludedUseCase.evaluateCursor(
+            nyc, date, cursor, excludedOverview.timeline, activeObjectId = chosen.obj.id,
+        )
+        assertTrue(excludedEval.targets.none { it.obj.id == chosen.obj.id })
+        assertTrue(excludedEval.totalShootable < controlEval.totalShootable)
+        val pinned = excludedEval.activeTarget
+        assertTrue(pinned != null)
+        assertEquals(chosen.obj.id, pinned!!.obj.id)
+        assertTrue(pinned.moonSeparationDeg < 1.0)
+        assertEquals(
+            app.astroexposure.domain.timeline.TimelineCursor.MoonProximity.EXCLUDED,
+            pinned.moonProximity,
+        )
+
+        // Same scene with the Moon parked below the horizon: the
+        // target stays in the set.
+        val moonDown = object : EphemerisProvider by ephemeris {
+            override fun horizontalPosition(
+                location: app.astroexposure.domain.geo.GeoLocation,
+                body: app.astroexposure.domain.ephemeris.CelestialBody,
+                instant: Instant,
+            ) = if (body == app.astroexposure.domain.ephemeris.CelestialBody.MOON) {
+                app.astroexposure.domain.ephemeris.HorizontalCoordinates(
+                    Degrees(-30.0), Degrees(0.0),
+                )
+            } else {
+                ephemeris.horizontalPosition(location, body, instant)
+            }
+        }
+        val downUseCase = TonightOverviewUseCase(
+            ephemeris = moonDown,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = null,
+        )
+        val downOverview = downUseCase.execute(nyc, date)
+        val downEval = downUseCase.evaluateCursor(nyc, date, cursor, downOverview.timeline)
+        assertTrue(downEval.targets.any { it.obj.id == chosen.obj.id })
     }
 
     @Test
