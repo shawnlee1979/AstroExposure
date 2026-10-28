@@ -160,6 +160,11 @@ class TonightOverviewUseCase(
         val phase: TimelineCursor.PassPhase?,
         val moonInterference: TimelineCursor.MoonInterference,
         val arcIntervals: List<NightTimeline.Interval>,
+        /**
+         * The ≥20° pass cut to the astronomical night for presentation
+         * (ui-design §7.5, 0.8.4); null when the pass and the night do
+         * not overlap. [phase] is classified from the uncut pass.
+         */
         val phases: TimelineCursor.ArcPhases?,
         val framing: app.astroexposure.domain.camera.FullFrameFraming.Advice,
         /** True spherical Moon separation at the cursor, degrees (ui-design §7.5, 0.6.0). */
@@ -168,7 +173,11 @@ class TonightOverviewUseCase(
         val moonUp: Boolean = false,
         /** Excluded / caution / clear classification of the Moon for this target. */
         val moonProximity: TimelineCursor.MoonProximity = TimelineCursor.MoonProximity.CLEAR,
-        /** The night's recommended shooting window for this target; null without samples. */
+        /**
+         * The recommended shooting window cut to the astronomical
+         * night (ui-design §7.5, 0.8.4); null without samples or when
+         * the window and the night do not overlap.
+         */
         val recommended: TimelineCursor.RecommendedWindow? = null,
         /** The cursor's position against [recommended]; null when there is no window. */
         val recommendedState: TimelineCursor.RecommendedState? = null,
@@ -534,7 +543,10 @@ class TonightOverviewUseCase(
      * Returns null when there is no catalogue, it fails to load, or
      * the id is unknown. The recommended window comes from the target's
      * own full-axis samples, so it is available even on nights where
-     * the target never reaches 20°.
+     * the target never reaches 20°. The shootable window and the
+     * recommended window are presented cut to the astronomical night
+     * (ui-design §7.5, 0.8.4): the raw runs span the whole axis and
+     * would otherwise leak past dawn for near-circumpolar targets.
      */
     fun evaluateTargetAtCursor(
         location: GeoLocation,
@@ -565,9 +577,33 @@ class TonightOverviewUseCase(
             moonPosition,
         )
         val arcSamples = sampleArcAltitudes(location, timeline, coords)
-        val phases = TimelineCursor.arcPhases(
+        val rawPhases = TimelineCursor.arcPhases(
             arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
         )
+        // The dialog presents the night's windows, not the axis's
+        // (ui-design §7.5, 0.8.4): the ≥20° run and the recommended
+        // window are cut to the astronomical night. The bounds come
+        // from the same ephemeris calls execute() makes; with no
+        // astronomical night the span falls back to sunset → next
+        // sunrise, and with neither there is no span to cut to and
+        // the raw windows stand. The lane phases (evaluateCursor)
+        // and the phase classification below keep the uncut pass.
+        val night = ephemeris.astronomicalNight(location, date)
+        val nightSpan = when {
+            night != null -> NightTimeline.Interval(night.dusk, night.dawn)
+            else -> {
+                val sunset = ephemeris.sunEvents(location, date).sunset
+                val nextSunrise = ephemeris.sunEvents(location, date.plusDays(1)).sunrise
+                if (sunset != null && nextSunrise != null) {
+                    NightTimeline.Interval(sunset, nextSunrise)
+                } else {
+                    null
+                }
+            }
+        }
+        val phases = rawPhases?.let { raw ->
+            nightSpan?.let { span -> TimelineCursor.arcPhasesWithin(raw, span) } ?: raw
+        }
         val targetSky = SkyAssembly.compose(
             ephemeris, lightPollution, location, cursor, coords, manualBortle,
         )
@@ -575,6 +611,9 @@ class TonightOverviewUseCase(
             targetSky.moonlightMcdPerM2, targetSky.totalSky.baselineTotalMcdPerM2,
         )
         val recommended = TimelineCursor.recommendedWindow(arcSamples, timeline.axisEnd)
+            ?.let { raw ->
+                nightSpan?.let { span -> TimelineCursor.recommendedWithin(raw, span) } ?: raw
+            }
         // Horizon crossings for the detail dialog's folded section
         // and its below-horizon fact line: the same evaluation path
         // asks the ephemeris port for tonight's pass at a 0°
@@ -585,7 +624,7 @@ class TonightOverviewUseCase(
             obj = obj,
             altitudeDeg = altitude,
             azimuthDeg = azimuth,
-            phase = phases?.let { TimelineCursor.phaseAt(it, cursor) },
+            phase = rawPhases?.let { TimelineCursor.phaseAt(it, cursor) },
             moonInterference = tier,
             arcIntervals = TimelineCursor.aboveThresholdIntervals(
                 arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
