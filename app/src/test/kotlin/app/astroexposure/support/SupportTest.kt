@@ -36,6 +36,9 @@ private class FakeEphemeris(
     override fun altitudeOf(
         location: GeoLocation, target: EquatorialCoordinates, instant: Instant,
     ): Degrees = Degrees(45.0)
+    override fun azimuthOf(
+        location: GeoLocation, target: EquatorialCoordinates, instant: Instant,
+    ): Degrees = Degrees(180.0)
     override fun galacticCenterWindow(
         location: GeoLocation, date: LocalDate, minAltitude: Degrees,
     ): GalacticCenterWindow? = null

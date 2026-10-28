@@ -132,6 +132,30 @@ class TonightOverviewUseCase(
         val culmination: Instant,
         val culminationAltitudeDeg: Double,
         val rising: Boolean,
+        /** Rising / culmination / setting segmentation of the arc (ui-design §7.5, 0.5.1). */
+        val phases: TimelineCursor.ArcPhases? = null,
+    )
+
+    /**
+     * The one activated target of the cursor detail card (ui-design
+     * §7.5, 0.5.1 revision): evaluated for the requested object id
+     * regardless of the shootable ranking, so the card keeps showing
+     * the same target — with its honest state — even when the cursor
+     * moves to a moment where the target is below the threshold or has
+     * set. [phase] is null when the target never reaches the threshold
+     * tonight; [framing] is the full-frame focal advice from the
+     * catalogue major-axis size (NoSizeData when the catalogue has no
+     * size for it).
+     */
+    data class ActiveTarget(
+        val obj: DeepSkyObject,
+        val altitudeDeg: Double,
+        val azimuthDeg: Double,
+        val phase: TimelineCursor.PassPhase?,
+        val moonInterference: TimelineCursor.MoonInterference,
+        val arcIntervals: List<NightTimeline.Interval>,
+        val phases: TimelineCursor.ArcPhases?,
+        val framing: app.astroexposure.domain.camera.FullFrameFraming.Advice,
     )
 
     /**
@@ -155,6 +179,8 @@ class TonightOverviewUseCase(
         val targets: List<CursorTarget>,
         val totalShootable: Int,
         val targetsAvailable: Boolean,
+        /** The activated target's detail state; null when none was requested or found. */
+        val activeTarget: ActiveTarget? = null,
     )
 
     /** The three mutually exclusive states the events section can render. */
@@ -292,6 +318,7 @@ class TonightOverviewUseCase(
         instant: Instant,
         timeline: Timeline,
         manualBortle: Int? = null,
+        activeObjectId: String? = null,
     ): CursorEvaluation {
         val cursor = TimelineCursor.clampToAxis(
             TimelineCursor.truncatedToMinute(instant), timeline.axisStart, timeline.axisEnd,
@@ -351,16 +378,24 @@ class TonightOverviewUseCase(
         }
         val ranked = TimelineCursor.rankShootable(evaluated.map { it.third })
         val step = Duration.ofMinutes(NightTimeline.SAMPLE_STEP_MINUTES)
+        // Arc samples are shared between the displayed targets and the
+        // activated target (an activated target is usually displayed too).
+        val arcSamplesCache = mutableMapOf<String, List<TimelineCursor.AltitudeSample>>()
+        fun arcSamplesFor(obj: DeepSkyObject, coords: EquatorialCoordinates):
+            List<TimelineCursor.AltitudeSample> = arcSamplesCache.getOrPut(obj.id) {
+                val samples = mutableListOf<TimelineCursor.AltitudeSample>()
+                var t = timeline.axisStart
+                while (!t.isAfter(timeline.axisEnd)) {
+                    samples += TimelineCursor.AltitudeSample(
+                        t, ephemeris.altitudeOf(location, coords, t).value,
+                    )
+                    t = t.plus(step)
+                }
+                samples
+            }
         val targets = ranked.take(TimelineCursor.MAX_DISPLAYED_TARGETS).map { index ->
             val (obj, coords, candidate) = evaluated[index]
-            val arcSamples = mutableListOf<TimelineCursor.AltitudeSample>()
-            var t = timeline.axisStart
-            while (!t.isAfter(timeline.axisEnd)) {
-                arcSamples += TimelineCursor.AltitudeSample(
-                    t, ephemeris.altitudeOf(location, coords, t).value,
-                )
-                t = t.plus(step)
-            }
+            val arcSamples = arcSamplesFor(obj, coords)
             val culmination = TimelineCursor.culminationOf(arcSamples)
             CursorTarget(
                 obj = obj,
@@ -374,7 +409,43 @@ class TonightOverviewUseCase(
                 rising = ephemeris.altitudeOf(
                     location, coords, cursor.plus(Duration.ofMinutes(15)),
                 ).value > candidate.altitudeDeg,
+                phases = TimelineCursor.arcPhases(
+                    arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+                ),
             )
+        }
+        // The activated target (ui-design §7.5, 0.5.1): evaluated on its
+        // own, independent of the ranking — the detail card must not
+        // lose its target when the cursor moves somewhere the target
+        // no longer qualifies.
+        val activeTarget = activeObjectId?.let { id ->
+            evaluated.firstOrNull { it.first.id == id }?.let { (obj, coords, _) ->
+                val arcSamples = arcSamplesFor(obj, coords)
+                val phases = TimelineCursor.arcPhases(
+                    arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+                )
+                val targetSky = SkyAssembly.compose(
+                    ephemeris, lightPollution, location, cursor, coords, manualBortle,
+                )
+                val targetBaseline = SkyBrightness.NATURAL_SKY_MCD_M2 +
+                    (targetSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
+                ActiveTarget(
+                    obj = obj,
+                    altitudeDeg = ephemeris.altitudeOf(location, coords, cursor).value,
+                    azimuthDeg = ephemeris.azimuthOf(location, coords, cursor).value,
+                    phase = phases?.let { TimelineCursor.phaseAt(it, cursor) },
+                    moonInterference = TimelineCursor.moonInterference(
+                        targetSky.moonlightMcdPerM2, targetBaseline,
+                    ),
+                    arcIntervals = TimelineCursor.aboveThresholdIntervals(
+                        arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+                    ),
+                    phases = phases,
+                    framing = app.astroexposure.domain.camera.FullFrameFraming.advice(
+                        obj.sizeMajorArcmin,
+                    ),
+                )
+            }
         }
         return CursorEvaluation(
             instant = cursor,
@@ -389,6 +460,7 @@ class TonightOverviewUseCase(
             targets = targets,
             totalShootable = ranked.size,
             targetsAvailable = true,
+            activeTarget = activeTarget,
         )
     }
 
@@ -428,6 +500,7 @@ class TonightOverviewUseCase(
                 instant = t,
                 sunAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.SUN, t).altitude.value,
                 moonAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.MOON, t).altitude.value,
+                moonIllumination = ephemeris.moonIllumination(t),
             )
             t = t.plus(step)
         }

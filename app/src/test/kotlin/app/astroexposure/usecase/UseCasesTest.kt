@@ -367,6 +367,79 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightCursorSnapPathWithRealMomentInstantMatchesEvaluation() {
+        // Regression for the snapped-cursor seam: key moments come from
+        // the ephemeris port with sub-minute precision, while the
+        // cursor's unit is one minute. Placing the cursor by a real
+        // moment instant (the UI truncates the moment when snapping)
+        // must land exactly on the evaluation instant.
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val overview = useCase.execute(nyc, date)
+        val moment = overview.moments.firstOrNull { it.instant.epochSecond % 60 != 0L }
+        assertTrue("expected at least one moment with seconds", moment != null)
+        val placed = app.astroexposure.domain.timeline.TimelineCursor.truncatedToMinute(moment!!.instant)
+        val fromRaw = useCase.evaluateCursor(nyc, date, moment.instant, overview.timeline)
+        val fromPlaced = useCase.evaluateCursor(nyc, date, placed, overview.timeline)
+        assertEquals(placed, fromRaw.instant)
+        assertEquals(placed, fromPlaced.instant)
+        assertEquals(0L, fromPlaced.instant.epochSecond % 60)
+    }
+
+    @Test
+    fun tonightCursorActiveTargetIsEvaluatedIndependentlyOfRanking() {
+        // The activated target of the detail card (ui-design §7.5,
+        // 0.5.1): evaluated for its object id even when the cursor sits
+        // where the target does not qualify, with its pass phases and
+        // the full-frame framing advice from its catalogue size.
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val overview = useCase.execute(nyc, date)
+        val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
+        val evaluation = useCase.evaluateCursor(
+            nyc, date, cursor, overview.timeline, activeObjectId = "M33",
+        )
+        val active = evaluation.activeTarget
+        assertTrue(active != null)
+        assertEquals("M33", active!!.obj.id)
+        // M33's catalogue major axis is 62.09 arcminutes: the framing
+        // range from the sanctioned formulas is 664.24mm..1328.73mm
+        // with the share-1/2 reference at 996.50mm.
+        val framing = active.framing
+        assertTrue(framing is app.astroexposure.domain.camera.FullFrameFraming.Advice.Range)
+        framing as app.astroexposure.domain.camera.FullFrameFraming.Advice.Range
+        assertEquals(664.24, framing.lowFocalMm, 1.0)
+        assertEquals(1328.73, framing.highFocalMm, 1.0)
+        assertEquals(996.50, framing.referenceFocalMm, 1.0)
+        assertTrue(active.azimuthDeg >= 0.0 && active.azimuthDeg < 360.0)
+        if (active.phases != null) {
+            assertEquals(
+                app.astroexposure.domain.timeline.TimelineCursor.phaseAt(
+                    active.phases!!, evaluation.instant,
+                ),
+                active.phase,
+            )
+            assertEquals(active.phases!!.window.start, active.arcIntervals.first().start)
+        }
+        // Without a requested id there is no active target.
+        val plain = useCase.evaluateCursor(nyc, date, cursor, overview.timeline)
+        assertEquals(null, plain.activeTarget)
+        // Displayed targets carry their arc phases since 0.5.1.
+        for (target in plain.targets) {
+            assertTrue(target.phases != null)
+            assertEquals(target.culmination, target.phases!!.culmination.instant)
+        }
+    }
+
+    @Test
     fun tonightTimelineDegradesWithoutAstronomicalNight() {
         // Tromsø in mid-June: the Sun never drops to -18°, so there is no
         // astronomical night. Per the ui-design §7.4 degradation rule the
