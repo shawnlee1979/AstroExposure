@@ -96,7 +96,7 @@
     <string name="cursor_detail_size_both">角尺寸 %1$d′ × %2$d′</string>
     <string name="cursor_detail_size_major">角尺寸 %1$d′</string>
     <string name="cursor_detail_goto_calculator">去计算</string>
-    <string name="cursor_detail_unavailable">目标详情加载失败（目录暂不可用），请关闭后重试</string>
+    <string name="cursor_detail_unavailable">目标详情加载失败，请关闭后重试</string>
     <string name="cursor_detail_window">可拍窗口 %1$s–%2$s · 中天 %3$s · %4$.0f°</string>
     <string name="cursor_moon_below_horizon">月亮在地平线下，夹角仅供参考</string>
     <string name="cursor_moon_excluded">距月仅 %1$d° · 月光污染严重</string>
@@ -191,7 +191,7 @@
     <string name="cat_deep_sky">深空目标</string>
     <string name="cat_eclipse">月亮 / 日食</string>
     <string name="cat_meteor">流星雨</string>
-    <string name="calc_handover_hint">来自今晚页 · %1$s：赤纬已预填 %2$s°</string>
+    <string name="calc_handover_hint">来自今晚页 · %1$s：赤纬 %2$s° 已预填到广域星空计算</string>
     <string name="calc_camera">相机</string>
     <string name="calc_lens">镜头</string>
     <string name="calc_lens_missing">需要的镜头不在库中？请先到「设置 → 镜头库」添加自定义镜头，计算器内不临时填写。</string>

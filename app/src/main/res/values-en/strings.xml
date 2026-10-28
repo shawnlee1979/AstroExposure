@@ -96,7 +96,7 @@
     <string name="cursor_detail_size_both">Size %1$d′ × %2$d′</string>
     <string name="cursor_detail_size_major">Size %1$d′</string>
     <string name="cursor_detail_goto_calculator">Open calculator</string>
-    <string name="cursor_detail_unavailable">Couldn’t load this target’s details — the catalogue is unavailable. Close and try again.</string>
+    <string name="cursor_detail_unavailable">Couldn’t load this target’s details. Close and try again.</string>
     <string name="cursor_detail_window">Shootable window %1$s–%2$s · culmination %3$s · %4$.0f°</string>
     <string name="cursor_moon_below_horizon">Moon below the horizon — separation is reference only</string>
     <string name="cursor_moon_excluded">Only %1$d° from the Moon · severe moonlight pollution</string>
@@ -190,7 +190,7 @@
     <string name="cat_deep_sky">Deep sky</string>
     <string name="cat_eclipse">Moon / eclipse</string>
     <string name="cat_meteor">Meteor showers</string>
-    <string name="calc_handover_hint">From Tonight · %1$s — declination prefilled to %2$s°</string>
+    <string name="calc_handover_hint">From Tonight · %1$s — declination %2$s° prefilled into the wide-field calculator</string>
     <string name="calc_camera">Camera</string>
     <string name="calc_lens">Lens</string>
     <string name="calc_lens_missing">Lens not in the library? Add it under Settings → Lens library first; calculators never take ad-hoc lens entries.</string>

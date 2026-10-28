@@ -164,8 +164,14 @@ fun CalculatorsScreen(
                     modifier = Modifier.heightIn(min = 48.dp),
                     selected = category == cat,
                     onClick = {
-                        handoverHint = null
-                        onCategoryChange(cat)
+                        // Only a real switch dismisses the hint
+                        // (ui-design §7.5): tapping the already
+                        // selected chip is not a switch, and the
+                        // chip's click fires either way.
+                        if (cat != category) {
+                            handoverHint = null
+                            onCategoryChange(cat)
+                        }
                     },
                     label = { Text(stringResource(categoryNameRes(cat))) },
                 )
