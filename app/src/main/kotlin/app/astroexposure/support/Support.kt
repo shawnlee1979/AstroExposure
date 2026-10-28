@@ -184,17 +184,4 @@ object ShowerDates {
         val peak = approxDate(shower.peakLon, date)
         return ChronoUnit.DAYS.between(peak, date).toDouble()
     }
-
-    /** True when [date] lies inside the shower's approximate activity window. */
-    fun isActive(shower: MeteorShower, date: LocalDate): Boolean {
-        val start = approxDate(shower.activityStartLon, date)
-        val end = approxDate(shower.activityEndLon, date)
-        // Windows that wrap the year end produce start > end after the
-        // closest-date projection; treat those as active on either side.
-        return if (!end.isBefore(start)) {
-            !date.isBefore(start) && !date.isAfter(end)
-        } else {
-            !date.isBefore(start) || !date.isAfter(end)
-        }
-    }
 }

@@ -9,7 +9,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
-import androidx.room.Update
 
 /**
  * Room persistence for the application layer (design §8.4): equipment
@@ -146,9 +145,6 @@ interface TrackingProfileDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: TrackingProfileEntity)
-
-    @Update
-    suspend fun update(entity: TrackingProfileEntity)
 }
 
 @Dao

@@ -23,7 +23,6 @@ import app.astroexposure.usecase.DeepSkyUseCase
 import app.astroexposure.usecase.EclipseUseCase
 import app.astroexposure.usecase.LandscapeUseCase
 import app.astroexposure.usecase.MeteorUseCase
-import app.astroexposure.usecase.NpfCalculatorUseCase
 import app.astroexposure.usecase.TonightOverviewUseCase
 import app.astroexposure.usecase.WideFieldUseCase
 import java.time.ZoneId
@@ -52,7 +51,6 @@ class AppContainer(context: Context) {
     val tonightOverview = TonightOverviewUseCase(
         ephemeris, objectCatalog, eclipseCatalog, showerCatalog, lightPollution,
     )
-    val npfCalculator = NpfCalculatorUseCase()
     val wideField = WideFieldUseCase()
     val landscape = LandscapeUseCase()
     val deepSky = DeepSkyUseCase()

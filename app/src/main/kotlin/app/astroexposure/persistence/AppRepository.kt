@@ -75,8 +75,5 @@ class AppRepository(
     companion object {
         const val KEY_DEFAULT_STRICTNESS = "defaultStrictness"
         const val KEY_RED_LIGHT_AUTO = "redLightAuto"
-        const val KEY_LAST_CAMERA_ID = "lastCameraId"
-        const val KEY_LAST_LENS_ID = "lastLensId"
-        const val KEY_LAST_PROFILE_ID = "lastProfileId"
     }
 }
