@@ -393,11 +393,11 @@ class UseCasesTest {
     }
 
     @Test
-    fun tonightCursorActiveTargetIsEvaluatedIndependentlyOfRanking() {
-        // The activated target of the detail card (ui-design §7.5,
-        // 0.5.1): evaluated for its object id even when the cursor sits
-        // where the target does not qualify, with its pass phases and
-        // the full-frame framing advice from its catalogue size.
+    fun tonightTargetDetailIsEvaluatedOnDemandIndependentlyOfRanking() {
+        // The detail dialog's data path (ui-design §7.5): evaluated for
+        // its object id on demand, even when the cursor sits where the
+        // target does not qualify, with its pass phases and the
+        // full-frame framing advice from its catalogue size.
         val useCase = TonightOverviewUseCase(
             ephemeris = ephemeris,
             objectCatalog = JsonObjectCatalog(),
@@ -406,10 +406,9 @@ class UseCasesTest {
         val date = LocalDate.of(2026, 8, 12)
         val overview = useCase.execute(nyc, date)
         val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
-        val evaluation = useCase.evaluateCursor(
-            nyc, date, cursor, overview.timeline, activeObjectId = "M33",
+        val active = useCase.evaluateTargetAtCursor(
+            nyc, date, cursor, overview.timeline, objectId = "M33",
         )
-        val active = evaluation.activeTarget
         assertTrue(active != null)
         assertEquals("M33", active!!.obj.id)
         // M33's catalogue major axis is 62.09 arcminutes: the framing
@@ -438,23 +437,26 @@ class UseCasesTest {
         assertFalse(recommended.relativeBest)
         assertEquals(
             app.astroexposure.domain.timeline.TimelineCursor.recommendedState(
-                recommended, evaluation.instant,
+                recommended, cursor,
             ),
             active.recommendedState,
         )
         if (active.phases != null) {
             assertEquals(
                 app.astroexposure.domain.timeline.TimelineCursor.phaseAt(
-                    active.phases!!, evaluation.instant,
+                    active.phases!!, cursor,
                 ),
                 active.phase,
             )
             assertEquals(active.phases!!.window.start, active.arcIntervals.first().start)
         }
-        // Without a requested id there is no active target.
-        val plain = useCase.evaluateCursor(nyc, date, cursor, overview.timeline)
-        assertEquals(null, plain.activeTarget)
+        // An unknown id yields no detail.
+        assertEquals(
+            null,
+            useCase.evaluateTargetAtCursor(nyc, date, cursor, overview.timeline, objectId = "NGC-0000"),
+        )
         // Displayed targets carry their arc phases since 0.5.1.
+        val plain = useCase.evaluateCursor(nyc, date, cursor, overview.timeline)
         for (target in plain.targets) {
             assertTrue(target.phases != null)
             assertEquals(target.culmination, target.phases!!.culmination.instant)
@@ -467,12 +469,14 @@ class UseCasesTest {
     }
 
     @Test
-    fun tonightCursorMoonExclusionRemovesTargetButKeepsPinnedCard() {
+    fun tonightCursorMoonExclusionRemovesTargetFromSet() {
         // The 0.6.0 exclusion end to end: with the Moon parked exactly
         // on the control evaluation's top target (full illumination,
         // no light-pollution baseline so the tier line is the natural
-        // sky alone), that target must leave the shootable set — while
-        // its pinned detail card stays and reports EXCLUDED. With the
+        // sky alone), that target must leave the shootable set. Since
+        // 0.7.0 there is no pinned card to keep (the activation
+        // mechanism is gone); the on-demand detail evaluation still
+        // classifies the target EXCLUDED at this instant. With the
         // Moon parked below the horizon instead, nothing is excluded.
         val date = LocalDate.of(2026, 8, 12)
         val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
@@ -512,17 +516,19 @@ class UseCasesTest {
         )
         val excludedOverview = excludedUseCase.execute(nyc, date)
         val excludedEval = excludedUseCase.evaluateCursor(
-            nyc, date, cursor, excludedOverview.timeline, activeObjectId = chosen.obj.id,
+            nyc, date, cursor, excludedOverview.timeline,
         )
         assertTrue(excludedEval.targets.none { it.obj.id == chosen.obj.id })
         assertTrue(excludedEval.totalShootable < controlEval.totalShootable)
-        val pinned = excludedEval.activeTarget
-        assertTrue(pinned != null)
-        assertEquals(chosen.obj.id, pinned!!.obj.id)
-        assertTrue(pinned.moonSeparationDeg < 1.0)
+        val detail = excludedUseCase.evaluateTargetAtCursor(
+            nyc, date, cursor, excludedOverview.timeline, objectId = chosen.obj.id,
+        )
+        assertTrue(detail != null)
+        assertEquals(chosen.obj.id, detail!!.obj.id)
+        assertTrue(detail.moonSeparationDeg < 1.0)
         assertEquals(
             app.astroexposure.domain.timeline.TimelineCursor.MoonProximity.EXCLUDED,
-            pinned.moonProximity,
+            detail.moonProximity,
         )
 
         // Same scene with the Moon parked below the horizon: the

@@ -144,17 +144,16 @@ class TonightOverviewUseCase(
     )
 
     /**
-     * The one activated target of the cursor detail card (ui-design
-     * §7.5, 0.5.1 revision): evaluated for the requested object id
-     * regardless of the shootable ranking, so the card keeps showing
-     * the same target — with its honest state — even when the cursor
-     * moves to a moment where the target is below the threshold or has
-     * set. [phase] is null when the target never reaches the threshold
-     * tonight; [framing] is the full-frame focal advice from the
-     * catalogue major-axis size (NoSizeData when the catalogue has no
-     * size for it).
+     * One target's detail at the cursor instant, evaluated on demand
+     * for the timeline detail dialog (ui-design §7.5): computed for the
+     * requested object id regardless of the shootable ranking, so the
+     * dialog shows the target's honest state at the cursor. [phase] is
+     * null when the target never reaches the threshold tonight;
+     * [framing] is the full-frame focal advice from the catalogue
+     * major-axis size (NoSizeData when the catalogue has no size for
+     * it).
      */
-    data class ActiveTarget(
+    data class TargetDetail(
         val obj: DeepSkyObject,
         val altitudeDeg: Double,
         val azimuthDeg: Double,
@@ -181,14 +180,16 @@ class TonightOverviewUseCase(
      * Everything the cursor state renders (ui-design §7.5): the status
      * row's four items (solar segment + Sun altitude, moonlight tier,
      * low-moonlight window membership), the bubble's Moon figures, and
-     * the ranked "shootable now" list. [targets] is capped at
-     * [TimelineCursor.MAX_DISPLAYED_TARGETS] for display and arcs;
-     * [totalShootable] counts every qualifying target. Since 0.6.0 the
-     * moonlight exclusion (ui-design §7.5) is applied before ranking,
-     * so neither list nor count includes a target the Moon rules out
-     * at this instant; the whole-night shortlist is unaffected.
-     * [targetsAvailable] is false when the object catalogue failed to
-     * load — the same explicit degradation as the whole-night list.
+     * the ranked shootable set whose members draw arcs. [targets] is
+     * capped at [TimelineCursor.MAX_DISPLAYED_TARGETS] for display and
+     * arcs; [totalShootable] counts every qualifying target. Since
+     * 0.6.0 the moonlight exclusion (ui-design §7.5) is applied before
+     * ranking, so neither list nor count includes a target the Moon
+     * rules out at this instant; the whole-night shortlist is
+     * unaffected. [targetsAvailable] is false when the object
+     * catalogue failed to load — the same explicit degradation as the
+     * whole-night list. A single target's detail is NOT part of this
+     * evaluation: the detail dialog asks [evaluateTargetAtCursor].
      */
     data class CursorEvaluation(
         val instant: Instant,
@@ -201,8 +202,6 @@ class TonightOverviewUseCase(
         val targets: List<CursorTarget>,
         val totalShootable: Int,
         val targetsAvailable: Boolean,
-        /** The activated target's detail state; null when none was requested or found. */
-        val activeTarget: ActiveTarget? = null,
     )
 
     /** The three mutually exclusive states the events section can render. */
@@ -340,7 +339,6 @@ class TonightOverviewUseCase(
         instant: Instant,
         timeline: Timeline,
         manualBortle: Int? = null,
-        activeObjectId: String? = null,
     ): CursorEvaluation {
         val cursor = TimelineCursor.clampToAxis(
             TimelineCursor.truncatedToMinute(instant), timeline.axisStart, timeline.axisEnd,
@@ -350,8 +348,7 @@ class TonightOverviewUseCase(
         val moonPosition = ephemeris.horizontalPosition(location, CelestialBody.MOON, cursor)
         val gcTarget = app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES
         val gcSky = SkyAssembly.compose(ephemeris, lightPollution, location, cursor, gcTarget, manualBortle)
-        val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 +
-            (gcSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
+        val baselineTotal = gcSky.totalSky.baselineTotalMcdPerM2
         val lowMoonStatus = TimelineCursor.lowMoonStatus(
             cursor,
             lowMoonlightWindows(location, night, gcSky).map {
@@ -421,9 +418,9 @@ class TonightOverviewUseCase(
                     ephemeris, lightPollution, location, cursor, coords, manualBortle,
                 )
                 moonlight = targetSky.moonlightMcdPerM2
-                val targetBaseline = SkyBrightness.NATURAL_SKY_MCD_M2 +
-                    (targetSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
-                tier = TimelineCursor.moonInterference(moonlight, targetBaseline)
+                tier = TimelineCursor.moonInterference(
+                    moonlight, targetSky.totalSky.baselineTotalMcdPerM2,
+                )
             }
             EvaluatedTarget(
                 obj = obj,
@@ -436,21 +433,11 @@ class TonightOverviewUseCase(
         }
         val eligible = evaluated.filter { !it.moonExcluded }
         val ranked = TimelineCursor.rankShootable(eligible.map { it.candidate })
-        val step = Duration.ofMinutes(NightTimeline.SAMPLE_STEP_MINUTES)
-        // Arc samples are shared between the displayed targets and the
-        // activated target (an activated target is usually displayed too).
+        // Arc samples are computed once per displayed target per call.
         val arcSamplesCache = mutableMapOf<String, List<TimelineCursor.AltitudeSample>>()
         fun arcSamplesFor(obj: DeepSkyObject, coords: EquatorialCoordinates):
             List<TimelineCursor.AltitudeSample> = arcSamplesCache.getOrPut(obj.id) {
-                val samples = mutableListOf<TimelineCursor.AltitudeSample>()
-                var t = timeline.axisStart
-                while (!t.isAfter(timeline.axisEnd)) {
-                    samples += TimelineCursor.AltitudeSample(
-                        t, ephemeris.altitudeOf(location, coords, t).value,
-                    )
-                    t = t.plus(step)
-                }
-                samples
+                sampleArcAltitudes(location, timeline, coords)
             }
         val targets = ranked.take(TimelineCursor.MAX_DISPLAYED_TARGETS).map { index ->
             val entry = eligible[index]
@@ -489,65 +476,6 @@ class TonightOverviewUseCase(
                 recommendedFrame = recommendedFrame,
             )
         }
-        // The activated target (ui-design §7.5, 0.5.1): evaluated on its
-        // own, independent of the ranking — the detail card must not
-        // lose its target when the cursor moves somewhere the target
-        // no longer qualifies.
-        val activeTarget = activeObjectId?.let { id ->
-            evaluated.firstOrNull { it.obj.id == id }?.let { entry ->
-                val obj = entry.obj
-                val coords = entry.coords
-                val arcSamples = arcSamplesFor(obj, coords)
-                val phases = TimelineCursor.arcPhases(
-                    arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
-                )
-                val targetSky = SkyAssembly.compose(
-                    ephemeris, lightPollution, location, cursor, coords, manualBortle,
-                )
-                val targetBaseline = SkyBrightness.NATURAL_SKY_MCD_M2 +
-                    (targetSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
-                val activeTier = TimelineCursor.moonInterference(
-                    targetSky.moonlightMcdPerM2, targetBaseline,
-                )
-                // The recommended window comes from the target's own
-                // full-axis samples, so the card can show it even on
-                // nights where the target never reaches 20°.
-                val recommended = TimelineCursor.recommendedWindow(
-                    arcSamples, timeline.axisEnd,
-                )
-                ActiveTarget(
-                    obj = obj,
-                    altitudeDeg = ephemeris.altitudeOf(location, coords, cursor).value,
-                    azimuthDeg = ephemeris.azimuthOf(location, coords, cursor).value,
-                    phase = phases?.let { TimelineCursor.phaseAt(it, cursor) },
-                    moonInterference = activeTier,
-                    arcIntervals = TimelineCursor.aboveThresholdIntervals(
-                        arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
-                    ),
-                    phases = phases,
-                    framing = app.astroexposure.domain.camera.FullFrameFraming.advice(
-                        obj.sizeMajorArcmin,
-                    ),
-                    // The pinned target keeps its card even when the
-                    // cursor moves into the exclusion zone (ui-design
-                    // §7.5, 0.6.0): the proximity classification —
-                    // computed with the same tier the card displays —
-                    // tells the card to flag it instead of dropping it.
-                    moonSeparationDeg = entry.moonSeparationDeg,
-                    moonUp = moonAltitudeDeg > 0.0,
-                    moonProximity = TimelineCursor.moonProximity(
-                        entry.moonSeparationDeg, moonAltitudeDeg, activeTier,
-                    ),
-                    recommended = recommended,
-                    recommendedState = recommended?.let {
-                        TimelineCursor.recommendedState(it, cursor)
-                    },
-                    recommendedMinutesUntil = recommended?.let {
-                        TimelineCursor.recommendedMinutesUntil(it, cursor)
-                    } ?: 0L,
-                )
-            }
-        }
         return CursorEvaluation(
             instant = cursor,
             segment = NightTimeline.bandFor(sunAltitude),
@@ -561,9 +489,95 @@ class TonightOverviewUseCase(
             targets = targets,
             totalShootable = ranked.size,
             targetsAvailable = true,
-            activeTarget = activeTarget,
         )
     }
+
+    /**
+     * Detail for ONE catalogue target at a cursor instant, backing the
+     * timeline detail dialog (ui-design §7.5): computed only when a
+     * target lane is tapped, for the tapped object, independent of the
+     * shootable ranking — the dialog shows the target's state at the
+     * cursor whatever the ranking says. The instant is normalised like
+     * the cursor's (truncated to the minute, clamped to the axis).
+     * Returns null when there is no catalogue, it fails to load, or
+     * the id is unknown. The recommended window comes from the target's
+     * own full-axis samples, so it is available even on nights where
+     * the target never reaches 20°.
+     */
+    fun evaluateTargetAtCursor(
+        location: GeoLocation,
+        date: LocalDate,
+        instant: Instant,
+        timeline: Timeline,
+        manualBortle: Int? = null,
+        objectId: String,
+    ): TargetDetail? {
+        val cursor = TimelineCursor.clampToAxis(
+            TimelineCursor.truncatedToMinute(instant), timeline.axisStart, timeline.axisEnd,
+        )
+        val catalog = objectCatalog ?: return null
+        val obj = try {
+            catalog.allObjects().firstOrNull { it.id == objectId }
+        } catch (e: Exception) {
+            null
+        } ?: return null
+        val coords = EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg))
+        val altitude = ephemeris.altitudeOf(location, coords, cursor).value
+        val azimuth = ephemeris.azimuthOf(location, coords, cursor).value
+        val moonPosition = ephemeris.horizontalPosition(location, CelestialBody.MOON, cursor)
+        val moonAltitudeDeg = moonPosition.altitude.value
+        val separation = TimelineCursor.angularSeparationDeg(
+            app.astroexposure.domain.ephemeris.HorizontalCoordinates(
+                Degrees(altitude), Degrees(azimuth),
+            ),
+            moonPosition,
+        )
+        val arcSamples = sampleArcAltitudes(location, timeline, coords)
+        val phases = TimelineCursor.arcPhases(
+            arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+        )
+        val targetSky = SkyAssembly.compose(
+            ephemeris, lightPollution, location, cursor, coords, manualBortle,
+        )
+        val tier = TimelineCursor.moonInterference(
+            targetSky.moonlightMcdPerM2, targetSky.totalSky.baselineTotalMcdPerM2,
+        )
+        val recommended = TimelineCursor.recommendedWindow(arcSamples, timeline.axisEnd)
+        return TargetDetail(
+            obj = obj,
+            altitudeDeg = altitude,
+            azimuthDeg = azimuth,
+            phase = phases?.let { TimelineCursor.phaseAt(it, cursor) },
+            moonInterference = tier,
+            arcIntervals = TimelineCursor.aboveThresholdIntervals(
+                arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+            ),
+            phases = phases,
+            framing = app.astroexposure.domain.camera.FullFrameFraming.advice(
+                obj.sizeMajorArcmin,
+            ),
+            moonSeparationDeg = separation,
+            moonUp = moonAltitudeDeg > 0.0,
+            moonProximity = TimelineCursor.moonProximity(separation, moonAltitudeDeg, tier),
+            recommended = recommended,
+            recommendedState = recommended?.let {
+                TimelineCursor.recommendedState(it, cursor)
+            },
+            recommendedMinutesUntil = recommended?.let {
+                TimelineCursor.recommendedMinutesUntil(it, cursor)
+            } ?: 0L,
+        )
+    }
+
+    /** One target's altitude series across the axis at the timeline's 5-minute step. */
+    private fun sampleArcAltitudes(
+        location: GeoLocation,
+        timeline: Timeline,
+        coords: EquatorialCoordinates,
+    ): List<TimelineCursor.AltitudeSample> =
+        NightTimeline.sampleInstants(timeline.axisStart, timeline.axisEnd).map { t ->
+            TimelineCursor.AltitudeSample(t, ephemeris.altitudeOf(location, coords, t).value)
+        }
 
     /**
      * Timeline axis and samples (ui-design §7.4). The normal span is
@@ -593,17 +607,13 @@ class TonightOverviewUseCase(
                 date.atTime(12, 0).atZone(location.zone).toInstant() to
                     date.plusDays(1).atTime(12, 0).atZone(location.zone).toInstant()
         }
-        val step = Duration.ofMinutes(NightTimeline.SAMPLE_STEP_MINUTES)
-        val samples = mutableListOf<NightTimeline.Sample>()
-        var t = axisStart
-        while (!t.isAfter(axisEnd)) {
-            samples += NightTimeline.Sample(
+        val samples = NightTimeline.sampleInstants(axisStart, axisEnd).map { t ->
+            NightTimeline.Sample(
                 instant = t,
                 sunAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.SUN, t).altitude.value,
                 moonAltitudeDeg = ephemeris.horizontalPosition(location, CelestialBody.MOON, t).altitude.value,
                 moonIllumination = ephemeris.moonIllumination(t),
             )
-            t = t.plus(step)
         }
         // Without an astronomical night the timeline degrades to the
         // Sun/Moon curves plus the explicit no-night note (ui-design
@@ -657,9 +667,12 @@ class TonightOverviewUseCase(
 
     /**
      * Low-moonlight windows: half-hour samples across the night where the
-     * Moon is down or its contribution stays below one third of the
-     * baseline (natural + artificial) sky — the design §5 rule-2 definition,
-     * applied mechanically so the result is explainable sample by sample.
+     * Moon is down or its interference tier is not STRONG — contribution
+     * below one third of the baseline (natural + artificial) sky, the
+     * design §5 rule-2 definition expressed through the shared tier, so
+     * the result is explainable sample by sample. A run becomes a window
+     * when it spans at least an hour; a run's end is the first sample
+     * after it, or dawn for a run still open at the last sample.
      */
     private fun lowMoonlightWindows(
         location: GeoLocation,
@@ -667,29 +680,26 @@ class TonightOverviewUseCase(
         skyAtDusk: SkyContext?,
     ): List<LowMoonlightWindow> {
         if (night == null || skyAtDusk == null || lightPollution == null) return emptyList()
-        val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 +
-            (skyAtDusk.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
-        val threshold = baselineTotal / 3.0
+        val baselineTotal = skyAtDusk.totalSky.baselineTotalMcdPerM2
         val gcTarget = app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES
-        val windows = mutableListOf<LowMoonlightWindow>()
-        var runStart: Instant? = null
-        var t = night.dusk
-        while (!t.isAfter(night.dawn)) {
+        val instants = generateSequence(night.dusk) { it.plus(Duration.ofMinutes(30)) }
+            .takeWhile { !it.isAfter(night.dawn) }
+            .toList()
+        val lows = instants.map { t ->
             val ctx = SkyAssembly.compose(
                 ephemeris, lightPollution, location, t, gcTarget, null,
             )
-            val low = !ctx.moonUp || ctx.moonlightMcdPerM2 < threshold
-            if (low && runStart == null) runStart = t
-            if (!low && runStart != null) {
-                if (Duration.between(runStart, t).toMinutes() >= 60) {
-                    windows += LowMoonlightWindow(runStart, t)
-                }
-                runStart = null
-            }
-            t = t.plus(Duration.ofMinutes(30))
+            !ctx.moonUp ||
+                TimelineCursor.moonInterference(ctx.moonlightMcdPerM2, baselineTotal) !=
+                TimelineCursor.MoonInterference.STRONG
         }
-        if (runStart != null && Duration.between(runStart, night.dawn).toMinutes() >= 60) {
-            windows += LowMoonlightWindow(runStart, night.dawn)
+        val windows = mutableListOf<LowMoonlightWindow>()
+        for (run in NightTimeline.contiguousRuns(lows) { it }) {
+            val start = instants[run.first]
+            val end = if (run.last + 1 < instants.size) instants[run.last + 1] else night.dawn
+            if (Duration.between(start, end).toMinutes() >= 60) {
+                windows += LowMoonlightWindow(start, end)
+            }
         }
         return windows
     }
