@@ -32,8 +32,17 @@ data class TotalSky(
      * the same footing as [compose].
      */
     val baselineTotalMcdPerM2: Double
-        get() = SkyBrightness.NATURAL_SKY_MCD_M2 + (baselineArtificialMcdPerM2 ?: 0.0)
+        get() = baselineTotal(baselineArtificialMcdPerM2)
     companion object {
+        /**
+         * The one baseline-total formula (natural floor + artificial
+         * baseline): the [baselineTotalMcdPerM2] getter and [compose]
+         * share it, so a change of footing lands in exactly one place.
+         * A missing baseline counts as 0 artificial light.
+         */
+        private fun baselineTotal(artificialMcdPerM2: Double?): Double =
+            SkyBrightness.NATURAL_SKY_MCD_M2 + (artificialMcdPerM2 ?: 0.0)
+
         /**
          * Compose a [TotalSky]. A missing baseline counts as 0 artificial
          * light in the arithmetic but is recorded as [BaselineSource.NONE]
@@ -44,9 +53,8 @@ data class TotalSky(
             baselineSource: BaselineSource,
             moonlightMcdPerM2: Double,
         ): TotalSky {
-            val artificial = baselineArtificialMcdPerM2 ?: 0.0
-            val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 + artificial
-            val total = baselineTotal + moonlightMcdPerM2
+            val baseline = baselineTotal(baselineArtificialMcdPerM2)
+            val total = baseline + moonlightMcdPerM2
             return TotalSky(
                 baselineArtificialMcdPerM2 = baselineArtificialMcdPerM2,
                 moonlightMcdPerM2 = moonlightMcdPerM2,
@@ -58,7 +66,7 @@ data class TotalSky(
                     SkyBrightness.bortleFromMpsas(SkyBrightness.totalToMpsas(total))
                 },
                 baselineSource = baselineSource,
-                moonDegraded = total >= 4.0 * baselineTotal,
+                moonDegraded = total >= 4.0 * baseline,
             )
         }
 

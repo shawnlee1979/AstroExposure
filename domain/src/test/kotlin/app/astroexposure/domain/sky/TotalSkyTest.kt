@@ -35,6 +35,21 @@ class TotalSkyTest {
     }
 
     @Test
+    fun `baseline total getter and compose share one footing`() {
+        // The getter and compose's internal baseline must never drift:
+        // for any baseline footing, total minus moonlight is the
+        // baseline-only total the getter reports.
+        for (artificial in listOf(null, 0.0, 1.0, 8.95)) {
+            val sky = TotalSky.compose(artificial, BaselineSource.ATLAS, moonlightMcdPerM2 = 0.7)
+            assertEquals(
+                SkyBrightness.NATURAL_SKY_MCD_M2 + (artificial ?: 0.0),
+                sky.baselineTotalMcdPerM2, 1e-9,
+            )
+            assertEquals(sky.baselineTotalMcdPerM2, sky.totalMcdPerM2 - 0.7, 1e-9)
+        }
+    }
+
+    @Test
     fun `manual bortle baseline composes through representative mpsas`() {
         val sky = TotalSky.fromManualBortle(5, moonlightMcdPerM2 = 0.0)
         assertEquals(BaselineSource.MANUAL_BORTLE, sky.baselineSource)
