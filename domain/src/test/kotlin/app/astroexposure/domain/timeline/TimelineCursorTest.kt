@@ -394,6 +394,82 @@ class TimelineCursorTest {
         assertEquals(axisEndAfterSamples(4), risingWindow.interval.end)
     }
 
+    // --- Night cut for the detail dialog (0.8.4) -----------------------------------
+
+    @Test
+    fun nightCutCircumpolarRunBecomesExactlyTheNight() {
+        // A near-circumpolar pass: every sample on the axis is at
+        // 50°, so the raw ≥20° run and the raw recommended window
+        // both leak from the first sample to the axis end. Cut to
+        // the night [t(60), t(120)] both become exactly the night.
+        val samples = (0..24).map { TimelineCursor.AltitudeSample(t(it * 5L), 50.0) }
+        val axisEnd = t(125)
+        val night = NightTimeline.Interval(t(60), t(120))
+        val phases = TimelineCursor.arcPhases(samples, 20.0, axisEnd)!!
+        assertEquals(NightTimeline.Interval(t(0), axisEnd), phases.window)
+        val cut = TimelineCursor.arcPhasesWithin(phases, night)!!
+        assertEquals(night, cut.window)
+        assertEquals(night, cut.culminationSpan)
+        assertNull(cut.rising)
+        assertNull(cut.setting)
+        val recommended = TimelineCursor.recommendedWindow(samples, axisEnd)!!
+        assertEquals(NightTimeline.Interval(t(0), axisEnd), recommended.interval)
+        val cutRecommended = TimelineCursor.recommendedWithin(recommended, night)!!
+        assertEquals(night, cutRecommended.interval)
+        assertEquals(40.0, cutRecommended.thresholdDeg, 1e-9)
+        assertFalse(cutRecommended.relativeBest)
+    }
+
+    @Test
+    fun nightCutClampsOverhangingStartToNightStart() {
+        // The pass crosses 20° before the night begins: the raw
+        // window starts at t(5), the cut window starts at the
+        // night's start t(15); the end inside the night is kept.
+        // The rising segment ends exactly at the night's start, so
+        // it cuts away entirely (touching is empty).
+        val phases = TimelineCursor.arcPhases(
+            samples(10.0, 25.0, 38.0, 46.0, 50.0, 47.0, 39.0, 26.0, 12.0), 20.0, t(45),
+        )!!
+        assertEquals(NightTimeline.Interval(t(5), t(40)), phases.window)
+        val night = NightTimeline.Interval(t(15), t(600))
+        val cut = TimelineCursor.arcPhasesWithin(phases, night)!!
+        assertEquals(NightTimeline.Interval(t(15), t(40)), cut.window)
+        assertNull(cut.rising)
+        assertEquals(NightTimeline.Interval(t(15), t(30)), cut.culminationSpan)
+        assertEquals(NightTimeline.Interval(t(30), t(40)), cut.setting)
+        // The recommended interval's end clamps to the night's end.
+        val recommended = TimelineCursor.recommendedWindow(
+            samplesOf(10.0, 25.0, 38.0, 46.0, 50.0, 47.0, 39.0, 26.0, 12.0), t(45),
+        )!!
+        assertEquals(NightTimeline.Interval(t(15), t(30)), recommended.interval)
+        val cutRecommended = TimelineCursor.recommendedWithin(
+            recommended, NightTimeline.Interval(t(0), t(20)),
+        )!!
+        assertEquals(NightTimeline.Interval(t(15), t(20)), cutRecommended.interval)
+    }
+
+    @Test
+    fun nightCutEmptyWhenTheRunMissesTheNight() {
+        // The pass is above 20° only before the night: both cuts are
+        // empty, and intervals that merely touch the night's start
+        // count as empty too.
+        val phases = TimelineCursor.arcPhases(
+            samples(30.0, 40.0, 30.0, 10.0, 5.0), 20.0, t(25),
+        )!!
+        assertEquals(NightTimeline.Interval(t(0), t(15)), phases.window)
+        val night = NightTimeline.Interval(t(60), t(120))
+        assertNull(TimelineCursor.arcPhasesWithin(phases, night))
+        val recommended = TimelineCursor.recommendedWindow(
+            samplesOf(30.0, 40.0, 30.0, 10.0, 5.0), t(25),
+        )!!
+        assertNull(TimelineCursor.recommendedWithin(recommended, night))
+        assertNull(
+            TimelineCursor.intersectInterval(
+                NightTimeline.Interval(t(0), t(60)), night,
+            ),
+        )
+    }
+
     @Test
     fun recommendedWindowSinglePoint() {
         // Only the peak sample clears the threshold: the window is
