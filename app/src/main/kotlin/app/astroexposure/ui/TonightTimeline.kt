@@ -71,13 +71,55 @@ data class TimelineMark(
 /**
  * One cursor target's arc on the timeline (ui-design §7.5): the spans
  * where the target is at or above 20°, its culmination instant (drawn
- * as a solid dot) and its display name.
+ * as a solid dot) and its display name. Since the 0.5.1 revision the
+ * arc is a tall information lane: [phases] segments it into rising /
+ * culmination / setting parts, and [culminationText] (e.g. "中天
+ * 23:24 · 74°") is drawn inside the culmination segment whenever that
+ * segment is wide enough to hold it.
  */
 data class TimelineArc(
     val intervals: List<NightTimeline.Interval>,
     val culmination: Instant,
     val label: String,
+    val phases: TimelineCursor.ArcPhases? = null,
+    val culminationText: String? = null,
 )
+
+/** Arc lane height (ui-design §7.5, 0.5.1): tall enough for readable in-lane text. */
+private val ARC_LANE_HEIGHT_DP = 26.dp
+
+/**
+ * Rough text width estimate in dp for the in-lane labels: CJK glyphs
+ * count one em, digits and punctuation about half an em. Used ONLY to
+ * decide whether a label fits its segment (the omission rule of
+ * ui-design §7.5) — a label that does not fit is omitted, never
+ * shrunk or overlapped.
+ */
+private fun estimateTextWidthDp(text: String, fontSizeSp: Float): Double =
+    text.sumOf { ch ->
+        when {
+            ch >= '⺀' -> fontSizeSp * 1.0
+            ch.isDigit() || ch == ':' || ch == '·' || ch == '.' || ch == '°' || ch == ' ' ->
+                fontSizeSp * 0.55
+            else -> fontSizeSp * 0.62
+        }
+    }
+
+/** The cursor instant for a horizontal pixel position on the axis (shared by tap and drag). */
+private fun cursorInstantAt(
+    xPx: Float,
+    widthPx: Int,
+    timeline: TonightOverviewUseCase.Timeline,
+): Instant {
+    val totalSec = (timeline.axisEnd.epochSecond - timeline.axisStart.epochSecond)
+        .toDouble().coerceAtLeast(1.0)
+    val fraction = if (widthPx > 0) (xPx / widthPx).coerceIn(0f, 1f) else 0f
+    val epoch = timeline.axisStart.epochSecond + (fraction * totalSec).toLong()
+    return TimelineCursor.clampToAxis(
+        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
+        timeline.axisStart, timeline.axisEnd,
+    )
+}
 
 /**
  * The static four-layer timeline (ui-design §7.4): solar background
@@ -188,38 +230,22 @@ fun NightTimelineCard(
                                 // first, so a tap that opens a mark
                                 // detail never reaches this detector and
                                 // never places the cursor.
-                                val totalSec = (timeline.axisEnd.epochSecond -
-                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
-                                fun instantAt(x: Float): Instant {
-                                    val fraction = (x / size.width).coerceIn(0f, 1f)
-                                    val epoch = timeline.axisStart.epochSecond +
-                                        (fraction * totalSec).toLong()
-                                    return TimelineCursor.clampToAxis(
-                                        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
-                                        timeline.axisStart, timeline.axisEnd,
-                                    )
-                                }
                                 detectTapGestures(
-                                    onTap = { offset -> onCursorTap(instantAt(offset.x)) },
+                                    onTap = { offset ->
+                                        onCursorTap(cursorInstantAt(offset.x, size.width, timeline))
+                                    },
                                 )
                             }
                             .pointerInput(timeline.axisStart, timeline.axisEnd) {
-                                val totalSec = (timeline.axisEnd.epochSecond -
-                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
-                                fun instantAt(x: Float): Instant {
-                                    val fraction = (x / size.width).coerceIn(0f, 1f)
-                                    val epoch = timeline.axisStart.epochSecond +
-                                        (fraction * totalSec).toLong()
-                                    return TimelineCursor.clampToAxis(
-                                        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
-                                        timeline.axisStart, timeline.axisEnd,
-                                    )
-                                }
                                 detectDragGestures(
-                                    onDragStart = { offset -> onCursorDrag(instantAt(offset.x)) },
+                                    onDragStart = { offset ->
+                                        onCursorDrag(cursorInstantAt(offset.x, size.width, timeline))
+                                    },
                                     onDrag = { change, _ ->
                                         change.consume()
-                                        onCursorDrag(instantAt(change.position.x))
+                                        onCursorDrag(
+                                            cursorInstantAt(change.position.x, size.width, timeline),
+                                        )
                                     },
                                 )
                             },
@@ -519,16 +545,26 @@ fun NightTimelineCard(
                         }
                     }
                     // Target-arc layer (ui-design §7.5, the phase-1
-                    // reserved slot): one lane per displayed cursor
-                    // target — its ≥20° spans as a bar, culmination as a
-                    // solid dot, name at the first span's start. Tapping
-                    // a lane reports the target index to the caller,
-                    // which scrolls its list row into view.
+                    // reserved slot; 0.5.1 revision): one TALL lane per
+                    // displayed cursor target. The lane's bar is its
+                    // ≥20° window segmented rising / culmination /
+                    // setting: the culmination segment is gold-filled
+                    // (in the red theme the same slot is the brightest
+                    // red AND carries the culmination text, so the
+                    // segment never reads by colour alone), rising is a
+                    // mid-tone fill, setting a dimmer one. The target
+                    // name sits inside the lane at the window start;
+                    // the culmination text sits inside the culmination
+                    // segment when that segment is wide enough —
+                    // otherwise it is omitted (never shrunk, never
+                    // overlapped; the detail card below always carries
+                    // the same figures). Tapping a lane activates its
+                    // target for the detail card.
                     if (cursorActive && arcs.isNotEmpty()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             arcs.forEachIndexed { index, arc ->
                                 val highlighted = highlightedArc == index
-                                val arcColor = if (highlighted) {
+                                val baseColor = if (highlighted) {
                                     sunColor
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -536,7 +572,7 @@ fun NightTimelineCard(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(13.dp)
+                                        .height(ARC_LANE_HEIGHT_DP)
                                         .clickable { onArcTap(index) },
                                 ) {
                                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -546,46 +582,125 @@ fun NightTimelineCard(
                                         fun xOf(instant: Instant): Float =
                                             ((instant.epochSecond - timeline.axisStart.epochSecond) /
                                                 totalSec).toFloat() * size.width
-                                        for (interval in arc.intervals) {
+                                        val barTop = 2.dp.toPx()
+                                        val barHeight = size.height - 4.dp.toPx()
+                                        fun segment(
+                                            interval: NightTimeline.Interval?,
+                                            fill: Color,
+                                            outline: Color,
+                                        ) {
+                                            if (interval == null) return
                                             val left = xOf(interval.start)
                                             val right = xOf(interval.end)
+                                            if (right - left < 1f) return
                                             drawRoundRect(
-                                                color = arcColor.copy(
-                                                    alpha = if (highlighted) 0.35f else 0.16f,
-                                                ),
-                                                topLeft = Offset(left, 2.dp.toPx()),
-                                                size = Size(right - left, 9.dp.toPx()),
+                                                color = fill,
+                                                topLeft = Offset(left, barTop),
+                                                size = Size(right - left, barHeight),
                                                 cornerRadius = androidx.compose.ui.geometry
-                                                    .CornerRadius(4.dp.toPx()),
+                                                    .CornerRadius(6.dp.toPx()),
                                             )
                                             drawRoundRect(
-                                                color = arcColor,
-                                                topLeft = Offset(left, 2.dp.toPx()),
-                                                size = Size(right - left, 9.dp.toPx()),
+                                                color = outline,
+                                                topLeft = Offset(left, barTop),
+                                                size = Size(right - left, barHeight),
                                                 cornerRadius = androidx.compose.ui.geometry
-                                                    .CornerRadius(4.dp.toPx()),
+                                                    .CornerRadius(6.dp.toPx()),
                                                 style = Stroke(width = 1.dp.toPx()),
                                             )
                                         }
+                                        val phases = arc.phases
+                                        if (phases != null) {
+                                            segment(
+                                                phases.rising,
+                                                baseColor.copy(alpha = 0.22f), baseColor,
+                                            )
+                                            segment(
+                                                phases.culminationSpan,
+                                                sunColor.copy(
+                                                    alpha = if (highlighted) 0.85f else 0.55f,
+                                                ),
+                                                sunColor,
+                                            )
+                                            segment(
+                                                phases.setting,
+                                                baseColor.copy(alpha = 0.10f), baseColor,
+                                            )
+                                        } else {
+                                            for (interval in arc.intervals) {
+                                                segment(
+                                                    interval,
+                                                    baseColor.copy(alpha = 0.16f), baseColor,
+                                                )
+                                            }
+                                        }
                                         drawCircle(
-                                            color = arcColor,
+                                            color = if (phases != null) {
+                                                Color(0xFF131313)
+                                            } else {
+                                                baseColor
+                                            },
                                             radius = 2.5.dp.toPx(),
-                                            center = Offset(xOf(arc.culmination), 6.5.dp.toPx()),
-                                        )
-                                    }
-                                    arc.intervals.firstOrNull()?.let { first ->
-                                        val fraction = NightTimeline.fractionOf(
-                                            first.start, timeline.axisStart, timeline.axisEnd,
-                                        )
-                                        Text(
-                                            text = arc.label,
-                                            fontSize = 8.sp,
-                                            color = arcColor,
-                                            modifier = Modifier.offset(
-                                                x = (fraction * widthDp + 4.0).dp,
-                                                y = 1.dp,
+                                            center = Offset(
+                                                xOf(arc.culmination), size.height / 2,
                                             ),
                                         )
+                                    }
+                                    // Name inside the lane at the window
+                                    // start, single line, ellipsised at
+                                    // the lane edge (documented omission
+                                    // rule, ui-design §7.5).
+                                    val windowStart = arc.phases?.window?.start
+                                        ?: arc.intervals.firstOrNull()?.start
+                                    if (windowStart != null) {
+                                        val fraction = NightTimeline.fractionOf(
+                                            windowStart, timeline.axisStart, timeline.axisEnd,
+                                        )
+                                        val textX = fraction * widthDp + 6.0
+                                        Text(
+                                            text = arc.label,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style
+                                                .TextOverflow.Ellipsis,
+                                            color = baseColor,
+                                            modifier = Modifier
+                                                .offset(x = textX.dp, y = 5.dp)
+                                                .width(max(0.0, widthDp - textX - 4.0).dp),
+                                        )
+                                    }
+                                    // Culmination text inside the gold
+                                    // segment, only when the segment is
+                                    // wide enough for the estimate plus
+                                    // padding (omission rule, §7.5).
+                                    val span = arc.phases?.culminationSpan
+                                    val culminationText = arc.culminationText
+                                    if (span != null && culminationText != null) {
+                                        val spanStartFraction = NightTimeline.fractionOf(
+                                            span.start, timeline.axisStart, timeline.axisEnd,
+                                        )
+                                        val spanEndFraction = NightTimeline.fractionOf(
+                                            span.end, timeline.axisStart, timeline.axisEnd,
+                                        )
+                                        val spanWidthDp =
+                                            (spanEndFraction - spanStartFraction) * widthDp
+                                        val textWidthDp = estimateTextWidthDp(
+                                            culminationText, 10f,
+                                        )
+                                        if (spanWidthDp >= textWidthDp + 10.0) {
+                                            val textX = spanStartFraction * widthDp +
+                                                (spanWidthDp - textWidthDp) / 2.0
+                                            Text(
+                                                text = culminationText,
+                                                fontSize = 10.sp,
+                                                maxLines = 1,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFF131313),
+                                                modifier = Modifier.offset(
+                                                    x = textX.dp, y = 6.dp,
+                                                ),
+                                            )
+                                        }
                                     }
                                 }
                             }

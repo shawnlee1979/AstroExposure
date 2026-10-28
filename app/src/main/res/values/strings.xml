@@ -119,10 +119,31 @@
     <string name="cursor_low_moon_inside">在低月光窗口内（至 %1$s）</string>
     <string name="cursor_low_moon_next">低月光窗口 %1$s 开始</string>
     <string name="cursor_low_moon_none">今晚无低月光窗口</string>
-    <string name="cursor_target_meta">中天 %1$s · %2$.0f°</string>
-    <string name="cursor_target_altitude">%1$.0f°</string>
     <string name="cursor_target_rising">上升中</string>
     <string name="cursor_target_setting">下落中</string>
+    <string name="cursor_arc_culmination">中天 %1$s · %2$.0f°</string>
+    <string name="cursor_phase_near_culmination">中天附近</string>
+    <string name="cursor_phase_no_window">今晚不达 20°</string>
+    <string name="cursor_detail_magnitude">星等 %1$.1f</string>
+    <string name="cursor_detail_size_both">角尺寸 %1$d′ × %2$d′</string>
+    <string name="cursor_detail_size_major">角尺寸 %1$d′</string>
+    <string name="cursor_detail_constellation">星座 %1$s</string>
+    <string name="cursor_detail_state">高度 %1$.0f° · 方位 %2$.0f° · %3$s</string>
+    <string name="cursor_detail_window">可拍窗口 %1$s–%2$s · 中天 %3$s · %4$.0f°</string>
+    <string name="cursor_detail_moonlight">该目标方向月光干扰 %1$s</string>
+    <string name="cursor_framing_range">全画幅构图：建议焦距 %1$d–%2$d mm · 参考 %3$d mm（占长边约 %4$d%%）</string>
+    <string name="cursor_framing_capped_max">全画幅构图：目标较小，%1$d mm 时约占长边 %2$d%%</string>
+    <string name="cursor_framing_capped_min">全画幅构图：目标较大，%1$d mm 时约占长边 %2$d%%</string>
+    <string name="cursor_framing_no_size">全画幅构图：目录无角尺寸数据，无焦距建议</string>
+    <string name="obj_type_galaxy">星系</string>
+    <string name="obj_type_open_cluster">疏散星团</string>
+    <string name="obj_type_globular_cluster">球状星团</string>
+    <string name="obj_type_nebula">星云</string>
+    <string name="obj_type_planetary_nebula">行星状星云</string>
+    <string name="obj_type_supernova_remnant">超新星遗迹</string>
+    <string name="obj_type_double_star">双星</string>
+    <string name="obj_type_asterism">星群</string>
+    <string name="obj_type_other">其他</string>
 
     <!-- Timeline mark details (ui-design §7.4) -->
     <string name="detail_sun_title">太阳</string>
