@@ -95,7 +95,7 @@ private fun AstroApp(container: AppContainer) {
     val repo = container.repository
 
     var tab by rememberSaveable { mutableStateOf(Tab.TONIGHT) }
-    var calcCategory by remember { mutableStateOf(CalcCategory.WIDE_FIELD) }
+    var calcCategory by rememberSaveable { mutableStateOf(CalcCategory.WIDE_FIELD) }
     // A catalogue target handed over from the tonight page's detail
     // dialog (ui-design §7.5): the calculators screen consumes it once
     // to prefill the declination field.

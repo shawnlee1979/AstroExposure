@@ -376,8 +376,15 @@ fun SectionTitle(text: String) {
 }
 
 @Composable
-fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = modifier.fillMaxWidth()) { Text(text) }
+fun ActionButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Button(onClick = onClick, modifier = modifier.fillMaxWidth(), enabled = enabled) {
+        Text(text)
+    }
 }
 
 /**

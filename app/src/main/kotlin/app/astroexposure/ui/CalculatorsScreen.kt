@@ -235,10 +235,15 @@ fun CalculatorsScreen(
         }
     }
     // The primary action stays fixed at the bottom (ui-design §4.3)
-    // instead of drifting with the scrolling input column.
+    // instead of drifting with the scrolling input column. It is
+    // enabled only while a calculator is actually composed (camera,
+    // lens and profile all present): a press with nothing composed
+    // would otherwise bank a stale signal that fires an unrequested
+    // computation the moment a calculator appears.
     ActionButton(
         text = stringResource(R.string.calc_calculate),
         modifier = Modifier.padding(16.dp),
+        enabled = camera != null && lens != null && profile != null,
     ) {
         computeSignal++
     }
@@ -320,6 +325,12 @@ private fun WideFieldCalculator(
         val dec = declinationText.toDoubleOrNull()
         if (dec == null || dec !in -90.0..90.0) {
             onDeclinationErrorChange(true)
+            // A failed validation must not leave a previous result on
+            // screen: the result card's badge follows the CURRENT
+            // strictness while its numbers would still be the earlier
+            // computation's, so the card would contradict itself.
+            card = null
+            lines = emptyList()
             return
         }
         val sky = skyFor(
