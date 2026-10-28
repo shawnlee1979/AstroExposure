@@ -286,6 +286,58 @@ object TimelineCursor {
         )
     }
 
+    // --- Night cut for the detail dialog (ui-design §7.5, 0.8.4) -------------------
+
+    /**
+     * Intersection of [interval] with [bounds]; null when they do not
+     * overlap. Touching at an endpoint counts as empty — a zero-length
+     * span is not a window.
+     */
+    fun intersectInterval(
+        interval: NightTimeline.Interval,
+        bounds: NightTimeline.Interval,
+    ): NightTimeline.Interval? {
+        val start = maxOf(interval.start, bounds.start)
+        val end = minOf(interval.end, bounds.end)
+        return if (end.isAfter(start)) NightTimeline.Interval(start, end) else null
+    }
+
+    /**
+     * [phases] cut to the [bounds] span for presentation in the detail
+     * dialog (ui-design §7.5, 0.8.4): the presented shootable window is
+     * the ≥threshold run intersected with the night (the caller passes
+     * the astronomical night, or sunset→next sunrise when there is no
+     * astronomical night), so a near-circumpolar target whose run leaks
+     * past dawn to the axis end is shown with the night's own bounds.
+     * Null when the run and the span do not overlap. The phase segments
+     * are cut by the same span so the copy stays a partition of its
+     * window; when the culmination span lies wholly outside the span,
+     * the cut window stands in for the span. This copy serves window
+     * presentation only — [phaseAt] is applied to the uncut phases.
+     */
+    fun arcPhasesWithin(
+        phases: ArcPhases,
+        bounds: NightTimeline.Interval,
+    ): ArcPhases? {
+        val window = intersectInterval(phases.window, bounds) ?: return null
+        val span = intersectInterval(phases.culminationSpan, bounds)
+        return if (span != null) {
+            phases.copy(
+                window = window,
+                rising = phases.rising?.let { intersectInterval(it, bounds) },
+                culminationSpan = span,
+                setting = phases.setting?.let { intersectInterval(it, bounds) },
+            )
+        } else {
+            phases.copy(
+                window = window,
+                rising = null,
+                culminationSpan = window,
+                setting = null,
+            )
+        }
+    }
+
     // --- Recommended shooting window (ui-design §7.5, 0.6.0) -------------------
 
     /** Altitude floor of the recommended window for high passes (ui-design §7.5). */
@@ -338,6 +390,19 @@ object TimelineCursor {
             relativeBest = relativeBest,
         )
     }
+
+    /**
+     * [window] cut to the [bounds] span for presentation in the detail
+     * dialog (ui-design §7.5, 0.8.4), the same night cut [arcPhasesWithin]
+     * applies to the shootable window; null when they do not overlap.
+     * Threshold, culmination altitude and the relative-best flag are
+     * properties of the pass, not of the cut, and carry over unchanged.
+     */
+    fun recommendedWithin(
+        window: RecommendedWindow,
+        bounds: NightTimeline.Interval,
+    ): RecommendedWindow? =
+        intersectInterval(window.interval, bounds)?.let { window.copy(interval = it) }
 
     /** Where the cursor sits relative to a recommended window (ui-design §7.5). */
     enum class RecommendedState { BEFORE, INSIDE, AFTER }
