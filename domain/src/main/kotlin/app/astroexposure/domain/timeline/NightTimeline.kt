@@ -31,8 +31,8 @@ object NightTimeline {
         val instant: Instant,
         val sunAltitudeDeg: Double,
         val moonAltitudeDeg: Double,
-        /** Moon illumination fraction 0..1 at [instant]; 0 when the caller did not sample it. */
-        val moonIllumination: Double = 0.0,
+        /** Moon illumination fraction 0..1 at [instant]; every construction samples it. */
+        val moonIllumination: Double,
     )
 
     /** A span of the axis classified as one solar band. */

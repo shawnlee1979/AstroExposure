@@ -24,6 +24,38 @@ object TimelineCursor {
     /** Display cap for the cursor list and its arcs (ui-design §7.5 display rule). */
     const val MAX_DISPLAYED_TARGETS = 10
 
+    /**
+     * Hold time after which a press on the axis "grabs" an already
+     * placed cursor for repositioning (ui-design §7.5, anti-mistouch
+     * rule): shorter touches never move a placed cursor.
+     */
+    const val LONG_PRESS_REPOSITION_MS = 300L
+
+    /** Placement state of the cursor for one night (ui-design §7.5 gesture state machine). */
+    enum class CursorPlacement { NO_CURSOR, PLACED_UNLOCKED, PLACED_LOCKED }
+
+    /** The four ways the axis and the time bar can act on the cursor (ui-design §7.5). */
+    enum class CursorGesture { TAP, DRAG, LONG_PRESS_DRAG, STEP }
+
+    /**
+     * Whether [gesture] may move the cursor in [placement] state
+     * (ui-design §7.5, 0.5.2 anti-mistouch rule). With no cursor, a tap
+     * or a drag (plain or after a hold) places it — the first placement
+     * is unguarded. Once placed, plain taps and direct drags no longer
+     * move it: repositioning requires a long-press drag. Locked, even
+     * that is refused. The time bar's ±1′ / 10′ steps are deliberate
+     * actions and stay available in both placed states, but with no
+     * cursor there is nothing to step. Restoring a retained position
+     * after "whole night" is not a move and is not governed here.
+     */
+    fun mayMoveCursor(placement: CursorPlacement, gesture: CursorGesture): Boolean =
+        when (placement) {
+            CursorPlacement.NO_CURSOR -> gesture != CursorGesture.STEP
+            CursorPlacement.PLACED_UNLOCKED -> gesture == CursorGesture.LONG_PRESS_DRAG ||
+                gesture == CursorGesture.STEP
+            CursorPlacement.PLACED_LOCKED -> gesture == CursorGesture.STEP
+        }
+
     /** One evaluated candidate at the cursor instant. */
     data class Candidate(val altitudeDeg: Double, val moonlightMcdPerM2: Double)
 

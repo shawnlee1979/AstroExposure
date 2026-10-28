@@ -2,6 +2,7 @@ package app.astroexposure.domain.timeline
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -199,9 +200,9 @@ class TimelineCursorTest {
     @Test
     fun moonAltitudeInterpolatesBetweenSamples() {
         val axisSamples = listOf(
-            NightTimeline.Sample(t(0), -10.0, 10.0),
-            NightTimeline.Sample(t(5), -12.0, 20.0),
-            NightTimeline.Sample(t(10), -14.0, 30.0),
+            NightTimeline.Sample(t(0), -10.0, 10.0, 0.0),
+            NightTimeline.Sample(t(5), -12.0, 20.0, 0.0),
+            NightTimeline.Sample(t(10), -14.0, 30.0, 0.0),
         )
         assertEquals(15.0, TimelineCursor.moonAltitudeAt(axisSamples, t(2).plusSeconds(30))!!, 1e-9)
         assertEquals(20.0, TimelineCursor.moonAltitudeAt(axisSamples, t(5))!!, 1e-9)
@@ -303,6 +304,33 @@ class TimelineCursorTest {
         assertEquals(TimelineCursor.PassPhase.NEAR_CULMINATION, TimelineCursor.phaseAt(phases, t(29)))
         assertEquals(TimelineCursor.PassPhase.SETTING, TimelineCursor.phaseAt(phases, t(30)))
         assertEquals(TimelineCursor.PassPhase.SETTING, TimelineCursor.phaseAt(phases, t(44)))
+    }
+
+    @Test
+    fun gestureStateMachineWithoutCursorPlacesFreelyButCannotStep() {
+        val p = TimelineCursor.CursorPlacement.NO_CURSOR
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
+    }
+
+    @Test
+    fun gestureStateMachinePlacedUnlockedNeedsLongPressDrag() {
+        val p = TimelineCursor.CursorPlacement.PLACED_UNLOCKED
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
+    }
+
+    @Test
+    fun gestureStateMachineLockedAllowsOnlySteps() {
+        val p = TimelineCursor.CursorPlacement.PLACED_LOCKED
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
     }
 
     private companion object {

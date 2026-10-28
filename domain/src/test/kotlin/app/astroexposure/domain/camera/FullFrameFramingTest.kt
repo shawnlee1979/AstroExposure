@@ -40,6 +40,13 @@ class FullFrameFramingTest {
         assertEquals(FullFrameFraming.Advice.NoSizeData, FullFrameFraming.advice(null))
         assertEquals(FullFrameFraming.Advice.NoSizeData, FullFrameFraming.advice(0.0))
         assertEquals(FullFrameFraming.Advice.NoSizeData, FullFrameFraming.advice(-3.0))
+        // Non-finite sizes are not measurements either: NaN must not
+        // slip past the guard into the focal arithmetic.
+        assertEquals(FullFrameFraming.Advice.NoSizeData, FullFrameFraming.advice(Double.NaN))
+        assertEquals(
+            FullFrameFraming.Advice.NoSizeData,
+            FullFrameFraming.advice(Double.POSITIVE_INFINITY),
+        )
     }
 
     @Test

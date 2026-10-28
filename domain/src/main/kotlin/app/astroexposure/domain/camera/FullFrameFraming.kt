@@ -96,7 +96,7 @@ object FullFrameFraming {
     /** The framing advice for one catalogue major-axis size (arcminutes), or its boundary form. */
     fun advice(sizeMajorArcmin: Double?): Advice {
         val size = sizeMajorArcmin
-        if (size == null || size <= 0.0) return Advice.NoSizeData
+        if (size == null || !size.isFinite() || size <= 0.0) return Advice.NoSizeData
         // The low end of the focal range is the SHARE_LOW focal (wide
         // field, target small in frame); the high end is the SHARE_HIGH
         // focal. A bigger share always means a longer focal length.

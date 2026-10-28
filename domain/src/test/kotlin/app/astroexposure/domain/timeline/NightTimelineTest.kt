@@ -11,7 +11,7 @@ class NightTimelineTest {
     private val start: Instant = Instant.parse("2026-10-27T22:00:00Z")
 
     private fun sample(minutes: Long, sun: Double, moon: Double = -10.0) =
-        NightTimeline.Sample(start.plusSeconds(minutes * 60), sun, moon)
+        NightTimeline.Sample(start.plusSeconds(minutes * 60), sun, moon, 0.5)
 
     @Test
     fun bandThresholdsFollowStandardTwilightDefinitions() {
