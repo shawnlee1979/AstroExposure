@@ -135,7 +135,7 @@ fun SettingsScreen(
         SectionTitle(stringResource(R.string.settings_places))
         places.forEach { place ->
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = place.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         text = "%.4f, %.4f".format(
@@ -309,7 +309,7 @@ private fun ProfileRow(
     var driftError by remember(profile.id) { mutableStateOf<Int?>(null) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(text = profile.name, style = MaterialTheme.typography.titleSmall)

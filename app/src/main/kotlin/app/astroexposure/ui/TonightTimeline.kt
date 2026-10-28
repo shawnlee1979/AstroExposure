@@ -269,6 +269,9 @@ fun NightTimelineCard(
     val moonColor = if (redLight) Color(0xFFFF9D8A) else Color(0xFF6EA8FE)
     val bandBase = if (redLight) Color(0xFFFF4A3D) else Color(0xFF6EA8FE)
     val borderColor = MaterialTheme.colorScheme.outlineVariant
+    // Text/marks drawn on accent fills take the theme onPrimary token
+    // in both themes instead of a hard-coded near-black.
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -588,27 +591,27 @@ fun NightTimelineCard(
                                 modifier = Modifier
                                     .offset(x = bubbleLeft.dp, y = 14.dp)
                                     .width(bubbleWidth.dp)
-                                    .background(sunColor, RoundedCornerShape(9.dp))
+                                    .background(sunColor, RoundedCornerShape(12.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
                                     text = bubbleTimeText,
-                                    color = Color(0xFF131313),
+                                    color = onPrimaryColor,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 if (bubbleMoonText != null) {
                                     Text(
                                         text = bubbleMoonText,
-                                        color = Color(0xFF131313),
+                                        color = onPrimaryColor,
                                         style = MaterialTheme.typography.labelSmall,
                                     )
                                 }
                                 if (bubbleSnapLabel != null) {
                                     Text(
                                         text = bubbleSnapLabel,
-                                        color = Color(0xFF131313),
+                                        color = onPrimaryColor,
                                         style = MaterialTheme.typography.labelSmall,
                                     )
                                 }
@@ -788,7 +791,7 @@ fun NightTimelineCard(
                                         }
                                         drawCircle(
                                             color = if (phases != null) {
-                                                Color(0xFF131313)
+                                                onPrimaryColor
                                             } else {
                                                 baseColor
                                             },
@@ -847,7 +850,7 @@ fun NightTimelineCard(
                                                 fontSize = 10.sp,
                                                 maxLines = 1,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFF131313),
+                                                color = onPrimaryColor,
                                                 modifier = Modifier.offset(
                                                     x = textX.dp, y = 6.dp,
                                                 ),
@@ -875,7 +878,7 @@ fun NightTimelineCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
-                                    .border(1.dp, sunColor, RoundedCornerShape(8.dp))
+                                    .border(1.dp, sunColor, RoundedCornerShape(12.dp))
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                             ) {
                                 Text(
@@ -903,11 +906,11 @@ fun NightTimelineCard(
                                     .then(
                                         if (cursorLocked) {
                                             Modifier.background(
-                                                sunColor, RoundedCornerShape(8.dp),
+                                                sunColor, RoundedCornerShape(12.dp),
                                             )
                                         } else {
                                             Modifier.border(
-                                                1.dp, borderColor, RoundedCornerShape(8.dp),
+                                                1.dp, borderColor, RoundedCornerShape(12.dp),
                                             )
                                         },
                                     )
@@ -924,7 +927,7 @@ fun NightTimelineCard(
                                         },
                                     ),
                                     color = if (cursorLocked) {
-                                        Color(0xFF131313)
+                                        onPrimaryColor
                                     } else {
                                         MaterialTheme.colorScheme.onSurface
                                     },
@@ -976,7 +979,7 @@ private fun CursorStepButton(
     Box(
         modifier = Modifier
             .size(48.dp)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .pointerInput(label) {
                 detectTapGestures(
                     onPress = {
