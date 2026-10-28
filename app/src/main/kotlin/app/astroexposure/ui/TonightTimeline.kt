@@ -89,6 +89,13 @@ data class TimelineArc(
     val label: String,
     val phases: TimelineCursor.ArcPhases? = null,
     val culminationText: String? = null,
+    /**
+     * The recommended shooting window cut to this lane's arc — drawn
+     * as a bright frame over the segmented bar (ui-design §7.5, 0.6.0).
+     * The frame is a border SHAPE over the fills, so it stays legible
+     * in the red theme where hues collapse into one family.
+     */
+    val recommendedFrame: NightTimeline.Interval? = null,
 )
 
 /** Arc lane height (ui-design §7.5, 0.5.1): tall enough for readable in-lane text. */
@@ -676,8 +683,12 @@ fun NightTimelineCard(
                     // segment when that segment is wide enough —
                     // otherwise it is omitted (never shrunk, never
                     // overlapped; the detail card below always carries
-                    // the same figures). Tapping a lane activates its
-                    // target for the detail card.
+                    // the same figures). Since 0.6.0 the recommended
+                    // shooting window's overlap with the arc is framed
+                    // with a thick bright border over the fills — a
+                    // shape, not just a colour, so it survives the red
+                    // theme. Tapping a lane activates its target for
+                    // the detail card.
                     if (cursorActive && arcs.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             arcs.forEachIndexed { index, arc ->
@@ -749,6 +760,29 @@ fun NightTimelineCard(
                                                 segment(
                                                     interval,
                                                     baseColor.copy(alpha = 0.16f), baseColor,
+                                                )
+                                            }
+                                        }
+                                        // Recommended-window frame
+                                        // (ui-design §7.5, 0.6.0): a thick
+                                        // bright border around the framed
+                                        // span, drawn over the phase fills.
+                                        arc.recommendedFrame?.let { frame ->
+                                            val left = xOf(frame.start)
+                                            val right = xOf(frame.end)
+                                            if (right - left >= 2f) {
+                                                drawRoundRect(
+                                                    color = sunColor,
+                                                    topLeft = Offset(
+                                                        left, barTop - 1.dp.toPx(),
+                                                    ),
+                                                    size = Size(
+                                                        right - left,
+                                                        barHeight + 2.dp.toPx(),
+                                                    ),
+                                                    cornerRadius = androidx.compose.ui
+                                                        .geometry.CornerRadius(7.dp.toPx()),
+                                                    style = Stroke(width = 2.5.dp.toPx()),
                                                 )
                                             }
                                         }

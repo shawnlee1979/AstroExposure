@@ -91,7 +91,7 @@
     <string name="tonight_zone_note">时刻按 %1$s 显示</string>
     <string name="timeline_title">时间轴</string>
     <string name="timeline_no_night">今晚无天文夜</string>
-    <string name="timeline_moon_note">月亮 · 照明 %1$d%%</string>
+    <string name="timeline_moon_note">月亮 · 月相照明 %1$d%%</string>
     <string name="timeline_legend_sun">太阳（实线）</string>
     <string name="timeline_legend_moon">月亮（虚线）</string>
     <string name="timeline_gc_band">银心窗口</string>
@@ -99,7 +99,7 @@
     <string name="common_close">关闭</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">月高 %1$.0f° · 照明 %2$d%%</string>
+    <string name="cursor_bubble_moon">月高 %1$.0f° · 月相照明 %2$d%%</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">看整晚 ✕</string>
@@ -130,7 +130,15 @@
     <string name="cursor_detail_constellation">星座 %1$s</string>
     <string name="cursor_detail_state">高度 %1$.0f° · 方位 %2$.0f° · %3$s</string>
     <string name="cursor_detail_window">可拍窗口 %1$s–%2$s · 中天 %3$s · %4$.0f°</string>
-    <string name="cursor_detail_moonlight">该目标方向月光干扰 %1$s</string>
+    <string name="cursor_detail_moon_separation">距月 %1$d° · 月光干扰 %2$s</string>
+    <string name="cursor_moon_below_horizon">月亮在地平线下，夹角仅供参考</string>
+    <string name="cursor_moon_excluded">距月仅 %1$d° · 月光污染严重</string>
+    <string name="cursor_moon_caution">月光提醒：距月 %1$d° · 干扰 %2$s，留意背景梯度</string>
+    <string name="cursor_detail_recommended">推荐拍摄 %1$s–%2$s · 共 %3$d 分钟</string>
+    <string name="cursor_recommended_relative_best">整晚最高仅 %1$.0f°，以下为相对最佳时段</string>
+    <string name="cursor_recommended_inside">游标正在推荐区间内</string>
+    <string name="cursor_recommended_before">还有 %1$d 分钟进入推荐区间（%2$s）</string>
+    <string name="cursor_recommended_after">游标已过推荐区间</string>
     <string name="cursor_framing_range">全画幅构图：建议焦距 %1$d–%2$d mm · 参考 %3$d mm（占长边约 %4$d%%）</string>
     <string name="cursor_framing_capped_max">全画幅构图：目标较小，%1$d mm 时约占长边 %2$d%%</string>
     <string name="cursor_framing_capped_min">全画幅构图：目标较大，%1$d mm 时约占长边 %2$d%%</string>
@@ -152,7 +160,7 @@
     <string name="detail_sunrise_line">日出 %1$s · 方位角 %2$.1f°</string>
     <string name="detail_moonrise_line">月出 %1$s · 方位角 %2$.1f°</string>
     <string name="detail_moonset_line">月落 %1$s · 方位角 %2$.1f°</string>
-    <string name="detail_moon_phase_line">月相 %1$s · 照明 %2$d%%</string>
+    <string name="detail_moon_phase_line">月相 %1$s · 月相照明 %2$d%%</string>
     <string name="detail_moment_altitude_line">时刻 %1$s · 太阳高度 %2$.1f°</string>
     <string name="detail_gc_line">中天 %1$s · 中天高度 %2$.1f°</string>
     <string name="detail_time_line">时刻 %1$s</string>

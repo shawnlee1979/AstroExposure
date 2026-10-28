@@ -91,7 +91,7 @@
     <string name="tonight_zone_note">Times shown in %1$s</string>
     <string name="timeline_title">Timeline</string>
     <string name="timeline_no_night">No astronomical night tonight</string>
-    <string name="timeline_moon_note">Moon · illumination %1$d%%</string>
+    <string name="timeline_moon_note">Moon · phase illumination %1$d%%</string>
     <string name="timeline_legend_sun">Sun (solid line)</string>
     <string name="timeline_legend_moon">Moon (dashed line)</string>
     <string name="timeline_gc_band">Galactic centre window</string>
@@ -99,7 +99,7 @@
     <string name="common_close">Close</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">Moon %1$.0f° · illum. %2$d%%</string>
+    <string name="cursor_bubble_moon">Moon %1$.0f° · phase illum. %2$d%%</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">Whole night ✕</string>
@@ -130,7 +130,15 @@
     <string name="cursor_detail_constellation">Constellation %1$s</string>
     <string name="cursor_detail_state">Altitude %1$.0f° · azimuth %2$.0f° · %3$s</string>
     <string name="cursor_detail_window">Shootable window %1$s–%2$s · culmination %3$s · %4$.0f°</string>
-    <string name="cursor_detail_moonlight">Moonlight toward this target: %1$s</string>
+    <string name="cursor_detail_moon_separation">Moon separation %1$d° · interference %2$s</string>
+    <string name="cursor_moon_below_horizon">Moon below the horizon — separation is reference only</string>
+    <string name="cursor_moon_excluded">Only %1$d° from the Moon · severe moonlight pollution</string>
+    <string name="cursor_moon_caution">Moonlight caution: %1$d° from the Moon · interference %2$s, watch the background gradient</string>
+    <string name="cursor_detail_recommended">Recommended %1$s–%2$s · %3$d min</string>
+    <string name="cursor_recommended_relative_best">Peak tonight is only %1$.0f° — the window below is the relative best</string>
+    <string name="cursor_recommended_inside">Cursor is inside the recommended window</string>
+    <string name="cursor_recommended_before">Recommended window opens in %1$d min (%2$s)</string>
+    <string name="cursor_recommended_after">Cursor is past the recommended window</string>
     <string name="cursor_framing_range">Full-frame framing: %1$d–%2$d mm · reference %3$d mm (about %4$d%% of the long side)</string>
     <string name="cursor_framing_capped_max">Full-frame framing: small target, about %2$d%% of the long side at %1$d mm</string>
     <string name="cursor_framing_capped_min">Full-frame framing: large target, about %2$d%% of the long side at %1$d mm</string>
@@ -152,7 +160,7 @@
     <string name="detail_sunrise_line">Sunrise %1$s · azimuth %2$.1f°</string>
     <string name="detail_moonrise_line">Moonrise %1$s · azimuth %2$.1f°</string>
     <string name="detail_moonset_line">Moonset %1$s · azimuth %2$.1f°</string>
-    <string name="detail_moon_phase_line">Phase %1$s · illumination %2$d%%</string>
+    <string name="detail_moon_phase_line">Phase %1$s · phase illumination %2$d%%</string>
     <string name="detail_moment_altitude_line">Time %1$s · Sun altitude %2$.1f°</string>
     <string name="detail_gc_line">Culmination %1$s · altitude %2$.1f°</string>
     <string name="detail_time_line">Time %1$s</string>

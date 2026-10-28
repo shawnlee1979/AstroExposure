@@ -300,6 +300,7 @@ fun TonightScreen(
                             formatTime(target.culmination, zone),
                             target.culminationAltitudeDeg,
                         ),
+                        recommendedFrame = target.recommendedFrame,
                     )
                 }
             } else {
@@ -943,12 +944,15 @@ private fun CursorTargetsCard(
 }
 
 /**
- * The activated target's detail (ui-design §7.5, 0.5.1 revision):
- * catalogue facts (only the fields the catalogue actually has — a
- * missing magnitude, size or constellation is omitted, never filled
- * in), the target's state at the cursor instant, tonight's ≥20°
- * window with its culmination, the moonlight interference toward this
- * target at the cursor, and the full-frame framing advice.
+ * The activated target's detail (ui-design §7.5, 0.5.1 revision;
+ * 0.6.0 additions noted inline): catalogue facts (only the fields the
+ * catalogue actually has — a missing magnitude, size or constellation
+ * is omitted, never filled in), the target's state at the cursor
+ * instant, tonight's ≥20° window with its culmination, the
+ * recommended shooting window with the cursor's state against it,
+ * the true Moon separation and moonlight interference toward this
+ * target at the cursor (a pinned target in the exclusion zone is
+ * flagged, not dropped), and the full-frame framing advice.
  */
 @Composable
 private fun ActiveTargetDetail(
@@ -1039,20 +1043,106 @@ private fun ActiveTargetDetail(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    // Recommended shooting window (ui-design §7.5, 0.6.0): the full
+    // window from the target's own samples (the lane frames only its
+    // overlap with the ≥20° arc), its duration, and where the cursor
+    // stands against it. Low passes are flagged as merely the
+    // relative best of a poor night, never dressed up.
+    val recommended = active.recommended
+    if (recommended != null) {
+        if (recommended.relativeBest) {
+            Text(
+                text = stringResource(
+                    R.string.cursor_recommended_relative_best,
+                    recommended.culminationAltitudeDeg,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = stringResource(
+                R.string.cursor_detail_recommended,
+                formatTime(recommended.interval.start, zone),
+                formatTime(recommended.interval.end, zone),
+                java.time.Duration.between(
+                    recommended.interval.start, recommended.interval.end,
+                ).toMinutes(),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when (active.recommendedState) {
+            TimelineCursor.RecommendedState.INSIDE -> Text(
+                text = stringResource(R.string.cursor_recommended_inside),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TimelineCursor.RecommendedState.BEFORE -> Text(
+                text = stringResource(
+                    R.string.cursor_recommended_before,
+                    active.recommendedMinutesUntil,
+                    formatTime(recommended.interval.start, zone),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TimelineCursor.RecommendedState.AFTER -> Text(
+                text = stringResource(R.string.cursor_recommended_after),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            null -> Unit
+        }
+    }
+    // Moon separation (ui-design §7.5, 0.6.0): the TRUE spherical
+    // angle to the Moon at the cursor is a standing data item, next
+    // to the interference tier toward this target. A pinned target
+    // that falls into the exclusion zone keeps its card and is
+    // flagged in the error colour instead of vanishing; with the
+    // Moon down the angle is reference only and says so.
+    val interferenceLabel = stringResource(
+        when (active.moonInterference) {
+            TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
+            TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
+            TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
+        },
+    )
     Text(
         text = stringResource(
-            R.string.cursor_detail_moonlight,
-            stringResource(
-                when (active.moonInterference) {
-                    TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
-                    TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
-                    TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
-                },
-            ),
+            R.string.cursor_detail_moon_separation,
+            Math.round(active.moonSeparationDeg),
+            interferenceLabel,
         ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (!active.moonUp) {
+        Text(
+            text = stringResource(R.string.cursor_moon_below_horizon),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else if (active.moonProximity == TimelineCursor.MoonProximity.EXCLUDED) {
+        Text(
+            text = stringResource(
+                R.string.cursor_moon_excluded,
+                Math.round(active.moonSeparationDeg),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    } else if (active.moonProximity == TimelineCursor.MoonProximity.CAUTION) {
+        Text(
+            text = stringResource(
+                R.string.cursor_moon_caution,
+                Math.round(active.moonSeparationDeg),
+                interferenceLabel,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     // Full-frame framing advice (36.0 x 24.0 mm; domain FullFrameFraming
     // owns the formulas and the boundary rules — the card renders the
     // result form it is given, including the honest capped forms).
