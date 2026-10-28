@@ -915,7 +915,6 @@ private fun DateSwitchRow(
     }
 }
 
-/** Display name of a key moment (ui-design §7.4 moment set), for the cursor bubble's snap label. */
 /** The moonlight-interference tier's display name (status row and target detail share it). */
 fun moonInterferenceNameRes(tier: TimelineCursor.MoonInterference): Int = when (tier) {
     TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
@@ -923,6 +922,7 @@ fun moonInterferenceNameRes(tier: TimelineCursor.MoonInterference): Int = when (
     TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
 }
 
+/** Display name of a key moment (ui-design §7.4 moment set), for the cursor bubble's snap label. */
 @Composable
 private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = stringResource(
     when (kind) {
