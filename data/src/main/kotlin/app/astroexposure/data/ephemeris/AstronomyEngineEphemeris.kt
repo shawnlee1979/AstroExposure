@@ -177,13 +177,27 @@ class AstronomyEngineEphemeris : EphemerisProvider {
         val night = astronomicalNight(location, date) ?: return null
         val observer = observerOf(location)
         val dusk = instantToAstroTime(night.dusk)
+        // The culmination that belongs to this pass is the LAST one at or
+        // before dawn — searched backwards from dawn. Searching forward
+        // from dusk instead returns the NEXT day's culmination whenever
+        // the target culminated before dusk (the galactic centre at
+        // mid-northern latitudes from late August into autumn), which
+        // stretched its window band across the whole axis and reported
+        // tomorrow's peak as tonight's.
         val culmination = synchronized(starLock) {
             defineStar(Body.Star1, target.raHours, target.declination.value, STAR_DISTANCE_LY)
-            searchHourAngle(Body.Star1, observer, 0.0, dusk, +1).time
+            searchHourAngle(Body.Star1, observer, 0.0, instantToAstroTime(night.dawn), -1).time
         }
         val culminationAltitude = altitudeOf(location, target, culmination.toInstant())
         if (culminationAltitude.value < threshold.value) return null
         val alreadyAboveAtDusk = altitudeOf(location, target, night.dusk).value >= threshold.value
+        if (culmination.toInstant().isBefore(night.dusk) && !alreadyAboveAtDusk) {
+            // Culminated before dusk and already below the threshold by
+            // dusk: the above-threshold part of this pass ended before
+            // the night began (altitude only falls after culmination,
+            // and the next culmination is after dawn).
+            return null
+        }
         val risesAbove = if (alreadyAboveAtDusk) {
             null
         } else {
@@ -192,9 +206,15 @@ class AstronomyEngineEphemeris : EphemerisProvider {
                 searchAltitude(Body.Star1, observer, Direction.Rise, dusk, 1.0, threshold.value)
             }?.toInstant()
         }
+        // For a pre-dusk culmination the set search starts at dusk (the
+        // pass is already above the threshold then); otherwise it starts
+        // at the culmination as before.
         val setsBelowRaw = synchronized(starLock) {
             defineStar(Body.Star1, target.raHours, target.declination.value, STAR_DISTANCE_LY)
-            searchAltitude(Body.Star1, observer, Direction.Set, culmination, 1.0, threshold.value)
+            searchAltitude(
+                Body.Star1, observer, Direction.Set,
+                if (alreadyAboveAtDusk) dusk else culmination, 1.0, threshold.value,
+            )
         }?.toInstant()
         val setsBelow = setsBelowRaw?.takeIf { !it.isAfter(night.dawn) }
         return TargetPass(

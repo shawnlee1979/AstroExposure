@@ -152,6 +152,35 @@ class EphemerisContractTest {
     }
 
     @Test
+    fun `target pass for a target culminating before dusk`() {
+        // Pre-dusk culmination geometry: at New York on 2026-09-30 the
+        // galactic centre transits in the early evening, BEFORE
+        // astronomical dusk, and is already below 20 degrees by dusk.
+        // The pass must not be reported with the next day's culmination:
+        // at a 20-degree threshold there is no pass tonight at all, and
+        // at a 0-degree threshold the pass carries the same evening's
+        // culmination (before dusk) and a set inside the night.
+        val galacticCentre = EquatorialCoordinates(17.75, Degrees(-29.0))
+        val date = LocalDate.of(2026, 9, 30)
+        val night = provider.astronomicalNight(nyc, date)
+        assertNotNull(night)
+
+        assertNull(provider.targetPass(nyc, galacticCentre, date, Degrees(20.0)))
+
+        val pass = provider.targetPass(nyc, galacticCentre, date, Degrees(0.0))
+        assertNotNull(pass)
+        assertTrue(
+            "culmination ${pass!!.culmination} must precede dusk ${night!!.dusk}",
+            pass.culmination.isBefore(night.dusk),
+        )
+        assertEquals(20.29, pass.culminationAltitude.value, 1.5)
+        assertNull(pass.risesAbove)
+        assertNotNull(pass.setsBelow)
+        assertTrue(pass.setsBelow!!.isAfter(night.dusk))
+        assertTrue(!pass.setsBelow!!.isAfter(night.dawn))
+    }
+
+    @Test
     fun `target azimuth at culmination points south for a northern observer`() {
         // The azimuthOf port member (added for the cursor detail card):
         // at culmination a target south of the zenith crosses the
