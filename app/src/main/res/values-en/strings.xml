@@ -153,6 +153,7 @@
     <string name="cat_deep_sky">Deep sky</string>
     <string name="cat_eclipse">Moon / eclipse</string>
     <string name="cat_meteor">Meteor showers</string>
+    <string name="calc_handover_hint">From Tonight · %1$s — declination prefilled to %2$s°</string>
     <string name="calc_camera">Camera</string>
     <string name="calc_lens">Lens</string>
     <string name="calc_lens_missing">Lens not in the library? Add it under Settings → Lens library first; calculators never take ad-hoc lens entries.</string>

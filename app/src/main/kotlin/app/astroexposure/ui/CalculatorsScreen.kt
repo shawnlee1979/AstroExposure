@@ -123,10 +123,18 @@ fun CalculatorsScreen(
     // field accepts (ui-design §7.5). The handover is consumed once.
     var declinationText by remember { mutableStateOf("-29") }
     var declinationError by remember { mutableStateOf(false) }
+    // One-time handover hint (ui-design §7.5): when a target arrives
+    // from the tonight page's detail dialog, the landing shows where
+    // it came from and what was prefilled — target name to the
+    // declination text as landed. It is dismissed by a manual
+    // category switch and never persisted, so leaving the screen
+    // drops it too; nothing about it is resident UI.
+    var handoverHint by remember { mutableStateOf<Pair<String, String>?>(null) }
     androidx.compose.runtime.LaunchedEffect(prefillObject) {
         val obj = prefillObject ?: return@LaunchedEffect
         declinationText = obj.decDeg.toString()
         declinationError = false
+        handoverHint = (obj.nameZh ?: obj.name) to declinationText
         onPrefillConsumed()
     }
 
@@ -155,10 +163,21 @@ fun CalculatorsScreen(
                 FilterChip(
                     modifier = Modifier.heightIn(min = 48.dp),
                     selected = category == cat,
-                    onClick = { onCategoryChange(cat) },
+                    onClick = {
+                        handoverHint = null
+                        onCategoryChange(cat)
+                    },
                     label = { Text(stringResource(categoryNameRes(cat))) },
                 )
             }
+        }
+
+        handoverHint?.let { (targetName, decText) ->
+            Text(
+                text = stringResource(R.string.calc_handover_hint, targetName, decText),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
 
         EquipmentPicker(
