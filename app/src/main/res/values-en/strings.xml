@@ -13,15 +13,17 @@
     <string name="location_altitude">Altitude approx. %1$d m (GPS ellipsoidal height, coarse — reference only)</string>
     <string name="location_altitude_none">Altitude —</string>
     <string name="location_save_favourite">Save as a favourite place</string>
-    <string name="location_env_title">Environment (at dusk · toward the galactic centre)</string>
+    <string name="location_env_title">Environment</string>
     <string name="location_env_moonlight">Moonlight contribution %1$.2f mcd/m²</string>
+    <string name="location_env_rise_note">· Moon rises at %1$s; brighter afterwards</string>
     <string name="location_env_total">Total sky %1$.2f mag/arcsec²</string>
+    <string name="location_env_note">Figures are dusk estimates toward the galactic centre; they vary with direction and time.</string>
     <string name="tonight_overview_title">Tonight at a glance</string>
     <string name="tonight_overview_night">Astronomical night</string>
     <string name="tonight_overview_night_none">No astronomical night</string>
-    <string name="tonight_overview_sun_alt">Sun altitude</string>
-    <string name="tonight_overview_sun_alt_cursor">Sun altitude (cursor %1$s)</string>
-    <string name="tonight_overview_sun_alt_value">%1$.0f°</string>
+    <string name="tonight_overview_moon_alt">Moon altitude</string>
+    <string name="tonight_overview_moon_alt_cursor">Moon altitude (cursor %1$s)</string>
+    <string name="tonight_overview_moon_alt_value">%1$.0f°</string>
     <string name="tonight_overview_moon">Moonlight interference</string>
     <string name="tonight_overview_low_moon">Low-moonlight window</string>
     <string name="tonight_overview_low_moon_none">No low-moonlight window tonight</string>
@@ -29,7 +31,6 @@
     <string name="location_source_manual">Location source: manual coordinates</string>
     <string name="location_source_favourite">Location source: favourite place</string>
     <string name="location_source_sample">Location source: built-in sample (not located)</string>
-    <string name="location_use_gps">Use GPS</string>
     <string name="location_gps_failed">GPS fix unavailable; fell back to manual/sample site</string>
     <string name="location_latitude">Latitude (°, north positive)</string>
     <string name="location_longitude">Longitude (°, east positive)</string>
@@ -46,7 +47,7 @@
     <string name="tonight_events_title">Events within ±3 days</string>
     <string name="tonight_event_eclipse">%1$s · %2$s eclipse (%3$s)</string>
     <string name="tonight_event_shower">%1$s · %2$s (peak approx. %3$s, ZHR %4$d)</string>
-    <string name="tonight_events_none">No eclipse or shower peak within ±3 days</string>
+    <string name="tonight_events_none">No eclipse or meteor-shower peak events</string>
     <string name="tonight_events_unavailable">Events unavailable: the event catalogue failed to load</string>
     <string name="tonight_recommendations_title">Bright deep-sky targets tonight (static rules)</string>
     <string name="tonight_recommendation_item">%1$s · mag %2$s · culmination %3$s / %4$.0f°</string>
@@ -67,7 +68,7 @@
     <string name="location_edit_confirm">Confirm</string>
     <string name="location_edit_cancel">Cancel</string>
     <string name="location_edit_invalid">Coordinates out of range</string>
-    <string name="location_light_row">Light pollution · area value · Bortle %1$d · %2$.2f mcd/m²</string>
+    <string name="location_light_row">Light pollution · Bortle %1$d</string>
     <string name="location_light_no_data">Light pollution · no grid data</string>
     <string name="location_light_manual">Manual Bortle %1$d</string>
     <string name="date_back_to_tonight">Back to tonight</string>
@@ -94,12 +95,7 @@
     <string name="cursor_show_whole_night">Whole night ✕</string>
     <string name="cursor_lock">Lock</string>
     <string name="cursor_locked">Locked</string>
-    <string name="cursor_status">%1$s · %2$s</string>
-    <string name="cursor_segment_day">Daytime</string>
-    <string name="cursor_segment_civil">Civil twilight</string>
-    <string name="cursor_segment_nautical">Nautical twilight</string>
-    <string name="cursor_segment_astronomical_twilight">Astronomical twilight</string>
-    <string name="cursor_segment_astronomical_night">Astronomical night</string>
+
     <string name="cursor_interference_none">none</string>
     <string name="cursor_interference_weak">weak</string>
     <string name="cursor_interference_strong">strong</string>
