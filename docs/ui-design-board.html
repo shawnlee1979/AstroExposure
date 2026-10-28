@@ -629,7 +629,7 @@
   .pf-kv .pf-k {font-size:11px; color:#5D6C8C; }
   .pf-kv .pf-v {font-size:15px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
   .pf-kv .pf-v.pf-gold {color:#F2C66D; }
-  .pf-fold {margin-top:12px; border:1px solid #22304F; border-radius:16px; background:#0C1120; padding:13px 14px; font-size:14px; color:#96A3BE; display:flex; justify-content:space-between; }
+  .pf-note {margin-top:10px; padding:0 4px; font-size:12.5px; color:#96A3BE; line-height:1.5; }
   .pf-sfoot {display:flex; gap:10px; padding:12px; border-top:1px solid #1A2440; background:#070A14; }
   .pf-btn {flex:1; text-align:center; padding:13px 0; border-radius:12px; font-size:15px; font-weight:600; }
   .pf-btn.pf-primary {background:#F2C66D; color:#191203; }
@@ -639,8 +639,8 @@
   .pf-redsheet .pf-shead {border-color:#471512; }
   .pf-redsheet .pf-tname, .pf-redsheet .pf-deltas .pf-d1 {color:#FF7A6B; }
   .pf-redsheet .pf-verdict, .pf-redsheet .pf-kv .pf-v.pf-gold, .pf-redsheet .pf-deltas .pf-d1 .pf-gold {color:#FF9D8A; }
-  .pf-redsheet .pf-meta, .pf-redsheet .pf-kv .pf-k, .pf-redsheet .pf-fold, .pf-redsheet .pf-deltas .pf-d2 {color:#C04434; }
-  .pf-redsheet .pf-finder, .pf-redsheet .pf-grid4, .pf-redsheet .pf-fold {background:#180404; border-color:#471512; }
+  .pf-redsheet .pf-meta, .pf-redsheet .pf-kv .pf-k, .pf-redsheet .pf-note, .pf-redsheet .pf-deltas .pf-d2 {color:#C04434; }
+  .pf-redsheet .pf-finder, .pf-redsheet .pf-grid4 {background:#180404; border-color:#471512; }
   .pf-redsheet .pf-finder.pf-aligned {border-color:#FF9D8A; }
   .pf-redsheet .pf-altrail .pf-tgt {background:#FF9D8A; }
   .pf-redsheet .pf-altrail .pf-tgt b {color:#FF9D8A; }
@@ -652,8 +652,8 @@
   .pf-redsheet .pf-btn.pf-ghost {background:#180404; border-color:#471512; color:#FF7A6B; }
   .pf-redsheet .pf-calib {border-color:#471512; color:#C04434; }
 </style>
-<h2 style="font-size:18px;margin:34px 0 6px;">目标详情弹出窗指向区样张（0.8.0）</h2>
-<p class="sub">规格见 docs/ui-design.md §7.5「详情弹出窗」条（指向助手改版）：固定头与固定警告条、指向区（罗盘 + 右侧竖直高度尺）、两列关键数据网格、折叠区「整晚详情」、固定尾。样张数值为示意。</p>
+<h2 style="font-size:18px;margin:34px 0 6px;">目标详情弹出窗样张（0.8.0 指向区 / 0.8.2 数据网格）</h2>
+<p class="sub">规格见 docs/ui-design.md §7.5「详情弹出窗」条（指向助手改版）：固定头与固定警告条、指向区（罗盘 + 右侧竖直高度尺）、六行两列数据网格（0.8.2 整合：折叠区取消，升没时刻与角尺寸移出窗，中天只留一份）、网格下方小字注、固定尾。样张数值为示意。</p>
 <div class="pf-board">
 <div class="pf-cell">
 <div class="pf-cell">
@@ -705,14 +705,18 @@
       <div class="pf-grid4">
         <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">37°</div></div>
         <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
-        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">赤经</div><div class="pf-v">0.71 h</div></div>
+        <div class="pf-kv"><div class="pf-k">赤纬</div><div class="pf-v">41.3°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时间</div><div class="pf-v">23:56</div></div>
         <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">可拍窗口</div><div class="pf-v">20:58 – 02:14</div></div>
         <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:40 – 01:20</div></div>
-        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">在区间内</div></div>
         <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
         <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+        <div class="pf-kv"><div class="pf-k">建议焦距</div><div class="pf-v">664–1329 mm</div></div>
+        <div class="pf-kv"><div class="pf-k">参考焦距</div><div class="pf-v">997 mm</div></div>
       </div>
-      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+      <div class="pf-note">在 997 mm 下，目标约占画面宽度 74%</div>
     </div>
     <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
   </div>
@@ -771,14 +775,18 @@
       <div class="pf-grid4">
         <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">42°</div></div>
         <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
-        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">赤经</div><div class="pf-v">0.71 h</div></div>
+        <div class="pf-kv"><div class="pf-k">赤纬</div><div class="pf-v">41.3°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时间</div><div class="pf-v">23:56</div></div>
         <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">可拍窗口</div><div class="pf-v">20:58 – 02:14</div></div>
         <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:40 – 01:20</div></div>
-        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">在区间内</div></div>
         <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
         <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+        <div class="pf-kv"><div class="pf-k">建议焦距</div><div class="pf-v">664–1329 mm</div></div>
+        <div class="pf-kv"><div class="pf-k">参考焦距</div><div class="pf-v">997 mm</div></div>
       </div>
-      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+      <div class="pf-note">在 997 mm 下，目标约占画面宽度 74%</div>
     </div>
     <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
   </div>
@@ -837,14 +845,18 @@
       <div class="pf-grid4">
         <div class="pf-kv"><div class="pf-k">高度（23:05）</div><div class="pf-v" style="color:#FF7A6B;">31°</div></div>
         <div class="pf-kv"><div class="pf-k">方位（23:05）</div><div class="pf-v" style="color:#FF7A6B;">176°</div></div>
-        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v" style="color:#FF7A6B;">23:12</div></div>
+        <div class="pf-kv"><div class="pf-k">赤经</div><div class="pf-v" style="color:#FF7A6B;">19.84 h</div></div>
+        <div class="pf-kv"><div class="pf-k">赤纬</div><div class="pf-v" style="color:#FF7A6B;">27.9°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时间</div><div class="pf-v" style="color:#FF7A6B;">23:12</div></div>
         <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v" style="color:#FF7A6B;">35°</div></div>
+        <div class="pf-kv"><div class="pf-k">可拍窗口</div><div class="pf-v" style="color:#FF7A6B;">21:12 – 01:06</div></div>
         <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v pf-gold">21:58 – 23:43</div></div>
-        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v" style="color:#FF7A6B;">在区间内</div></div>
         <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v" style="color:#FF7A6B;">32°</div></div>
         <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v" style="color:#FF7A6B;">强</div></div>
+        <div class="pf-kv"><div class="pf-k">建议焦距</div><div class="pf-v" style="color:#FF7A6B;">380–760 mm</div></div>
+        <div class="pf-kv"><div class="pf-k">参考焦距</div><div class="pf-v" style="color:#FF7A6B;">570 mm</div></div>
       </div>
-      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+      <div class="pf-note">在 570 mm 下，目标约占画面宽度 62%</div>
     </div>
     <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
   </div>
@@ -903,14 +915,18 @@
       <div class="pf-grid4">
         <div class="pf-kv"><div class="pf-k">高度（22:14）</div><div class="pf-v">−8°</div></div>
         <div class="pf-kv"><div class="pf-k">方位（22:14）</div><div class="pf-v">58°</div></div>
-        <div class="pf-kv"><div class="pf-k">中天时刻</div><div class="pf-v">23:56</div></div>
+        <div class="pf-kv"><div class="pf-k">赤经</div><div class="pf-v">0.71 h</div></div>
+        <div class="pf-kv"><div class="pf-k">赤纬</div><div class="pf-v">41.3°</div></div>
+        <div class="pf-kv"><div class="pf-k">中天时间</div><div class="pf-v">23:56</div></div>
         <div class="pf-kv"><div class="pf-k">中天高度</div><div class="pf-v">88°</div></div>
+        <div class="pf-kv"><div class="pf-k">可拍窗口</div><div class="pf-v">21:47 – 03:20</div></div>
         <div class="pf-kv"><div class="pf-k">推荐区间</div><div class="pf-v">—</div></div>
-        <div class="pf-kv"><div class="pf-k">游标状态</div><div class="pf-v">—</div></div>
         <div class="pf-kv"><div class="pf-k">距月夹角</div><div class="pf-v">74°</div></div>
         <div class="pf-kv"><div class="pf-k">月光干扰</div><div class="pf-v">弱</div></div>
+        <div class="pf-kv"><div class="pf-k">建议焦距</div><div class="pf-v">664–1329 mm</div></div>
+        <div class="pf-kv"><div class="pf-k">参考焦距</div><div class="pf-v">997 mm</div></div>
       </div>
-      <div class="pf-fold"><span>整晚详情 · 升没 / 窗口 / 构图建议</span><span>▸</span></div>
+      <div class="pf-note">在 997 mm 下，目标约占画面宽度 74%</div>
     </div>
     <div class="pf-sfoot"><div class="pf-btn pf-primary">去计算</div><div class="pf-btn pf-ghost">关闭</div></div>
   </div>
