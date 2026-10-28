@@ -300,7 +300,7 @@ object TimelineCursor {
      * that stays at or above [thresholdDeg], where the threshold is
      * max(40°, culmination − 10°) for passes culminating at or above
      * 40°, and (culmination − 10°) for lower passes — those are
-     * [relativeBest] windows and the detail card must say so instead of
+     * [relativeBest] windows and the detail dialog must say so instead of
      * dressing a low pass up as a good one. Interval ends follow the
      * [aboveThresholdIntervals] convention (first sample after the run,
      * or the axis end).
@@ -362,7 +362,7 @@ object TimelineCursor {
     /** Separations strictly below this angle can exclude a target (ui-design §7.5). */
     const val MOON_EXCLUSION_SEPARATION_DEG = 40.0
 
-    /** Separations below this angle earn the detail card a moonlight caution line. */
+    /** Separations below this angle earn the detail dialog a moonlight caution line. */
     const val MOON_CAUTION_SEPARATION_DEG = 60.0
 
     /**

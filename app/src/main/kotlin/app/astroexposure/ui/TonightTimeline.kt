@@ -716,7 +716,7 @@ fun NightTimelineCard(
                     // the culmination text sits inside the culmination
                     // segment when that segment is wide enough —
                     // otherwise it is omitted (never shrunk, never
-                    // overlapped; the detail card below always carries
+                    // overlapped; the detail dialog always carries
                     // the same figures). Since 0.6.0 the recommended
                     // shooting window's overlap with the arc is framed
                     // with a thick bright border over the fills — a
