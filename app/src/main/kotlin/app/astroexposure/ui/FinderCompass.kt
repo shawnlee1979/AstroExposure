@@ -267,7 +267,11 @@ fun FinderSection(
     // 5-minute line out to a full 6 minutes.
     val staleSeconds = abs(Duration.between(cursor, Instant.now()).seconds)
     val accuracy = sample?.accuracy
-    val showCalibration = when (accuracy) {
+    // While the stream is interrupted, [sample] is the frozen last
+    // frame, so its accuracy tier is stale: the calibration hint is
+    // suppressed until a live reading resumes (the §7.5 dismissal and
+    // reappearance semantics then apply as before).
+    val showCalibration = !noReading && when (accuracy) {
         DeviceOrientationProvider.OrientationAccuracy.LOW ->
             calibrationDismissedAt == null
         DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE ->
