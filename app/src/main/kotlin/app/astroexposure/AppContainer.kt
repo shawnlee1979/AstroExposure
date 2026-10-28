@@ -15,8 +15,10 @@ import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.location.LocationProvider
+import app.astroexposure.orientation.AndroidOrientationProvider
 import app.astroexposure.persistence.AppRepository
 import app.astroexposure.persistence.AstroDatabase
 import app.astroexposure.usecase.DeepSkyUseCase
@@ -47,6 +49,8 @@ class AppContainer(context: Context) {
 
     val repository = AppRepository(database, lensCatalog)
     val locationProvider = LocationProvider(context.applicationContext)
+    val orientationProvider: DeviceOrientationProvider =
+        AndroidOrientationProvider(context.applicationContext)
 
     val tonightOverview = TonightOverviewUseCase(
         ephemeris, objectCatalog, eclipseCatalog, showerCatalog, lightPollution,
