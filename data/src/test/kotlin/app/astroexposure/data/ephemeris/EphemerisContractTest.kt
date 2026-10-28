@@ -152,6 +152,26 @@ class EphemerisContractTest {
     }
 
     @Test
+    fun `target azimuth at culmination points south for a northern observer`() {
+        // The azimuthOf port member (added for the cursor detail card):
+        // at culmination a target south of the zenith crosses the
+        // meridian, so its azimuth is due south (180 degrees).
+        val losAngeles = GeoLocation(
+            latitude = Degrees(34.0522),
+            longitude = Degrees(-118.2437),
+            zone = ZoneId.of("America/Los_Angeles"),
+        )
+        val galacticCentre = EquatorialCoordinates(17.75, Degrees(-29.0))
+        val pass = provider.targetPass(losAngeles, galacticCentre, LocalDate.of(2026, 6, 18), Degrees(20.0))
+        assertNotNull(pass)
+        val azimuth = provider.azimuthOf(losAngeles, galacticCentre, pass!!.culmination)
+        assertEquals(180.0, azimuth.value, 3.0)
+        // Consistency: altitudeOf at the same instant is the culmination altitude.
+        val altitude = provider.altitudeOf(losAngeles, galacticCentre, pass.culmination)
+        assertEquals(pass.culminationAltitude.value, altitude.value, 0.5)
+    }
+
+    @Test
     fun `eclipses of 2026 match the NASA catalogue events`() {
         val events = provider.eclipsesBetween(
             Instant.parse("2026-01-01T00:00:00Z"),

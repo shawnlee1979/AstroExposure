@@ -94,7 +94,20 @@ class AstronomyEngineEphemeris : EphemerisProvider {
         location: GeoLocation,
         target: EquatorialCoordinates,
         instant: Instant,
-    ): Degrees {
+    ): Degrees = Degrees(horizontalOf(location, target, instant).altitude)
+
+    override fun azimuthOf(
+        location: GeoLocation,
+        target: EquatorialCoordinates,
+        instant: Instant,
+    ): Degrees = Degrees(horizontalOf(location, target, instant).azimuth)
+
+    /** Topocentric horizontal coordinates of an arbitrary target (shared by altitudeOf / azimuthOf). */
+    private fun horizontalOf(
+        location: GeoLocation,
+        target: EquatorialCoordinates,
+        instant: Instant,
+    ): io.github.cosinekitty.astronomy.Topocentric {
         val observer = observerOf(location)
         val time = instantToAstroTime(instant)
         // defineStar writes engine-global state for Body.Star1; guard it and
@@ -103,8 +116,7 @@ class AstronomyEngineEphemeris : EphemerisProvider {
             defineStar(Body.Star1, target.raHours, target.declination.value, STAR_DISTANCE_LY)
             equator(Body.Star1, time, observer, EquatorEpoch.OfDate, Aberration.Corrected)
         }
-        val topocentric = horizon(time, observer, eq.ra, eq.dec, Refraction.Normal)
-        return Degrees(topocentric.altitude)
+        return horizon(time, observer, eq.ra, eq.dec, Refraction.Normal)
     }
 
     override fun horizontalPosition(
