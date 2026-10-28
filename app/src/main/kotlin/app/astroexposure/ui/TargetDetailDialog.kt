@@ -1,7 +1,6 @@
 package app.astroexposure.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,20 +16,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.astroexposure.R
+import app.astroexposure.domain.camera.FullFrameFraming
+import app.astroexposure.domain.catalog.ConstellationNames
 import app.astroexposure.domain.catalog.DeepSkyObjectType
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.timeline.TimelineCursor
@@ -41,14 +39,15 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /**
- * The target detail dialog's 0.8.0 layout (ui-design §7.5 as revised
- * for 0.8.0): the shared
+ * The target detail dialog's layout (ui-design §7.5): the shared
  * [DetailDialog] shell carries a fixed head in its title slot — the
  * target's name, its catalogue meta line, one gold conclusion line
  * and the warning bar, none of which scroll away — a scrolling
- * middle (the finder section, the two-column key-data grid, the
- * folded whole-night section) as its body, and the shell's own
- * button row as the fixed footer (calculator jump + close).
+ * middle (the finder section, then the one six-row two-column data
+ * grid and its small-print notes) as its body, and the shell's own
+ * button row as the fixed footer (calculator jump + close). The
+ * 0.8.0 folded whole-night section is gone since 0.8.2: every datum
+ * lives in the one grid, each exactly once.
  *
  * Every value shown comes from the one on-demand evaluation
  * ([TonightOverviewUseCase.TargetDetail]); the finder only renders
@@ -155,20 +154,43 @@ fun TargetDetailDialog(
                     zone = zone,
                 )
                 DetailGrid(detail = detail, zone = zone)
-                if (detail.moonUp &&
-                    detail.moonProximity == TimelineCursor.MoonProximity.CAUTION
-                ) {
+                // The grid's small-print notes: the relative-best
+                // qualification of the recommended window, the neutral
+                // moonlight caution, and the framing remainder the
+                // focal cells cannot carry (ui-design §7.5).
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val recommended = detail.recommended
+                    if (recommended?.relativeBest == true) {
+                        Text(
+                            text = stringResource(
+                                R.string.cursor_recommended_relative_best,
+                                recommended.culminationAltitudeDeg,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (detail.moonUp &&
+                        detail.moonProximity == TimelineCursor.MoonProximity.CAUTION
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.cursor_moon_caution,
+                                Math.round(detail.moonSeparationDeg),
+                                stringResource(
+                                    moonInterferenceNameRes(detail.moonInterference),
+                                ),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
-                        text = stringResource(
-                            R.string.cursor_moon_caution,
-                            Math.round(detail.moonSeparationDeg),
-                            stringResource(moonInterferenceNameRes(detail.moonInterference)),
-                        ),
+                        text = framingNoteText(detail),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                WholeNightFold(detail = detail, zone = zone)
             }
         },
     )
@@ -233,10 +255,13 @@ private fun DetailWarningBar(text: String, severity: WarningSeverity) {
 /**
  * The head's meta line: type · magnitude · constellation, each part
  * present only when the catalogue actually has it (never filled in).
+ * The catalogue stores the IAU three-letter code; the line shows the
+ * localized name ([ConstellationNames]), never the raw code.
  */
 @Composable
 private fun detailMetaLine(detail: TonightOverviewUseCase.TargetDetail): String {
     val obj = detail.obj
+    val english = LocalConfiguration.current.locales[0]?.language == "en"
     val parts = buildList {
         add(
             stringResource(
@@ -254,7 +279,7 @@ private fun detailMetaLine(detail: TonightOverviewUseCase.TargetDetail): String 
             ),
         )
         obj.magnitude?.let { add(stringResource(R.string.detail_meta_magnitude, it)) }
-        obj.constellation?.let { add(it) }
+        obj.constellation?.let { add(ConstellationNames.displayName(it, english)) }
     }
     return parts.joinToString(" · ")
 }
@@ -316,11 +341,15 @@ private fun detailConclusion(
 }
 
 /**
- * The key-data grid (ui-design §7.5): four fixed rows of two cells —
- * cursor altitude / azimuth, culmination time / altitude, the
- * recommended window / the cursor's state against it, Moon
- * separation / interference tier. A missing datum shows the dash,
- * never an invented value.
+ * The one data grid (ui-design §7.5, consolidated in 0.8.2): six
+ * fixed rows of two cells — cursor altitude / azimuth, catalogue
+ * right ascension / declination, culmination time / altitude, the
+ * shootable window / the recommended window, Moon separation /
+ * interference tier, suggested focal range / reference focal. Every
+ * datum appears exactly once in the whole dialog; the cursor's state
+ * against the recommended window is the head conclusion's business,
+ * not a cell. A missing datum shows the dash, never an invented
+ * value.
  */
 @Composable
 private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId) {
@@ -339,6 +368,18 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             GridCell(
+                label = stringResource(R.string.detail_grid_ra),
+                value = stringResource(R.string.detail_grid_ra_value, detail.obj.raHours),
+                modifier = Modifier.weight(1f),
+            )
+            GridCell(
+                label = stringResource(R.string.detail_grid_dec),
+                value = stringResource(R.string.detail_grid_dec_value, detail.obj.decDeg),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GridCell(
                 label = stringResource(R.string.detail_grid_culmination),
                 value = detail.culmination?.let { formatTime(it, zone) }
                     ?: stringResource(R.string.detail_grid_none),
@@ -351,8 +392,24 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
                 modifier = Modifier.weight(1f),
             )
         }
+        val phases = detail.phases
         val recommended = detail.recommended
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GridCell(
+                label = stringResource(R.string.detail_grid_shootable_window),
+                value = if (phases != null) {
+                    "${formatTime(phases.window.start, zone)} – " +
+                        formatTime(phases.window.end, zone)
+                } else {
+                    stringResource(R.string.detail_grid_none)
+                },
+                sub = if (phases == null) {
+                    stringResource(R.string.detail_grid_no_window)
+                } else {
+                    null
+                },
+                modifier = Modifier.weight(1f),
+            )
             GridCell(
                 label = stringResource(R.string.detail_grid_recommended),
                 value = if (recommended != null) {
@@ -360,29 +417,6 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
                         formatTime(recommended.interval.end, zone)
                 } else {
                     stringResource(R.string.detail_grid_none)
-                },
-                sub = if (recommended?.relativeBest == true) {
-                    stringResource(
-                        R.string.cursor_recommended_relative_best,
-                        recommended.culminationAltitudeDeg,
-                    )
-                } else {
-                    null
-                },
-                modifier = Modifier.weight(1f),
-            )
-            GridCell(
-                label = stringResource(R.string.detail_grid_cursor_state),
-                value = when (detail.recommendedState) {
-                    TimelineCursor.RecommendedState.INSIDE ->
-                        stringResource(R.string.detail_state_inside)
-                    TimelineCursor.RecommendedState.BEFORE -> stringResource(
-                        R.string.detail_state_before,
-                        detail.recommendedMinutesUntil,
-                    )
-                    TimelineCursor.RecommendedState.AFTER ->
-                        stringResource(R.string.detail_state_after)
-                    null -> stringResource(R.string.detail_grid_none)
                 },
                 modifier = Modifier.weight(1f),
             )
@@ -404,8 +438,80 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
                 modifier = Modifier.weight(1f),
             )
         }
+        val focals = focalCells(detail)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GridCell(
+                label = stringResource(R.string.detail_grid_suggested_focal),
+                value = focals.first,
+                modifier = Modifier.weight(1f),
+            )
+            GridCell(
+                label = stringResource(R.string.detail_grid_reference_focal),
+                value = focals.second,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
+
+/**
+ * The focal row's two cell values (suggested range, reference) from
+ * the domain's framing advice. Only the plain range form fills the
+ * cells; the capped forms and the no-size form name no range and no
+ * reference, so both cells show the dash and the note below the grid
+ * ([framingNoteText]) states the boundary honestly.
+ */
+@Composable
+private fun focalCells(
+    detail: TonightOverviewUseCase.TargetDetail,
+): Pair<String, String> = when (val framing = detail.framing) {
+    is FullFrameFraming.Advice.Range -> Pair(
+        stringResource(
+            R.string.detail_grid_focal_range,
+            Math.round(framing.lowFocalMm),
+            Math.round(framing.highFocalMm),
+        ),
+        stringResource(
+            R.string.detail_grid_focal_single,
+            Math.round(framing.referenceFocalMm),
+        ),
+    )
+    else -> Pair(
+        stringResource(R.string.detail_grid_none),
+        stringResource(R.string.detail_grid_none),
+    )
+}
+
+/**
+ * The framing note below the grid: what the focal cells cannot
+ * carry — the reference focal's share of the long side for the range
+ * form, and the honest boundary statement for the capped and
+ * no-size forms. 36.0 x 24.0 mm throughout; the domain's
+ * [FullFrameFraming] owns the formulas and boundary rules.
+ */
+@Composable
+private fun framingNoteText(detail: TonightOverviewUseCase.TargetDetail): String =
+    when (val framing = detail.framing) {
+        is FullFrameFraming.Advice.NoSizeData ->
+            stringResource(R.string.cursor_framing_no_size)
+        is FullFrameFraming.Advice.Range ->
+            stringResource(
+                R.string.detail_framing_note_range,
+                percentRounded(framing.referenceShare),
+            )
+        is FullFrameFraming.Advice.CappedAtMaxFocal ->
+            stringResource(
+                R.string.cursor_framing_capped_max,
+                Math.round(FullFrameFraming.MAX_FOCAL_MM).toInt(),
+                percentRounded(framing.shareAtMaxFocal),
+            )
+        is FullFrameFraming.Advice.CappedAtMinFocal ->
+            stringResource(
+                R.string.cursor_framing_capped_min,
+                Math.round(FullFrameFraming.MIN_FOCAL_MM).toInt(),
+                percentRounded(framing.shareAtMinFocal),
+            )
+    }
 
 /** One grid cell: a small tertiary label over a tabular value, with an optional note line. */
 @Composable
@@ -435,119 +541,6 @@ private fun GridCell(
         }
     }
 }
-
-/**
- * The folded whole-night section (ui-design §7.5): collapsed on every
- * open (the state is remembered per dialog, never saved), holding
- * the low-frequency facts — rise/set, the ≥20° window, the catalogue
- * size and coordinates, and the full-frame framing advice. Nothing
- * is deleted by the fold; it is one tap away.
- */
-@Composable
-private fun WholeNightFold(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable { expanded = !expanded },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = (if (expanded) "▾ " else "▸ ") +
-                    stringResource(R.string.detail_fold_title),
-                style = MaterialTheme.typography.titleSmall,
-            )
-        }
-        if (expanded) {
-            for (line in wholeNightLines(detail, zone)) {
-                Text(text = line, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-}
-
-/** The folded section's lines, from the same one evaluation. */
-@Composable
-private fun wholeNightLines(
-    detail: TonightOverviewUseCase.TargetDetail,
-    zone: ZoneId,
-): List<String> = buildList {
-    detail.horizonRise?.let {
-        add(stringResource(R.string.detail_fold_rise, formatTime(it, zone)))
-    }
-    detail.horizonSet?.let {
-        add(stringResource(R.string.detail_fold_set, formatTime(it, zone)))
-    }
-    val phases = detail.phases
-    if (phases != null) {
-        add(
-            stringResource(
-                R.string.cursor_detail_window,
-                formatTime(phases.window.start, zone),
-                formatTime(phases.window.end, zone),
-                formatTime(phases.culmination.instant, zone),
-                phases.culmination.altitudeDeg,
-            ),
-        )
-    } else {
-        add(stringResource(R.string.detail_fold_no_window))
-    }
-    val obj = detail.obj
-    val sizeMajor = obj.sizeMajorArcmin
-    val sizeMinor = obj.sizeMinorArcmin
-    if (sizeMajor != null) {
-        add(
-            if (sizeMinor != null) {
-                stringResource(
-                    R.string.cursor_detail_size_both,
-                    Math.round(sizeMajor), Math.round(sizeMinor),
-                )
-            } else {
-                stringResource(R.string.cursor_detail_size_major, Math.round(sizeMajor))
-            },
-        )
-    }
-    add(stringResource(R.string.detail_fold_ra_dec, obj.raHours, obj.decDeg))
-    add(framingAdviceText(detail))
-}
-
-/**
- * The full-frame framing advice line (36.0 x 24.0 mm; the domain's
- * FullFrameFraming owns the formulas and boundary rules — this only
- * renders the form it is given, including the honest capped forms).
- */
-@Composable
-private fun framingAdviceText(detail: TonightOverviewUseCase.TargetDetail): String =
-    when (val framing = detail.framing) {
-        is app.astroexposure.domain.camera.FullFrameFraming.Advice.NoSizeData ->
-            stringResource(R.string.cursor_framing_no_size)
-        is app.astroexposure.domain.camera.FullFrameFraming.Advice.Range ->
-            stringResource(
-                R.string.cursor_framing_range,
-                Math.round(framing.lowFocalMm),
-                Math.round(framing.highFocalMm),
-                Math.round(framing.referenceFocalMm),
-                percentRounded(framing.referenceShare),
-            )
-        is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMaxFocal ->
-            stringResource(
-                R.string.cursor_framing_capped_max,
-                Math.round(
-                    app.astroexposure.domain.camera.FullFrameFraming.MAX_FOCAL_MM,
-                ).toInt(),
-                percentRounded(framing.shareAtMaxFocal),
-            )
-        is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMinFocal ->
-            stringResource(
-                R.string.cursor_framing_capped_min,
-                Math.round(
-                    app.astroexposure.domain.camera.FullFrameFraming.MIN_FOCAL_MM,
-                ).toInt(),
-                percentRounded(framing.shareAtMinFocal),
-            )
-    }
 
 /** The scrolling middle's height cap: the head and footer stay put, the middle scrolls. */
 private val MIDDLE_MAX_HEIGHT = 520.dp
