@@ -121,6 +121,22 @@
   .tlx .arc-layer { position:absolute; left:0; right:0; top:180px; height:44px; }
   .tlx .bubble-layer, .tlx .cursor-track { position:absolute; left:0; right:0; top:0; bottom:24px; }
   .tlx .axis { position:absolute; left:0; right:0; bottom:0; height:24px; border-top:1px solid #22304F; display:flex; justify-content:space-between; align-items:center; padding:0 6px; font-size:9px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
+  .tlx .cursor-line { position:absolute; top:0; bottom:24px; width:2px; background:#F2C66D; }
+  .tlx .cursor-knob { position:absolute; top:0; width:10px; height:10px; margin-left:-4px; border-radius:50%; background:#F2C66D; }
+  .tlx .bubble { position:absolute; top:14px; width:128px; margin-left:-64px; background:#F2C66D; color:#131313; border-radius:12px; padding:3px 8px; font-size:10px; text-align:center; font-variant-numeric:tabular-nums; }
+  .lane { position:relative; height:26px; margin-top:6px; }
+  .lane .seg { position:absolute; top:2px; height:22px; border-radius:6px; }
+  .lane .seg.rise { background:rgba(150,163,190,.30); }
+  .lane .seg.peak { background:rgba(242,198,109,.85); }
+  .lane .seg.fall { background:rgba(150,163,190,.18); }
+  .lane .recframe { position:absolute; top:0; height:26px; border:2.5px solid #F2C66D; border-radius:7px; }
+  .lane .lname { position:absolute; top:5px; font-size:11px; color:#E9EEF8; white-space:nowrap; overflow:hidden; }
+  .lane .lpeak { position:absolute; top:6px; font-size:10px; font-weight:600; color:#131313; white-space:nowrap; }
+  .timebar { display:flex; align-items:center; gap:6px; margin-top:10px; }
+  .timebar .step { width:48px; height:48px; border:1px solid #22304F; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#E9EEF8; font-size:13px; }
+  .timebar .ctime { border:1px solid #F2C66D; border-radius:12px; padding:6px 10px; color:#F2C66D; font-variant-numeric:tabular-nums; }
+  .timebar .lock { height:48px; border:1px solid #22304F; border-radius:12px; padding:0 12px; display:flex; align-items:center; color:#E9EEF8; font-size:13px; }
+  .timebar .exit { margin-left:auto; color:#6EA8FE; font-size:13px; }
   .red .daterow { background:#180404; border-color:#471512; color:#FF7A6B; }
   .red .daterow .chev { color:#FF9D8A; }
   .red .llab { color:#C04434; } .red .lver { color:#8F2B21; } .red .lpen { color:#FF9D8A; }
@@ -142,7 +158,7 @@
 </style>
 </head>
 <body>
-<h1>曝光参谋 <span>AstroExposure</span> · UI 设计稿 v0.2</h1>
+<h1>曝光参谋 <span>AstroExposure</span> · UI 设计稿 v0.8</h1>
 <p class="sub">定调：仪器感 —— 深空黑底、低饱和、结论先行；数值等宽对齐便于暗处扫读；触控目标 ≥48dp 戴手套可操作。红光模式是整套独立主题（仅红光谱、护暗适应），不是红色滤镜。下排第 5 张为同一首页的红光版对照；第 7、8 张为今晚页时间轴整合样张（深色 / 红光），规格见 docs/ui-design.md 第 7 节。</p>
 <p class="note">样张数值为示意（取自设计文档算例），不是真实历算结果；正式版由历算引擎实时给出。</p>
 
@@ -283,7 +299,7 @@
         <div class="tev"><span class="tt">05:36</span><span class="tn">天文夜结束</span><div class="td">收工；晨昏蒙影可拍地景空镜</div></div>
       </div>
     </div>
-    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">v1.0 为列表形态；图形时间轴（含高度曲线）在 v1.1。</p>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态四层、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态。</p>
   </div>
   <div class="tabbar">
     <div class="tab on"><span class="ic">◎</span>今晚</div>
@@ -416,7 +432,7 @@
       <div class="bandlab" style="left:8%">银心</div>
       <div class="lowmoon" style="left:39.6%;width:43.4%"></div>
       <div class="bandlab" style="left:56%">低月光窗口</div>
-      <!-- 第二期预留层：游标轨道 / 气泡层 / 弧段层，第一期为空置结构，版式不返工 -->
+      <!-- 游标轨道 / 气泡层 / 弧段层（0.5.0 起接入，游标态见样张 ⑨） -->
       <div class="cursor-track"></div>
       <div class="bubble-layer"></div>
       <div class="arc-layer"></div>
@@ -438,7 +454,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑦ 今晚页 · 时间轴（第一期静态四层）<small>地点卡：经纬度后 ✎ 示意可编辑，框内无提醒文案；光害一行到底并带数据版本。日期行可步进、点按开日历，非当晚带相对标注与「回到今晚」。时间轴：背景带 / 日月曲线 / 窗口区间 / 时刻标记四层；时刻标记只留刻度（无文字标签），点按刻度或曲线交点出详情窗，热区 ≥40dp；月亮曲线旁注当晚照明比；游标轨道、气泡层、弧段层已在结构中预留（第一期空置）。</small></div>
+<div class="cap">⑦ 今晚页 · 时间轴（第一期静态四层）<small>地点卡：经纬度后 ✎ 示意可编辑，框内无提醒文案；光害一行到底并带数据版本。日期行可步进、点按开日历，非当晚带相对标注与「回到今晚」。时间轴：背景带 / 日月曲线 / 窗口区间 / 时刻标记四层；时刻标记只留刻度（无文字标签），点按刻度或曲线交点出详情窗，热区 ≥40dp；月亮曲线旁注当晚月相照明；游标轨道、气泡层、弧段层已接入（游标态见 ⑨）。</small></div>
 </div>
 
 <!-- 8 今晚页时间轴（红光） -->
@@ -480,7 +496,7 @@
       <div class="bandlab" style="left:8%">银心</div>
       <div class="lowmoon" style="left:39.6%;width:43.4%"></div>
       <div class="bandlab" style="left:56%">低月光窗口</div>
-      <!-- 第二期预留层：游标轨道 / 气泡层 / 弧段层，第一期为空置结构，版式不返工 -->
+      <!-- 游标轨道 / 气泡层 / 弧段层（0.5.0 起接入，游标态见样张 ⑨） -->
       <div class="cursor-track"></div>
       <div class="bubble-layer"></div>
       <div class="arc-layer"></div>
@@ -505,6 +521,64 @@
 <div class="cap">⑧ 今晚页 · 时间轴（红光版）<small>与 ⑦ 同一布局整套红阶：底 #0A0202、卡面 #180404；状态色 info #FF9D8A / ok #E5563C / warn #FF7A45 / bad #FF4A3D。红光下不靠色相分信息：太阳曲线实线、月亮曲线虚线，低月光窗口虚线边、银心窗口点线边（亮度 + 图标 + 线型三重编码）。</small></div>
 </div>
 
+</div>
+
+<!-- 9 今晚页时间轴（游标态） -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>21:47</span><span>今晚 · 游标态</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="card"><h3>时间轴</h3>
+    <div class="tlx">
+      <div class="band b-night" style="left:15.7%;width:77.7%"></div>
+      <svg class="curves" viewBox="0 0 316 150" preserveAspectRatio="none">
+        <path d="M0,34 C26,74 52,110 90,132 C140,150 210,150 252,128 C282,112 300,66 316,40" fill="none" stroke="#F2C66D" stroke-width="1.6"/>
+        <path d="M0,72 C28,60 52,58 76,68 C98,77 118,92 125,104" fill="none" stroke="#6EA8FE" stroke-width="1.6"/>
+        <line x1="0" y1="104" x2="316" y2="104" stroke="#22304F" stroke-dasharray="3 4"/>
+      </svg>
+      <div class="cursor-track">
+        <div class="cursor-line" style="left:44%"></div>
+        <div class="cursor-knob" style="left:44%"></div>
+        <div class="bubble" style="left:44%">22:41 · 月高 38° · 月相照明 42%</div>
+      </div>
+      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+    </div>
+    <div class="lane">
+      <div class="seg rise" style="left:20%;width:18%"></div>
+      <div class="seg peak" style="left:38%;width:16%"></div>
+      <div class="seg fall" style="left:54%;width:22%"></div>
+      <div class="recframe" style="left:36%;width:22%"></div>
+      <div class="lname" style="left:21%">M31 仙女座星系</div>
+      <div class="lpeak" style="left:40%">23:12 · 68°</div>
+    </div>
+    <div class="lane">
+      <div class="seg rise" style="left:48%;width:20%"></div>
+      <div class="seg peak" style="left:68%;width:12%"></div>
+      <div class="seg fall" style="left:80%;width:14%"></div>
+      <div class="lname" style="left:49%">M45 昴星团</div>
+      <div class="lpeak" style="left:69%">01:40 · 57°</div>
+    </div>
+    <div class="timebar">
+      <div class="step">−1′</div>
+      <div class="ctime">22:41</div>
+      <div class="step">+1′</div>
+      <div class="lock">锁定</div>
+      <div class="exit">看整晚 ✕</div>
+    </div>
+    </div>
+    <div class="card"><h3>M31 仙女座星系</h3>
+      <div class="rec"><div><div class="name">游标时刻高度 52° · 方位 63°</div><div class="why">推荐拍摄 21:58–00:26（2 小时 28 分）· 正在区间内</div></div><div class="time">距月 74°</div></div>
+      <div class="rec"><div><div class="name">全画幅构图建议</div><div class="why">目标占长边 1/3–2/3：焦距 565–1130mm · 参考 848mm</div></div><div class="time">长轴 73′</div></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑨ 今晚页 · 时间轴游标态（0.5.0–0.6.0）<small>游标金线 + 气泡（时刻、月高、月相照明）；目标弧段 26dp 泳道内分上升｜中天（金）｜下降三段，目标名与中天标注写进块内，推荐拍摄区间以亮框框出（0.6.0）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；下方只显示被激活目标的详情卡（高度/方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议）。</small></div>
 </div>
 
 <div class="tokens">

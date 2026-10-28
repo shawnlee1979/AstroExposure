@@ -123,6 +123,14 @@ class MappersTest {
     }
 
     @Test
+    fun driftEntryValidationRejectsZero() {
+        // Zero is not a physical measurement: it would divide by zero
+        // in the drift model and silently clamp to the longest shutter.
+        assertEquals(FormError.DRIFT_NEGATIVE, validateDriftEntry(0.0, null))
+        assertEquals(FormError.DRIFT_NEGATIVE, validateDriftEntry(null, 0.0))
+    }
+
+    @Test
     fun validationRejectsNonFiniteNumbers() {
         // NaN passes every ordered comparison, so without an explicit
         // finiteness check it used to sail into the database.

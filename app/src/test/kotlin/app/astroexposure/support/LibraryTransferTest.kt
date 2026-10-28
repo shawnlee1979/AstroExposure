@@ -100,6 +100,36 @@ class LibraryTransferTest {
     }
 
     @Test
+    fun invalidDriftProfilesAreSkippedOnImport() {
+        // Negative, zero and non-finite drift values are rejected by the
+        // shared drift validation: the profile entry is skipped (and
+        // counted), never imported into the store.
+        fun backupWithDrift(typical: String, worst: String): String = """
+            {"format": "astroexposure-backup", "schemaVersion": 1,
+             "trackingProfiles": [{"id": "p1", "name": "P", "kind": "TRACKED",
+                "typicalDriftArcsecPerMin": $typical, "worstDriftArcsecPerMin": $worst}]}
+        """.trimIndent()
+        for ((typical, worst) in listOf(
+            "-5" to "10", "0" to "10", "10" to "-1", "10" to "0",
+        )) {
+            val backup = (LibraryTransfer.import(backupWithDrift(typical, worst))
+                as LibraryTransfer.ImportResult.Ok).backup
+            assertEquals("typical=$typical worst=$worst", 1, backup.skippedEntries)
+            assertTrue(backup.trackingProfiles.isEmpty())
+        }
+        // NaN cannot appear in strict JSON input (the reader rejects
+        // it), but a hand-built infinite value is equally refused.
+        val inf = (LibraryTransfer.import(backupWithDrift("1e999", "10"))
+            as LibraryTransfer.ImportResult.Ok).backup
+        assertEquals(1, inf.skippedEntries)
+        // A valid profile imports with its drift intact.
+        val ok = (LibraryTransfer.import(backupWithDrift("12.5", "20"))
+            as LibraryTransfer.ImportResult.Ok).backup
+        assertEquals(0, ok.skippedEntries)
+        assertEquals(12.5, ok.trackingProfiles.single().typicalDrift!!.value, 0.0)
+    }
+
+    @Test
     fun planTextExportContainsBody() {
         val text = PlanTextExport.plansToText(listOf(plan))
         assertTrue(text.contains("Perseids"))

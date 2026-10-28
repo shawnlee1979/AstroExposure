@@ -34,10 +34,13 @@ data from there under its original terms.
   CC BY-SA 4.0 as well.** Upstream acknowledgements (NED, HyperLEDA, SIMBAD,
   HEASARC) are preserved in the app's data-sources screen.
 
-## HYG Database — CC BY-SA 4.0
+## HYG Database — CC BY-SA 4.0 (planned; not yet used)
 
+- **Status:** No HYG data ships in the app today — the object catalogue
+  is OpenNGC only (see DEVELOPMENT-RULES.md). This section records the
+  licence terms in advance of the planned integration.
 - **What:** Star catalogue (Hipparcos + Yale Bright Star + Gliese merge);
-  this project uses a bright-star subset only.
+  the plan is to use a bright-star subset only.
 - **Source:** https://codeberg.org/astronexus/hyg (Astronexus / David Nash;
   formerly on GitHub at astronexus/HYG-Database).
 - **Licence:** Creative Commons Attribution-ShareAlike 4.0 International

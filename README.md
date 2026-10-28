@@ -10,9 +10,9 @@ Everything runs on-device: no account, no cloud, no network required in the fiel
 
 ## Status
 
-**Design finalized; v1.0 in preparation.** The full design document is in [docs/design.md](docs/design.md) (currently in Chinese; the app itself will be bilingual). There is **no downloadable APK yet** — this repository currently contains the design, the open-source survey and project documentation. Code will land here as v1.0 development proceeds.
+**Implemented and in active iteration (current release: 0.6.1).** The full three-layer codebase (domain / data / app) lives in this repository, and pre-release APKs are published on the [Releases](https://github.com/shawnlee1979/AstroExposure/releases) page. The design document is in [docs/design.md](docs/design.md) (Chinese; the app itself is bilingual).
 
-## Features (planned for v1.0)
+## Features
 
 Exposure recommendations for five target classes, plus planning tools:
 
@@ -51,7 +51,7 @@ Ephemeris (Sun/Moon positions, twilight, moon phases, eclipse search, target alt
 - **Language / platform:** Kotlin, native Android, fully offline.
 - **Ephemeris:** [Astronomy Engine](https://github.com/cosinekitty/astronomy) (MIT) — official Kotlin version.
 - **Deep-sky data:** [OpenNGC](https://github.com/mattiaverga/OpenNGC) (CC BY-SA 4.0), trimmed at build time.
-- **Star data:** HYG Database subset (CC BY-SA 4.0).
+- **Star data (planned, not yet integrated):** HYG Database subset (CC BY-SA 4.0) — the shipped catalogue is OpenNGC only; HYG bright stars are scheduled with the full scoring engine.
 - **Light pollution:** Falchi et al., *The New World Atlas of Artificial Night Sky Brightness* (CC BY-NC 4.0), resampled at build time into a compact offline grid.
 - **Eclipse & meteor data:** static tables built from the NASA GSFC eclipse catalogues (Espenak & Meeus) and the IMO shower calendar.
 
@@ -59,8 +59,8 @@ Full selection rationale: [docs/opensource-survey.md](docs/opensource-survey.md)
 
 ## Roadmap
 
-- **v1.0 (MVP)** — All five exposure models; Astronomy Engine ephemeris; offline light-pollution lookup; strictness levels; moonlight model; simplified "tonight" overview; parameter cards and moment-list timeline; shooting plans with plain-text export; red-light mode; JSON export/import of plans and libraries. *Explicitly not in v1.0: local eclipse contact times (event-level forecasts and phase exposure tables only).*
-- **v1.1** — Full "best targets" scoring engine over the complete catalogues; per-target deep-sky integration times; local eclipse contact times computed from Besselian elements (with ΔT handling); graphical timeline; completed per-ISO read-noise tables.
+- **v1.0 (MVP, shipped as the 0.x series)** — All five exposure models; Astronomy Engine ephemeris; offline light-pollution lookup; strictness levels; moonlight model; simplified "tonight" overview; parameter cards; shooting plans with plain-text export; red-light mode; JSON export/import of plans and libraries. *Explicitly not in v1.0: local eclipse contact times (event-level forecasts and phase exposure tables only).*
+- **v1.1** — Full "best targets" scoring engine over the complete catalogues; per-target deep-sky integration times; local eclipse contact times computed from Besselian elements (with ΔT handling); completed per-ISO read-noise tables. (The graphical timeline originally scheduled here shipped early, in 0.4.0–0.6.0.)
 - **v1.2** — Narrowband filter model; horizon-obstruction profiles; light-pollution dataset refresh evaluation; mosaic exposure-consistency hints; shot-log review fields.
 - **Beyond v1.2 (ideas, unscheduled)** — An aurora module (dedicated exposure model plus Kp / geomagnetic-latitude visibility assessment) and general long-exposure landscape tools (ND-filter exposure conversion, bulb timing).
 
@@ -71,6 +71,8 @@ Full selection rationale: [docs/opensource-survey.md](docs/opensource-survey.md)
 - [UI design spec](docs/ui-design.md) — interface design tokens, key screens and state presentation (Chinese), with mockup board [docs/ui-design-board.html](docs/ui-design-board.html).
 - [Data licences](DATA-LICENSES.md) — third-party data and library attributions and obligations.
 - [Development rules](DEVELOPMENT-RULES.md) — layering, third-party adapter isolation, contract tests, data-pipeline and change-process rules all code must follow.
+- Architecture decision records — [ADR-0001 development rules and layering](docs/adr/0001-development-rules-and-layering.md), [ADR-0002 package name](docs/adr/0002-package-name.md), [ADR-0003 catalog ports and resources](docs/adr/0003-catalog-ports-and-resources.md).
+- [Eclipse table verification](docs/eclipse-table-verification.md) — cell-by-cell check of the built-in eclipse exposure table against its published source.
 
 ## Licence
 
@@ -94,9 +96,9 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 项目状态
 
-**设计已定稿，v1.0 开发待启动 / 准备中。** 完整设计方案见 [docs/design.md](docs/design.md)。目前**没有可下载的 APK** —— 本仓库现阶段只包含设计文档、开源选型调研与项目文档，代码将随 v1.0 开发陆续进入。
+**已实现并持续迭代（当前版本 0.6.1）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
 
-## 功能概览（v1.0 规划）
+## 功能概览
 
 五类拍摄目标的曝光推荐，加规划工具：
 
@@ -135,7 +137,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - **语言 / 平台：** Kotlin，Android 原生，全离线。
 - **历算：** [Astronomy Engine](https://github.com/cosinekitty/astronomy)（MIT），官方 Kotlin 版。
 - **深空数据：** [OpenNGC](https://github.com/mattiaverga/OpenNGC)（CC BY-SA 4.0），构建期裁剪。
-- **恒星数据：** HYG 数据库亮星子集（CC BY-SA 4.0）。
+- **恒星数据（规划中，尚未接入）：** HYG 数据库亮星子集（CC BY-SA 4.0）——现行目标库仅 OpenNGC，HYG 亮星随完整评分引擎一并接入。
 - **光害数据：** Falchi 等《全球人工夜空亮度图谱》（CC BY-NC 4.0），构建期重采样为离线网格。
 - **日月食与流星雨数据：** 按 NASA GSFC 日月食目录（Espenak & Meeus）与 IMO 流星雨日历在构建期生成的静态表。
 
@@ -144,7 +146,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## 路线图
 
 - **v1.0（MVP）** —— 五类模型全量；Astronomy Engine 历算；离线光害查表；严苛三档；月光模型；简化版「今晚概览」；参数卡片与时刻列表时间线；计划保存与纯文本导出；红光模式；计划与设备库的 JSON 导出 / 导入。*明确不含：日食本地接触时刻（只到事件提醒 + 分阶段曝光参考）。*
-- **v1.1** —— 当日最佳完整评分引擎与全库接入；深空按目标给总时长；日食本地接触时刻自算（贝塞尔元素 + ΔT）；图形时间轴；逐 ISO 读噪表补齐转正。
+- **v1.1** —— 当日最佳完整评分引擎与全库接入；深空按目标给总时长；日食本地接触时刻自算（贝塞尔元素 + ΔT）；逐 ISO 读噪表补齐转正。（原排于此的图形时间轴已提前于 0.4.0–0.6.0 分期交付。）
 - **v1.2** —— 窄带滤镜模型；地平线遮挡档案；光害数据时效更新评估；接片曝光一致性提示；实拍复盘字段。
 - **v1.2 之后（展望，未排期）** —— 极光模块（独立曝光模型 + Kp 指数 / 地磁纬度可见性评估）与长曝光风光工具（ND 减光镜换算、Bulb 计时）。
 
@@ -155,6 +157,8 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - [UI 设计规格](docs/ui-design.md) —— 界面设计令牌、关键界面与状态呈现；配套样张 [docs/ui-design-board.html](docs/ui-design-board.html)。
 - [数据许可说明](DATA-LICENSES.md) —— 第三方数据与库的来源、署名与使用义务。
 - [开发规则](DEVELOPMENT-RULES.md) —— 分层架构、第三方接口隔离、契约测试、数据管线与变更流程的硬性纪律。
+- 架构决策记录 —— [ADR-0001 开发规则与分层](docs/adr/0001-development-rules-and-layering.md)、[ADR-0002 包名](docs/adr/0002-package-name.md)、[ADR-0003 目录端口与资源](docs/adr/0003-catalog-ports-and-resources.md)。
+- [日食曝光表核对记录](docs/eclipse-table-verification.md) —— 内置日食曝光表与原始发表表逐格核对。
 
 ## 许可证
 
