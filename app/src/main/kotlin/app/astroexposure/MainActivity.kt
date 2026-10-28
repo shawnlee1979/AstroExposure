@@ -409,6 +409,10 @@ private fun AstroApp(container: AppContainer) {
                             calcPrefill = obj
                             tab = Tab.CALCULATE
                         },
+                        orientationProvider = container.orientationProvider,
+                        siteLatitudeDeg = location.latitude.value,
+                        siteLongitudeDeg = location.longitude.value,
+                        siteAltitudeMeters = location.heightMeters,
                         modifier = Modifier.padding(padding),
                     )
                 } ?: Text("…", modifier = Modifier.padding(padding))

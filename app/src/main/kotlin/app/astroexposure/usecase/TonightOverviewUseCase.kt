@@ -174,6 +174,25 @@ class TonightOverviewUseCase(
         val recommendedState: TimelineCursor.RecommendedState? = null,
         /** Minutes from the cursor until [recommended] opens; 0 when inside or past it. */
         val recommendedMinutesUntil: Long = 0,
+        /**
+         * When the target crosses the horizon upward tonight (the
+         * ephemeris port's pass at a 0° threshold); null when it is
+         * already up at the pass start or never rises tonight.
+         */
+        val horizonRise: Instant? = null,
+        /** When the target crosses the horizon downward tonight; null when it stays up. */
+        val horizonSet: Instant? = null,
+        /**
+         * The night's culmination from the target's own samples (the
+         * peak sample — the same peak [phases] is built from when a
+         * ≥20° window exists, so the two never disagree); null when
+         * there are no samples. Unlike [phases] it is present for
+         * low targets too, because the detail dialog's grid states
+         * the culmination of even a poor pass honestly.
+         */
+        val culmination: Instant? = null,
+        /** Altitude at [culmination], degrees; null together with it. */
+        val culminationAltitudeDeg: Double? = null,
     )
 
     /**
@@ -543,6 +562,12 @@ class TonightOverviewUseCase(
             targetSky.moonlightMcdPerM2, targetSky.totalSky.baselineTotalMcdPerM2,
         )
         val recommended = TimelineCursor.recommendedWindow(arcSamples, timeline.axisEnd)
+        // Horizon crossings for the detail dialog's folded section
+        // and its below-horizon fact line: the same evaluation path
+        // asks the ephemeris port for tonight's pass at a 0°
+        // threshold — no second ephemeris route is opened for them.
+        val horizonPass = ephemeris.targetPass(location, coords, date, Degrees(0.0))
+        val peakSample = arcSamples.maxByOrNull { it.altitudeDeg }
         return TargetDetail(
             obj = obj,
             altitudeDeg = altitude,
@@ -566,6 +591,10 @@ class TonightOverviewUseCase(
             recommendedMinutesUntil = recommended?.let {
                 TimelineCursor.recommendedMinutesUntil(it, cursor)
             } ?: 0L,
+            horizonRise = horizonPass?.risesAbove,
+            horizonSet = horizonPass?.setsBelow,
+            culmination = peakSample?.instant,
+            culminationAltitudeDeg = peakSample?.altitudeDeg,
         )
     }
 

@@ -443,11 +443,15 @@ fun TimeHealthWarningText(result: TimeHealthCheck.Result) {
 }
 
 /**
- * The one detail dialog (ui-design §7.4 / §7.5): a title, plain text
- * lines and a close button. Timeline mark details and target details
- * render through this single component so every popup on the tonight
- * page shares one shape; a caller with a follow-on action (the target
- * detail's calculator jump) adds it beside the close button.
+ * The one dialog shell (ui-design §7.4 / §7.5): one shape for every
+ * popup on the tonight page — a title, a body and the close button,
+ * with an optional follow-on action beside it (the target detail's
+ * calculator jump). Timeline mark details pass plain text [lines];
+ * the target detail (0.8.0 layout) passes a rich [content] body
+ * instead, and a rich [header] in the title slot when its head must
+ * stay fixed while the body scrolls (the 0.8.0 conclusion head and
+ * warning bar) — same shell, same button row, so the sharing the
+ * spec asks for is the dialog itself, not the body's rendering.
  */
 @Composable
 fun DetailDialog(
@@ -456,11 +460,25 @@ fun DetailDialog(
     onDismiss: () -> Unit,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    content: (@Composable () -> Unit)? = null,
+    header: (@Composable () -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(lines.joinToString("\n")) },
+        title = {
+            if (header != null) {
+                header()
+            } else {
+                Text(title)
+            }
+        },
+        text = {
+            if (content != null) {
+                content()
+            } else {
+                Text(lines.joinToString("\n"))
+            }
+        },
         confirmButton = {
             Row {
                 if (actionLabel != null && onAction != null) {

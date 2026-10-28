@@ -94,6 +94,10 @@ fun TonightScreen(
     onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
     onOpenTargetCalculator: (CalcCategory, DeepSkyObject) -> Unit,
+    orientationProvider: app.astroexposure.domain.orientation.DeviceOrientationProvider,
+    siteLatitudeDeg: Double,
+    siteLongitudeDeg: Double,
+    siteAltitudeMeters: Double,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -183,6 +187,31 @@ fun TonightScreen(
             evaluated
         } else {
             null
+        }
+    }
+
+    // While the detail dialog is open, its target values are
+    // re-evaluated every TARGET_REFRESH_SECONDS through the same
+    // on-demand path at the same cursor instant (ui-design §7.5,
+    // 0.8.0): the finder aims at a fixed cursor instant, so the
+    // refresh only ever corrects the values toward that instant's
+    // evaluation, and a transient failure keeps the values already
+    // on screen rather than blanking the dialog.
+    LaunchedEffect(detailObjectId) {
+        val id = detailObjectId ?: return@LaunchedEffect
+        val cursor = retainedCursor ?: return@LaunchedEffect
+        while (true) {
+            delay(
+                app.astroexposure.domain.orientation.FinderThresholds
+                    .TARGET_REFRESH_SECONDS * 1_000,
+            )
+            if (detailObjectId != id) break
+            val fresh = withContext(Dispatchers.Default) {
+                onEvaluateTarget(cursor, id)
+            }
+            if (fresh != null && detailObjectId == id) {
+                targetDetail = fresh
+            }
         }
     }
 
@@ -378,38 +407,56 @@ fun TonightScreen(
             },
         )
 
-        // Target detail dialog (ui-design §7.5): the full detail set
-        // that used to live in the card below the axis, in the shared
-        // DetailDialog. The calculator action appears only when the
-        // target's category maps to a calculator (targetCalcCategory).
+        // Target detail dialog (ui-design §7.5, 0.8.0 layout): the
+        // layered dialog — fixed conclusion head and warning bar,
+        // the finder, the key-data grid and the folded whole-night
+        // section — in the shared DetailDialog shell. Loading and
+        // failure keep the plain shell with their distinct wordings
+        // (0.7.1): a failure is never dressed as loading. The
+        // calculator action appears only when the target's category
+        // maps to a calculator (targetCalcCategory).
         detailObjectId?.let { id ->
             val detail = targetDetail?.takeIf { it.obj.id == id }
             val tappedName = cursorEval?.targets?.firstOrNull { it.obj.id == id }?.obj
                 ?.let { it.nameZh ?: it.name }
             val category = detail?.let { targetCalcCategory(it.obj.type) }
-            DetailDialog(
-                title = detail?.obj?.let { it.nameZh ?: it.name } ?: tappedName ?: "…",
-                lines = when {
-                    detail != null -> targetDetailLines(detail, zone)
-                    detailLoadFailed ->
+            if (detail != null && retainedCursor != null) {
+                TargetDetailDialog(
+                    detail = detail,
+                    cursor = retainedCursor!!,
+                    zone = zone,
+                    moonDegraded = overview.moonDegraded,
+                    moonIllumination = overview.moonIllumination,
+                    orientationProvider = orientationProvider,
+                    siteLatitudeDeg = siteLatitudeDeg,
+                    siteLongitudeDeg = siteLongitudeDeg,
+                    siteAltitudeMeters = siteAltitudeMeters,
+                    onDismiss = { detailObjectId = null },
+                    actionLabel = if (category != null) {
+                        stringResource(R.string.cursor_detail_goto_calculator)
+                    } else {
+                        null
+                    },
+                    onAction = if (category != null) {
+                        {
+                            onOpenTargetCalculator(category, detail.obj)
+                            detailObjectId = null
+                        }
+                    } else {
+                        null
+                    },
+                )
+            } else {
+                DetailDialog(
+                    title = tappedName ?: "…",
+                    lines = if (detailLoadFailed) {
                         listOf(stringResource(R.string.cursor_detail_unavailable))
-                    else -> listOf("…")
-                },
-                onDismiss = { detailObjectId = null },
-                actionLabel = if (detail != null && category != null) {
-                    stringResource(R.string.cursor_detail_goto_calculator)
-                } else {
-                    null
-                },
-                onAction = if (detail != null && category != null) {
-                    {
-                        onOpenTargetCalculator(category, detail.obj)
-                        detailObjectId = null
-                    }
-                } else {
-                    null
-                },
-            )
+                    } else {
+                        listOf("…")
+                    },
+                    onDismiss = { detailObjectId = null },
+                )
+            }
         }
 
         // Moon / total-sky verdict card (the Bortle fallback lives in the
@@ -1011,207 +1058,6 @@ private fun CursorStatusCard(
             }
         }
     }
-}
-
-/**
- * The target detail dialog's lines (ui-design §7.5): catalogue facts
- * (only the fields the catalogue actually has — a missing magnitude,
- * size or constellation is omitted, never filled in), the target's
- * state at the cursor instant, tonight's ≥20° window with its
- * culmination, the recommended shooting window with the cursor's
- * state against it, the true Moon separation and moonlight
- * interference toward this target at the cursor, and the full-frame
- * framing advice. The lines are plain text — the dialog gives no
- * per-line styling, so the moon-exclusion flag is carried by its
- * wording, not by a colour. The target's name is the dialog title,
- * not a line.
- */
-@Composable
-private fun targetDetailLines(
-    active: TonightOverviewUseCase.TargetDetail,
-    zone: ZoneId,
-): List<String> = buildList {
-    val obj = active.obj
-    val catalogParts = buildList {
-        add(
-            stringResource(
-                when (obj.type) {
-                    DeepSkyObjectType.GALAXY ->
-                        R.string.obj_type_galaxy
-                    DeepSkyObjectType.OPEN_CLUSTER ->
-                        R.string.obj_type_open_cluster
-                    DeepSkyObjectType.GLOBULAR_CLUSTER ->
-                        R.string.obj_type_globular_cluster
-                    DeepSkyObjectType.NEBULA ->
-                        R.string.obj_type_nebula
-                    DeepSkyObjectType.PLANETARY_NEBULA ->
-                        R.string.obj_type_planetary_nebula
-                    DeepSkyObjectType.SUPERNOVA_REMNANT ->
-                        R.string.obj_type_supernova_remnant
-                    DeepSkyObjectType.DOUBLE_STAR ->
-                        R.string.obj_type_double_star
-                    DeepSkyObjectType.ASTERISM ->
-                        R.string.obj_type_asterism
-                    DeepSkyObjectType.OTHER ->
-                        R.string.obj_type_other
-                },
-            ),
-        )
-        obj.magnitude?.let { add(stringResource(R.string.cursor_detail_magnitude, it)) }
-        val sizeMajor = obj.sizeMajorArcmin
-        val sizeMinor = obj.sizeMinorArcmin
-        if (sizeMajor != null) {
-            add(
-                if (sizeMinor != null) {
-                    stringResource(
-                        R.string.cursor_detail_size_both,
-                        Math.round(sizeMajor), Math.round(sizeMinor),
-                    )
-                } else {
-                    stringResource(R.string.cursor_detail_size_major, Math.round(sizeMajor))
-                },
-            )
-        }
-        obj.constellation?.let { add(stringResource(R.string.cursor_detail_constellation, it)) }
-    }
-    add(catalogParts.joinToString(" · "))
-    // State at the cursor instant. The phase wording covers the whole
-    // pass (ui-design §7.5): rising before the culmination span, "near
-    // culmination" inside it, setting from its end — an altitude below
-    // 20° shows as the number itself, the phase does not hide it.
-    val phaseText = when (active.phase) {
-        TimelineCursor.PassPhase.RISING -> stringResource(R.string.cursor_target_rising)
-        TimelineCursor.PassPhase.NEAR_CULMINATION ->
-            stringResource(R.string.cursor_phase_near_culmination)
-        TimelineCursor.PassPhase.SETTING -> stringResource(R.string.cursor_target_setting)
-        null -> stringResource(R.string.cursor_phase_no_window)
-    }
-    add(
-        stringResource(
-            R.string.cursor_detail_state,
-            active.altitudeDeg, active.azimuthDeg, phaseText,
-        ),
-    )
-    val phases = active.phases
-    if (phases != null) {
-        add(
-            stringResource(
-                R.string.cursor_detail_window,
-                formatTime(phases.window.start, zone),
-                formatTime(phases.window.end, zone),
-                formatTime(phases.culmination.instant, zone),
-                phases.culmination.altitudeDeg,
-            ),
-        )
-    }
-    // Recommended shooting window (ui-design §7.5, 0.6.0): the full
-    // window from the target's own samples (the lane frames only its
-    // overlap with the ≥20° arc), its duration, and where the cursor
-    // stands against it. Low passes are flagged as merely the
-    // relative best of a poor night, never dressed up.
-    val recommended = active.recommended
-    if (recommended != null) {
-        if (recommended.relativeBest) {
-            add(
-                stringResource(
-                    R.string.cursor_recommended_relative_best,
-                    recommended.culminationAltitudeDeg,
-                ),
-            )
-        }
-        add(
-            stringResource(
-                R.string.cursor_detail_recommended,
-                formatTime(recommended.interval.start, zone),
-                formatTime(recommended.interval.end, zone),
-                java.time.Duration.between(
-                    recommended.interval.start, recommended.interval.end,
-                ).toMinutes(),
-            ),
-        )
-        when (active.recommendedState) {
-            TimelineCursor.RecommendedState.INSIDE ->
-                add(stringResource(R.string.cursor_recommended_inside))
-            TimelineCursor.RecommendedState.BEFORE -> add(
-                stringResource(
-                    R.string.cursor_recommended_before,
-                    active.recommendedMinutesUntil,
-                    formatTime(recommended.interval.start, zone),
-                ),
-            )
-            TimelineCursor.RecommendedState.AFTER ->
-                add(stringResource(R.string.cursor_recommended_after))
-            null -> Unit
-        }
-    }
-    // Moon separation (ui-design §7.5, 0.6.0): the TRUE spherical
-    // angle to the Moon at the cursor is a standing data item, next
-    // to the interference tier toward this target. The exclusion
-    // wording names the state plainly (the dialog has no error
-    // colour to carry it); with the Moon down the angle is
-    // reference only and says so.
-    val interferenceLabel = stringResource(
-        moonInterferenceNameRes(active.moonInterference),
-    )
-    add(
-        stringResource(
-            R.string.cursor_detail_moon_separation,
-            Math.round(active.moonSeparationDeg),
-            interferenceLabel,
-        ),
-    )
-    if (!active.moonUp) {
-        add(stringResource(R.string.cursor_moon_below_horizon))
-    } else if (active.moonProximity == TimelineCursor.MoonProximity.EXCLUDED) {
-        add(
-            stringResource(
-                R.string.cursor_moon_excluded,
-                Math.round(active.moonSeparationDeg),
-            ),
-        )
-    } else if (active.moonProximity == TimelineCursor.MoonProximity.CAUTION) {
-        add(
-            stringResource(
-                R.string.cursor_moon_caution,
-                Math.round(active.moonSeparationDeg),
-                interferenceLabel,
-            ),
-        )
-    }
-    // Full-frame framing advice (36.0 x 24.0 mm; domain FullFrameFraming
-    // owns the formulas and the boundary rules — the lines render the
-    // result form they are given, including the honest capped forms).
-    val framing = active.framing
-    add(
-        when (framing) {
-            is app.astroexposure.domain.camera.FullFrameFraming.Advice.NoSizeData ->
-                stringResource(R.string.cursor_framing_no_size)
-            is app.astroexposure.domain.camera.FullFrameFraming.Advice.Range ->
-                stringResource(
-                    R.string.cursor_framing_range,
-                    Math.round(framing.lowFocalMm),
-                    Math.round(framing.highFocalMm),
-                    Math.round(framing.referenceFocalMm),
-                    percentRounded(framing.referenceShare),
-                )
-            is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMaxFocal ->
-                stringResource(
-                    R.string.cursor_framing_capped_max,
-                    Math.round(
-                        app.astroexposure.domain.camera.FullFrameFraming.MAX_FOCAL_MM,
-                    ).toInt(),
-                    percentRounded(framing.shareAtMaxFocal),
-                )
-            is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMinFocal ->
-                stringResource(
-                    R.string.cursor_framing_capped_min,
-                    Math.round(
-                        app.astroexposure.domain.camera.FullFrameFraming.MIN_FOCAL_MM,
-                    ).toInt(),
-                    percentRounded(framing.shareAtMinFocal),
-                )
-        },
-    )
 }
 
 /**
