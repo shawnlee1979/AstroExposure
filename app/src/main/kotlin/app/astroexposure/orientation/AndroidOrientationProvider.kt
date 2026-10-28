@@ -203,17 +203,20 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
         /**
          * Reads the device axes out of the rotation matrix (device →
          * world: world Y is magnetic north, Z is up). The phone's
-         * top edge is the device +Y axis; the screen normal is +Z.
+         * top edge is the device +Y axis; its world components come
+         * from [topEdgeWorld] (the matrix's second column — see that
+         * function's doc for the column semantics and the
+         * getOrientation cross-check). The screen normal is +Z, and
+         * its up component R[8] feeds the flat-posture tilt.
          */
         private fun emitFromMatrix() {
-            val topEast = rotationMatrix[3].toDouble()
-            val topNorth = rotationMatrix[4].toDouble()
-            val topUp = rotationMatrix[5].toDouble()
+            val top = topEdgeWorld(rotationMatrix)
             val normalUp = abs(rotationMatrix[8].toDouble())
 
-            val headingMagDeg = (Math.toDegrees(atan2(topEast, topNorth)) + 360.0) % 360.0
+            val headingMagDeg =
+                (Math.toDegrees(atan2(top.east, top.north)) + 360.0) % 360.0
             val headingTrueDeg = (headingMagDeg + declinationDeg + 360.0) % 360.0
-            val pitchDeg = Math.toDegrees(asin(topUp.coerceIn(-1.0, 1.0)))
+            val pitchDeg = Math.toDegrees(asin(top.up.coerceIn(-1.0, 1.0)))
             val tiltDeg = Math.toDegrees(acos(normalUp.coerceIn(0.0, 1.0)))
 
             // Low-pass: headings smooth on the unit circle (a plain
