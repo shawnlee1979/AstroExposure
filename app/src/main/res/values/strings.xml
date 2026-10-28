@@ -7,42 +7,20 @@
     <string name="tab_calculate">计算</string>
     <string name="tab_plans">计划</string>
     <string name="tab_settings">设置</string>
-    <string name="tab_npf">NPF 计算器</string>
 
-    <string name="sample_location_label">内置示例地点：纽约（40.7128, −74.0060）</string>
     <string name="location_source_gps">位置来源：GPS</string>
     <string name="location_source_manual">位置来源：手动经纬度</string>
     <string name="location_source_favourite">位置来源：收藏地点</string>
     <string name="location_source_sample">位置来源：内置示例（未定位）</string>
     <string name="location_use_gps">使用 GPS 定位</string>
     <string name="location_gps_failed">无法取得 GPS 定位，已降级为手动/示例地点</string>
-    <string name="location_manual_title">手动经纬度</string>
     <string name="location_latitude">纬度（°，北正南负）</string>
     <string name="location_longitude">经度（°，东正西负）</string>
-    <string name="location_apply">应用</string>
 
     <string name="time_health_ok">时间健康：正常</string>
     <string name="time_health_zone_mismatch">警告：系统时区与所选地点时区不一致——请确认已开启网络时间自动同步、且时区正确；本 App 的全部历算以设备时钟为准。</string>
     <string name="time_health_clock_skew">警告：GPS 时间与系统时间偏差 %1$d 秒（&gt;60 秒）——请确认已开启网络时间自动同步；本 App 的全部历算以设备时钟为准。</string>
 
-    <string name="tonight_date">%1$s 的天文夜</string>
-    <string name="tonight_sunset">日落</string>
-    <string name="tonight_civil_dusk">民用暮光终</string>
-    <string name="tonight_nautical_dusk">航海暮光终</string>
-    <string name="tonight_dusk">天文夜开始（天文暮光结束）</string>
-    <string name="tonight_dawn">天文夜结束（天文暮光开始）</string>
-    <string name="tonight_sunrise">日出</string>
-    <string name="tonight_no_night">今晚没有完整天文夜</string>
-    <string name="moon_illumination">月相照明比</string>
-    <string name="moonrise">月出</string>
-    <string name="moonset">月落</string>
-    <string name="moon_event_none">当日无</string>
-    <string name="gc_title">银心窗口（高度 ≥ 20°）</string>
-    <string name="gc_culmination">过中天 %1$s · 最高 %2$.1f°</string>
-    <string name="gc_window">%1$s 起高于 20° · %2$s 跌破 20°</string>
-    <string name="gc_edge_open">入夜时已高于 20°</string>
-    <string name="gc_edge_close">天亮时仍高于 20°</string>
-    <string name="gc_not_visible">今晚银心达不到 20° 高度</string>
 
     <string name="tonight_sky_title">月光与总天光（黄昏时，朝向银心）</string>
     <string name="tonight_sky_total">总天光 %1$.2f mag/arcsec²（Bortle 估计 %2$s）</string>
@@ -50,9 +28,6 @@
     <string name="tonight_sky_source_manual">基线来源：手动 Bortle 覆盖</string>
     <string name="tonight_sky_source_none">图谱在该坐标无数据——请手动选择 Bortle 等级兜底</string>
     <string name="tonight_moon_degraded">今晚月光强（照明比 %1$d%%），深空 / 银河条件差：子曝光被天光压短、总时长等效打折明显。今晚更适合拍月亮本体或带月光地景的星野。</string>
-    <string name="tonight_low_moonlight_title">低月光窗口</string>
-    <string name="tonight_low_moonlight_item">%1$s – %2$s</string>
-    <string name="tonight_low_moonlight_none">今晚无 ≥1 小时的低月光窗口</string>
     <string name="tonight_events_title">±3 天事件</string>
     <string name="tonight_entries_title">五类计算入口</string>
     <string name="tonight_event_eclipse">%1$s · %2$s食（%3$s）</string>
@@ -63,7 +38,6 @@
     <string name="tonight_recommendation_item">%1$s · %2$s 等 · 过中天 %3$s / %4$.0f°</string>
     <string name="tonight_recommendations_none">今晚无符合规则（≤6.5 等、过中天 ≥40°）的目标</string>
     <string name="tonight_recommendations_unavailable">推荐不可用：目标目录加载失败，本节暂时无法给出推荐</string>
-    <string name="tonight_moments_title">关键时刻</string>
     <string name="moment_sunset">日落</string>
     <string name="moment_civil_dusk">民用暮光终</string>
     <string name="moment_nautical_dusk">航海暮光终</string>
@@ -80,7 +54,6 @@
     <string name="location_edit_cancel">取消</string>
     <string name="location_edit_invalid">经纬度超出范围</string>
     <string name="location_light_row">光害 · 区域值 · Bortle %1$d · %2$.2f mcd/m²</string>
-    <string name="location_light_version">光害数据 · %1$s</string>
     <string name="location_light_no_data">光害 · 暂无网格数据</string>
     <string name="location_light_manual">手动 Bortle %1$d</string>
     <string name="date_back_to_tonight">回到今晚</string>
@@ -175,7 +148,6 @@
     <string name="phase_waning_crescent">残月</string>
 
     <!-- Calculators -->
-    <string name="calc_title">计算器</string>
     <string name="cat_landscape">带地景星野</string>
     <string name="cat_wide_field">广域星空</string>
     <string name="cat_deep_sky">深空目标</string>
@@ -190,7 +162,6 @@
     <string name="calc_declination">目标赤纬（°，南纬为负）</string>
     <string name="calc_declination_invalid">赤纬无效：请输入 −90 到 90 之间的数值，未计算。</string>
     <string name="calc_calculate">计算</string>
-    <string name="calc_recalculate">重算</string>
     <string name="calc_footer">起步值 — 请以直方图与试拍为准，亮部不溢出优先。</string>
     <string name="calc_save_plan">保存为计划</string>
     <string name="calc_saved">已保存到计划</string>
@@ -200,7 +171,6 @@
     <string name="strictness_relaxed">宽松</string>
     <string name="strictness_source_recommended">系统推荐</string>
     <string name="strictness_source_manual">手动选择</string>
-    <string name="strictness_source_default">设置默认</string>
     <string name="strictness_reason_untracked_tight">推荐严格：不跟踪且焦距/像素组合下拖线最先暴露。</string>
     <string name="strictness_reason_tracked_measured">推荐标准：跟踪漂移为实测值，典型漂移可信。</string>
     <string name="strictness_reason_large_pixel">推荐标准：大像素 / 短焦容忍度高，想更保险可升严格。</string>
@@ -208,9 +178,7 @@
 
     <string name="result_shutter">快门</string>
     <string name="result_iso">ISO</string>
-    <string name="result_aperture">光圈</string>
     <string name="result_frames">张数</string>
-    <string name="seconds_value">%1$.1f 秒</string>
     <string name="wide_untracked_reason">NPF 完整式（k = %1$d），像素间距 %2$.2f µm；500 法则对照 %3$.0f 秒，仅作对照。ISO 区间为经验值（按总天光反推）。</string>
     <string name="wide_tracked_reason">像元尺度 %1$.1f ″/px，漂移 %2$.1f ″/min（容忍 %3$.0f px）→ 上限 %4$.0f 秒，取整洁快门 %5$.0f 秒；ISO 吸附至增益口径。</string>
     <string name="wide_unmeasured_title">跟踪档案未实测——不给秒数</string>
@@ -261,7 +229,6 @@
     <string name="eclipse_type_annular">日环食</string>
     <string name="eclipse_type_partial">日偏食</string>
     <string name="eclipse_type_hybrid">全环食</string>
-    <string name="eclipse_type_penumbral">半影月食（不适用日食表）</string>
     <string name="eclipse_iso">ISO（日食表基准 100，按 EV 平移）</string>
     <string name="safety_gate_title">日食安全闸门（每次进入必须确认）</string>
     <string name="safety_gate_body">偏食阶段全程必须使用合格日食滤镜（ISO 12312-2）；摘镜仅限日全食的完全食既阶段；切勿以取景器直视太阳。本模块是曝光参数参考表，不是日食观测安全指南，安全规范以 NASA / AAS 指南为准。</string>
@@ -315,7 +282,6 @@
     <string name="plans_import_failed">导入失败：所选文件不是有效的备份 JSON</string>
 
     <!-- Settings -->
-    <string name="settings_title">设置</string>
     <string name="settings_equipment">设备库</string>
     <string name="settings_cameras">相机</string>
     <string name="settings_lenses">镜头库</string>

@@ -7,42 +7,20 @@
     <string name="tab_calculate">Calculate</string>
     <string name="tab_plans">Plans</string>
     <string name="tab_settings">Settings</string>
-    <string name="tab_npf">NPF calculator</string>
 
-    <string name="sample_location_label">Built-in sample site: New York (40.7128, −74.0060)</string>
     <string name="location_source_gps">Location source: GPS</string>
     <string name="location_source_manual">Location source: manual coordinates</string>
     <string name="location_source_favourite">Location source: favourite place</string>
     <string name="location_source_sample">Location source: built-in sample (not located)</string>
     <string name="location_use_gps">Use GPS</string>
     <string name="location_gps_failed">GPS fix unavailable; fell back to manual/sample site</string>
-    <string name="location_manual_title">Manual coordinates</string>
     <string name="location_latitude">Latitude (°, north positive)</string>
     <string name="location_longitude">Longitude (°, east positive)</string>
-    <string name="location_apply">Apply</string>
 
     <string name="time_health_ok">Time health: OK</string>
     <string name="time_health_zone_mismatch">Warning: the system time zone differs from the selected site\'s zone — make sure network time sync is on and the zone is correct; all ephemeris work in this app uses the device clock.</string>
     <string name="time_health_clock_skew">Warning: GPS time and system time differ by %1$d s (&gt;60 s) — make sure network time sync is on; all ephemeris work in this app uses the device clock.</string>
 
-    <string name="tonight_date">Astronomical night of %1$s</string>
-    <string name="tonight_sunset">Sunset</string>
-    <string name="tonight_civil_dusk">Civil dusk ends</string>
-    <string name="tonight_nautical_dusk">Nautical dusk ends</string>
-    <string name="tonight_dusk">Astronomical night begins</string>
-    <string name="tonight_dawn">Astronomical night ends</string>
-    <string name="tonight_sunrise">Sunrise</string>
-    <string name="tonight_no_night">No full astronomical night tonight</string>
-    <string name="moon_illumination">Moon illumination</string>
-    <string name="moonrise">Moonrise</string>
-    <string name="moonset">Moonset</string>
-    <string name="moon_event_none">None that day</string>
-    <string name="gc_title">Galactic centre window (altitude ≥ 20°)</string>
-    <string name="gc_culmination">Culmination %1$s · peak %2$.1f°</string>
-    <string name="gc_window">Above 20° from %1$s · below 20° at %2$s</string>
-    <string name="gc_edge_open">Already above 20° at dusk</string>
-    <string name="gc_edge_close">Still above 20° at dawn</string>
-    <string name="gc_not_visible">The galactic centre does not reach 20° tonight</string>
 
     <string name="tonight_sky_title">Moonlight and total sky (at dusk, toward the galactic centre)</string>
     <string name="tonight_sky_total">Total sky %1$.2f mag/arcsec² (Bortle estimate %2$s)</string>
@@ -50,9 +28,6 @@
     <string name="tonight_sky_source_manual">Baseline source: manual Bortle override</string>
     <string name="tonight_sky_source_none">The atlas has no data at these coordinates — pick a manual Bortle class as the fallback</string>
     <string name="tonight_moon_degraded">Strong moonlight tonight (illumination %1$d%%): deep-sky / Milky Way conditions are poor — sub-exposures are squeezed by sky brightness and total time is heavily discounted. The Moon itself or moonlit landscapes are better targets tonight.</string>
-    <string name="tonight_low_moonlight_title">Low-moonlight windows</string>
-    <string name="tonight_low_moonlight_item">%1$s – %2$s</string>
-    <string name="tonight_low_moonlight_none">No low-moonlight window of ≥1 hour tonight</string>
     <string name="tonight_events_title">Events within ±3 days</string>
     <string name="tonight_entries_title">Calculators</string>
     <string name="tonight_event_eclipse">%1$s · %2$s eclipse (%3$s)</string>
@@ -63,7 +38,6 @@
     <string name="tonight_recommendation_item">%1$s · mag %2$s · culmination %3$s / %4$.0f°</string>
     <string name="tonight_recommendations_none">No target matches the rules tonight (mag ≤ 6.5, culmination ≥ 40°)</string>
     <string name="tonight_recommendations_unavailable">Recommendations unavailable: the object catalogue failed to load</string>
-    <string name="tonight_moments_title">Key moments</string>
     <string name="moment_sunset">Sunset</string>
     <string name="moment_civil_dusk">Civil dusk ends</string>
     <string name="moment_nautical_dusk">Nautical dusk ends</string>
@@ -80,7 +54,6 @@
     <string name="location_edit_cancel">Cancel</string>
     <string name="location_edit_invalid">Coordinates out of range</string>
     <string name="location_light_row">Light pollution · area value · Bortle %1$d · %2$.2f mcd/m²</string>
-    <string name="location_light_version">Light-pollution data · %1$s</string>
     <string name="location_light_no_data">Light pollution · no grid data</string>
     <string name="location_light_manual">Manual Bortle %1$d</string>
     <string name="date_back_to_tonight">Back to tonight</string>
@@ -174,7 +147,6 @@
     <string name="phase_last_quarter">Last Quarter</string>
     <string name="phase_waning_crescent">Waning Crescent</string>
 
-    <string name="calc_title">Calculators</string>
     <string name="cat_landscape">Landscape + sky</string>
     <string name="cat_wide_field">Wide-field sky</string>
     <string name="cat_deep_sky">Deep sky</string>
@@ -189,7 +161,6 @@
     <string name="calc_declination">Target declination (°, negative = south)</string>
     <string name="calc_declination_invalid">Invalid declination: enter a value between −90 and 90; not calculated.</string>
     <string name="calc_calculate">Calculate</string>
-    <string name="calc_recalculate">Recalculate</string>
     <string name="calc_footer">Starting values — trust the histogram and a test frame; protect the highlights first.</string>
     <string name="calc_save_plan">Save as plan</string>
     <string name="calc_saved">Saved to plans</string>
@@ -199,7 +170,6 @@
     <string name="strictness_relaxed">Relaxed</string>
     <string name="strictness_source_recommended">system recommended</string>
     <string name="strictness_source_manual">manual</string>
-    <string name="strictness_source_default">settings default</string>
     <string name="strictness_reason_untracked_tight">Strict recommended: untracked, and trailing shows first with this focal length / pixel pitch.</string>
     <string name="strictness_reason_tracked_measured">Standard recommended: tracked with a measured drift profile; the typical drift is trustworthy.</string>
     <string name="strictness_reason_large_pixel">Standard recommended: large pixels / short focal length tolerate more; go strict for extra safety.</string>
@@ -207,9 +177,7 @@
 
     <string name="result_shutter">Shutter</string>
     <string name="result_iso">ISO</string>
-    <string name="result_aperture">Aperture</string>
     <string name="result_frames">Frames</string>
-    <string name="seconds_value">%1$.1f s</string>
     <string name="wide_untracked_reason">NPF full formula (k = %1$d), pixel pitch %2$.2f µm; rule-of-500 comparison %3$.0f s, shown for reference only. ISO range is empirical (back-solved from total sky).</string>
     <string name="wide_tracked_reason">Pixel scale %1$.1f ″/px, drift %2$.1f ″/min (tolerance %3$.0f px) → cap %4$.0f s, tidy shutter %5$.0f s; ISO adsorbed to the gain point.</string>
     <string name="wide_unmeasured_title">Tracking profile not measured — no seconds given</string>
@@ -260,7 +228,6 @@
     <string name="eclipse_type_annular">Annular</string>
     <string name="eclipse_type_partial">Partial</string>
     <string name="eclipse_type_hybrid">Hybrid</string>
-    <string name="eclipse_type_penumbral">Penumbral lunar (solar table N/A)</string>
     <string name="eclipse_iso">ISO (table base 100, shifted by EV)</string>
     <string name="safety_gate_title">Eclipse safety gate (confirm on every entry)</string>
     <string name="safety_gate_body">A certified solar filter (ISO 12312-2) is mandatory throughout the partial phases; filters may come off only during totality of a total eclipse; never look at the Sun through a viewfinder unfiltered. This module is an exposure reference table, not an eclipse safety guide — follow NASA / AAS guidance for safety.</string>
@@ -312,7 +279,6 @@
     <string name="plans_import_done">Import complete: %1$d entries merged, %2$d invalid entries skipped</string>
     <string name="plans_import_failed">Import failed: the selected file is not a valid backup JSON</string>
 
-    <string name="settings_title">Settings</string>
     <string name="settings_equipment">Equipment library</string>
     <string name="settings_cameras">Cameras</string>
     <string name="settings_lenses">Lens library</string>
