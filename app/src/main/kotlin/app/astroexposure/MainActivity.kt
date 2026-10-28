@@ -66,6 +66,7 @@ import java.time.ZoneId
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -88,6 +89,14 @@ class MainActivity : AppCompatActivity() {
 }
 
 private enum class Tab { TONIGHT, CALCULATE, PLANS, SETTINGS }
+
+/**
+ * How often the Tonight tab silently refreshes its GPS fix
+ * (ui-design §7.2). Empirical value: fresh enough that a fix taken
+ * before moving is not stale on screen all evening, slow enough not
+ * to keep the GPS radio busy.
+ */
+private const val GPS_REFRESH_INTERVAL_MS = 300_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -206,49 +215,74 @@ private fun AstroApp(container: AppContainer) {
     }
 
     // --- Location channels -------------------------------------------------
+    // One GPS request channel for the permission callback, manual
+    // taps, the tab-entry auto-locate and the periodic refresh. A
+    // request already in flight is never stacked: two live listeners
+    // would race the site state, and the provider times out on its
+    // own. Outcomes are deliberately quiet (ui-design §7.2): the
+    // failure flag is only set when there is no usable site at all —
+    // the built-in sample fallback; with any real site (an older GPS
+    // fix, a manual entry, a favourite) a failed request silently
+    // keeps the site already in hand.
+    var gpsInFlight by remember { mutableStateOf(false) }
+    val onGpsResult: (LocatedSite?) -> Unit = { fix ->
+        gpsInFlight = false
+        if (fix != null) {
+            site = fix
+            gpsTime = fix.gpsTime
+            gpsFailed = false
+            manualBortle = null
+        } else if (site.source == LocationSource.SAMPLE) {
+            gpsFailed = true
+        }
+    }
+    val requestGpsFix: () -> Unit = {
+        if (!gpsInFlight) {
+            gpsInFlight = true
+            container.locationProvider.requestSingle(
+                ZoneId.systemDefault(),
+                callback = onGpsResult,
+            )
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            container.locationProvider.requestSingle(ZoneId.systemDefault()) { fix ->
-                if (fix != null) {
-                    site = fix
-                    gpsTime = fix.gpsTime
-                    gpsFailed = false
-                    manualBortle = null
-                } else {
-                    gpsFailed = true
-                }
-            }
-        } else {
+            requestGpsFix()
+        } else if (site.source == LocationSource.SAMPLE) {
             gpsFailed = true
         }
     }
     val useGps: () -> Unit = {
         if (container.locationProvider.hasPermission()) {
-            container.locationProvider.requestSingle(ZoneId.systemDefault()) { fix ->
-                if (fix != null) {
-                    site = fix
-                    gpsTime = fix.gpsTime
-                    gpsFailed = false
-                    manualBortle = null
-                } else {
-                    gpsFailed = true
-                }
-            }
+            requestGpsFix()
         } else {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
     // Entering the Tonight tab requests a fresh GPS fix (ui-design
-    // §7.2), once per entry; a last-known fix may already be in place as
-    // an interim. Leaving the tab re-arms the next entry.
+    // §7.2), once per entry; a last-known fix may already be in place
+    // as an interim. While the tab stays up, the fix is silently
+    // refreshed every GPS_REFRESH_INTERVAL_MS so it cannot go stale
+    // on screen; leaving the tab stops the loop and re-arms the next
+    // entry.
     var autoLocated by remember { mutableStateOf(false) }
     LaunchedEffect(tab) {
-        if (tab == Tab.TONIGHT && !autoLocated) {
-            autoLocated = true
-            useGps()
+        if (tab == Tab.TONIGHT) {
+            if (!autoLocated) {
+                autoLocated = true
+                useGps()
+            }
+            while (true) {
+                delay(GPS_REFRESH_INTERVAL_MS)
+                // No prompting from the loop: a refresh that would
+                // need the permission dialog simply does not happen.
+                if (container.locationProvider.hasPermission()) {
+                    requestGpsFix()
+                }
+            }
         }
         if (tab != Tab.TONIGHT) {
             autoLocated = false
@@ -391,7 +425,11 @@ private fun AstroApp(container: AppContainer) {
                                 site.source == LocationSource.FAVOURITE -> R.string.location_source_favourite
                                 else -> R.string.location_source_sample
                             },
-                        ) + if (gpsFailed) " · " + stringResource(R.string.location_gps_failed) else "",
+                        ) + if (gpsFailed && site.source == LocationSource.SAMPLE) {
+                            " · " + stringResource(R.string.location_gps_failed)
+                        } else {
+                            ""
+                        },
                         timeHealth = timeHealth,
                         redLight = redLight,
                         onRedLightChange = { redLight = it },
@@ -419,7 +457,8 @@ private fun AstroApp(container: AppContainer) {
                         } else {
                             null
                         },
-                        canSaveFavourite = site.source == LocationSource.GPS && favouriteMatch == null,
+                        canSaveFavourite = site.source == LocationSource.MANUAL ||
+                            (site.source == LocationSource.GPS && favouriteMatch == null),
                         onSaveFavourite = { name ->
                             // The same store the Settings tab manages:
                             // one place repository, no second path.
