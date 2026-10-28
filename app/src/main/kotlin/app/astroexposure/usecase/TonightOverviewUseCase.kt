@@ -282,6 +282,20 @@ class TonightOverviewUseCase(
                 events.isEmpty() -> EventsDisplay.NONE
                 else -> EventsDisplay.LIST
             }
+
+        /**
+         * The moonrise the location card's moonlight line names
+         * (ui-design §7.2, 0.8.4): set when the dusk sky sample caught
+         * the Moon below the horizon — the reason its contribution
+         * reads zero — yet the Moon rises within the astronomical
+         * night. Null in every other case.
+         */
+        val moonriseWithinNight: Instant?
+            get() = moonriseNoteInstant(
+                moonUpAtDusk = skyAtDusk?.moonUp,
+                moonrise = moonrise,
+                night = night,
+            )
     }
 
     fun execute(location: GeoLocation, date: LocalDate, manualBortle: Int? = null): Result {
@@ -880,4 +894,24 @@ class TonightOverviewUseCase(
         const val MIN_CULMINATION_DEG = 40.0
         const val MAX_RECOMMENDATIONS = 10
     }
+}
+
+/**
+ * The moonrise instant the location card names on its moonlight line
+ * (ui-design §7.2, 0.8.4): [moonrise] itself when the dusk sample had
+ * the Moon below the horizon ([moonUpAtDusk] false — a null means
+ * there was no sky sample to judge from) and the rise falls inside
+ * the astronomical night; null otherwise. Pure and separate from
+ * [TonightOverviewUseCase.Result] so the trigger is unit-testable
+ * without assembling a whole overview.
+ */
+internal fun moonriseNoteInstant(
+    moonUpAtDusk: Boolean?,
+    moonrise: Instant?,
+    night: NightWindow?,
+): Instant? {
+    if (moonUpAtDusk != false) return null
+    val rise = moonrise ?: return null
+    val window = night ?: return null
+    return if (rise.isAfter(window.dusk) && rise.isBefore(window.dawn)) rise else null
 }
