@@ -303,10 +303,8 @@ class AstronomyEngineEphemeris : EphemerisProvider {
         /** Sun-centre altitude at rise/set (disc radius + refraction convention). */
         const val SUN_DISC_ALTITUDE_DEG = -0.583
 
-        /** Galactic centre coordinates (design §4.1): RA 17h45m, Dec -29.0°. */
-        const val GC_RA_HOURS = 17.75
-        const val GC_DEC_DEG = -29.0
-        val GALACTIC_CENTER = EquatorialCoordinates(GC_RA_HOURS, Degrees(GC_DEC_DEG))
+        /** Galactic centre: the shared domain constant (design §4.1). */
+        val GALACTIC_CENTER = app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES
 
         /** Arbitrary catalogue distance for defined stars; only direction matters. */
         const val STAR_DISTANCE_LY = 100.0

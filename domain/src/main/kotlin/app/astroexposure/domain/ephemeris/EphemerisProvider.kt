@@ -154,6 +154,18 @@ data class MoonRiseSet(val moonrise: Instant?, val moonset: Instant?)
 /** Equatorial coordinates: right ascension in HOURS, declination in degrees. */
 data class EquatorialCoordinates(val raHours: Double, val declination: Degrees)
 
+/**
+ * The galactic centre (design §4.1): RA 17h45m, Dec -29.0°. The single
+ * shared definition — the ephemeris adapter, the tonight use case and
+ * the calculators all reference this instead of keeping private copies
+ * of the literals, which could drift apart silently.
+ */
+object GalacticCenter {
+    const val RA_HOURS = 17.75
+    const val DEC_DEG = -29.0
+    val COORDINATES = EquatorialCoordinates(RA_HOURS, Degrees(DEC_DEG))
+}
+
 data class GalacticCenterWindow(
     /** When the centre rises above the threshold; null if already above at dusk. */
     val risesAbove: Instant?,

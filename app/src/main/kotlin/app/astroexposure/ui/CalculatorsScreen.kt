@@ -101,6 +101,9 @@ fun CalculatorsScreen(
     var strictnessTouched by remember {
         mutableStateOf(defaultStrictness != Strictness.STANDARD)
     }
+    // Fixed bottom calculate button (ui-design §4.3): each press bumps
+    // the signal and the visible calculator runs its compute once.
+    var computeSignal by remember { mutableStateOf(0) }
 
     val recommendation = StrictnessRecommendation.recommend(
         tracked = profile?.kind == TrackingKind.TRACKED,
@@ -110,9 +113,11 @@ fun CalculatorsScreen(
     )
     val effectiveStrictness = if (strictnessTouched) strictness else recommendation.strictness
 
+    Column(modifier = modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -186,21 +191,45 @@ fun CalculatorsScreen(
         if (cam != null && ln != null && prof != null) {
             when (category) {
                 CalcCategory.WIDE_FIELD -> WideFieldCalculator(
-                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan,
+                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan, computeSignal,
                 )
                 CalcCategory.LANDSCAPE -> LandscapeCalculator(
-                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan,
+                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan, computeSignal,
                 )
                 CalcCategory.DEEP_SKY -> DeepSkyCalculator(
-                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan,
+                    container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan, computeSignal,
                 )
                 CalcCategory.ECLIPSE -> EclipseCalculator(
-                    container, cam, aperture, location, sampleInstant, date, onSavePlan,
+                    container, cam, aperture, location, sampleInstant, date, onSavePlan, computeSignal,
                 )
                 CalcCategory.METEOR -> MeteorCalculator(
-                    container, cam, focalMm, aperture, effectiveStrictness, showers, skyFor, location, date, onSavePlan,
+                    container, cam, focalMm, aperture, effectiveStrictness, showers, skyFor, location, date, onSavePlan, computeSignal,
                 )
             }
+        }
+    }
+    // The primary action stays fixed at the bottom (ui-design §4.3)
+    // instead of drifting with the scrolling input column.
+    ActionButton(
+        text = stringResource(R.string.calc_calculate),
+        modifier = Modifier.padding(16.dp),
+    ) {
+        computeSignal++
+    }
+    }
+}
+
+/** ISO chip row of the eclipse calculator (moon mode, and solar mode after the gate). */
+@Composable
+private fun EclipseIsoSelector(options: List<Int>, selectedIndex: Int, onSelect: (Int) -> Unit) {
+    Text(text = stringResource(R.string.eclipse_iso), style = MaterialTheme.typography.labelLarge)
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEachIndexed { index, iso ->
+            FilterChip(
+                selected = selectedIndex == index,
+                onClick = { onSelect(index) },
+                label = { Text(iso.toString()) },
+            )
         }
     }
 }
@@ -231,21 +260,44 @@ private fun WideFieldCalculator(
     skyFor: (EquatorialCoordinates) -> SkyContext,
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
+    computeSignal: Int,
 ) {
     var declinationText by remember { mutableStateOf("-29") }
+    var declinationError by remember { mutableStateOf(false) }
     var card by remember { mutableStateOf<WideFieldUseCase.Card?>(null) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
 
     OutlinedTextField(
         value = declinationText,
-        onValueChange = { declinationText = it },
+        onValueChange = {
+            declinationText = it
+            declinationError = false
+        },
         label = { Text(stringResource(R.string.calc_declination)) },
         modifier = Modifier.fillMaxWidth(),
     )
-    ActionButton(text = stringResource(R.string.calc_calculate)) {
-        val dec = declinationText.toDoubleOrNull() ?: -29.0
-        val sky = skyFor(EquatorialCoordinates(17.75, Degrees(dec)))
+    if (declinationError) {
+        Text(
+            text = stringResource(R.string.calc_declination_invalid),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    fun compute() {
+        // Explicit validation, like every other input in the app: an
+        // unparseable or out-of-range declination is reported and NOT
+        // silently replaced by a default value.
+        val dec = declinationText.toDoubleOrNull()
+        if (dec == null || dec !in -90.0..90.0) {
+            declinationError = true
+            return
+        }
+        val sky = skyFor(
+            EquatorialCoordinates(
+                app.astroexposure.domain.ephemeris.GalacticCenter.RA_HOURS, Degrees(dec),
+            ),
+        )
         val result = container.wideField.execute(
             WideFieldUseCase.Input(camera, focalMm, aperture, dec, strictness, profile, sky.totalSky),
         )
@@ -262,6 +314,14 @@ private fun WideFieldCalculator(
                 add(context.getString(R.string.wide_unmeasured_title))
             }
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(computeSignal) {
+        if (computeSignal > 0) compute()
+    }
+    // Tier switch recomputes an existing result at once (ui-design §6):
+    // the badge and the numbers always belong to the same tier.
+    androidx.compose.runtime.LaunchedEffect(strictness) {
+        if (card != null) compute()
     }
     val result = card ?: return
     ResultCard(
@@ -304,10 +364,7 @@ private fun WideFieldCalculator(
                     )
                 }
                 is DriftModel.Outcome.Unmeasured -> {
-                    FilterChip(
-                        selected = true, onClick = {},
-                        label = { Text(stringResource(R.string.badge_unmeasured)) },
-                    )
+                    BadgeChip(stringResource(R.string.badge_unmeasured))
                     Text(
                         text = stringResource(
                             R.string.wide_unmeasured_body, drift.pixelScaleArcsecPerPixel,
@@ -341,6 +398,7 @@ private fun LandscapeCalculator(
     date: LocalDate,
     sampleInstant: Instant,
     onSavePlan: (String, String, String, String) -> Unit,
+    computeSignal: Int,
 ) {
     var methods by remember {
         mutableStateOf(setOf(LandscapeModel.ForegroundMethod.BLUE_HOUR))
@@ -369,11 +427,11 @@ private fun LandscapeCalculator(
             )
         }
     }
-    ActionButton(text = stringResource(R.string.calc_calculate)) {
-        val skyCtx = skyFor(EquatorialCoordinates(17.75, Degrees(-29.0)))
+    fun compute() {
+        val skyCtx = skyFor(app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES)
         val wide = container.wideField.execute(
             WideFieldUseCase.Input(
-                camera, focalMm, aperture, -29.0, strictness, profile, skyCtx.totalSky,
+                camera, focalMm, aperture, app.astroexposure.domain.ephemeris.GalacticCenter.DEC_DEG, strictness, profile, skyCtx.totalSky,
             ),
         )
         val skyShutter: Double
@@ -394,7 +452,7 @@ private fun LandscapeCalculator(
                 // untracked NPF value and the card says so explicitly.
                 val npf = container.wideField.execute(
                     WideFieldUseCase.Input(
-                        camera, focalMm, aperture, -29.0, strictness,
+                        camera, focalMm, aperture, app.astroexposure.domain.ephemeris.GalacticCenter.DEC_DEG, strictness,
                         app.astroexposure.domain.tracking.BuiltInTrackingProfiles.UNTRACKED,
                         skyCtx.totalSky,
                     ),
@@ -428,6 +486,12 @@ private fun LandscapeCalculator(
                 add("${frame.method.name}: ISO ${frame.isoRange.first}–${frame.isoRange.last} · ${formatShutter(frame.shutterMinSeconds)}")
             }
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(computeSignal) {
+        if (computeSignal > 0) compute()
+    }
+    androidx.compose.runtime.LaunchedEffect(strictness) {
+        if (result != null) compute()
     }
     val res = result ?: return
     ResultCard(
@@ -509,6 +573,7 @@ private fun DeepSkyCalculator(
     skyFor: (EquatorialCoordinates) -> SkyContext,
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
+    computeSignal: Int,
 ) {
     var targetClass by remember { mutableStateOf(DeepSkyModel.TargetClass.BRIGHT_CLUSTER_NEBULA) }
     var card by remember { mutableStateOf<DeepSkyUseCase.Card?>(null) }
@@ -535,8 +600,8 @@ private fun DeepSkyCalculator(
             )
         }
     }
-    ActionButton(text = stringResource(R.string.calc_calculate)) {
-        val sky = skyFor(EquatorialCoordinates(17.75, Degrees(-29.0)))
+    fun compute() {
+        val sky = skyFor(app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES)
         val result = container.deepSky.execute(
             DeepSkyUseCase.Input(
                 camera = camera, aperture = aperture, totalSky = sky.totalSky,
@@ -554,6 +619,12 @@ private fun DeepSkyCalculator(
                 is DeepSkyModel.Outcome.Degraded -> add(outcome.methodNote)
             }
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(computeSignal) {
+        if (computeSignal > 0) compute()
+    }
+    androidx.compose.runtime.LaunchedEffect(strictness) {
+        if (card != null) compute()
     }
     val result = card ?: return
     when (val outcome = result.outcome) {
@@ -645,6 +716,7 @@ private fun EclipseCalculator(
     sampleInstant: Instant,
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
+    computeSignal: Int,
 ) {
     var solarMode by remember { mutableStateOf(false) }
     var acknowledged by remember { mutableStateOf(false) }
@@ -670,27 +742,33 @@ private fun EclipseCalculator(
             label = { Text(stringResource(R.string.eclipse_mode_solar)) },
         )
     }
-    Text(text = stringResource(R.string.eclipse_iso), style = MaterialTheme.typography.labelLarge)
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        isoOptions.forEachIndexed { index, iso ->
-            FilterChip(
-                selected = isoIndex == index,
-                onClick = { isoIndex = index },
-                label = { Text(iso.toString()) },
-            )
-        }
-    }
     val iso = isoOptions[isoIndex]
 
-    if (!solarMode) {
-        ActionButton(text = stringResource(R.string.calc_calculate)) {
+    fun compute() {
+        if (!solarMode) {
             val cardResult = container.eclipse.moon(location, sampleInstant, iso, aperture)
             moonCard = cardResult
             lines = listOf(
                 "${context.getString(R.string.eclipse_mode_moon)} · ISO $iso · ${formatAperture(aperture)}",
                 "${context.getString(R.string.result_shutter)}: ${formatShutter(cardResult.result.shutter.value)}",
             )
+        } else {
+            val cardResult = container.eclipse.solar(eclipseType, aperture, iso, acknowledged)
+            solarCard = cardResult
+            lines = buildList {
+                add("${context.getString(R.string.cat_eclipse)} · ${eclipseType.name} · ISO $iso · ${formatAperture(aperture)}")
+                cardResult.rows.forEach { row ->
+                    add("${row.phenomenon.name}: ${row.shutterSeconds?.let { formatShutter(it) } ?: "-"}")
+                }
+            }
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(computeSignal) {
+        if (computeSignal > 0) compute()
+    }
+
+    if (!solarMode) {
+        EclipseIsoSelector(isoOptions, isoIndex) { isoIndex = it }
         val cardResult = moonCard
         if (cardResult != null) {
             ResultCard(
@@ -725,15 +803,28 @@ private fun EclipseCalculator(
             }
         }
     } else {
-        // Safety gate first: no parameters are computed or shown before the
-        // acknowledgement (design §5.4.2, SafetyGate in the domain model).
+        // Safety gate first: no parameters are computed or shown before
+        // the acknowledgement (design §5.4.2, SafetyGate in the domain
+        // model). Presentation per ui-design section 5: a blocking panel
+        // with a thick bad-colour top bar and the warning glyph, and the
+        // type chips / ISO / calculate action stay hidden until the box
+        // is checked.
         Card(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .androidx.compose.foundation.layout.height(6.dp)
+                        .androidx.compose.foundation.background(
+                            MaterialTheme.colorScheme.error,
+                        ),
+                )
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.safety_gate_title),
+                    text = "▲ " + stringResource(R.string.safety_gate_title),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -749,29 +840,23 @@ private fun EclipseCalculator(
                     )
                 }
             }
-        }
-        Text(text = stringResource(R.string.eclipse_type_label), style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(
-                EclipseType.TOTAL to R.string.eclipse_type_total,
-                EclipseType.ANNULAR to R.string.eclipse_type_annular,
-                EclipseType.PARTIAL to R.string.eclipse_type_partial,
-                EclipseType.HYBRID to R.string.eclipse_type_hybrid,
-            ).forEach { (type, res) ->
-                FilterChip(
-                    selected = eclipseType == type,
-                    onClick = { eclipseType = type },
-                    label = { Text(stringResource(res)) },
-                )
             }
         }
-        ActionButton(text = stringResource(R.string.calc_calculate)) {
-            val cardResult = container.eclipse.solar(eclipseType, aperture, iso, acknowledged)
-            solarCard = cardResult
-            lines = buildList {
-                add("${context.getString(R.string.cat_eclipse)} · ${eclipseType.name} · ISO $iso · ${formatAperture(aperture)}")
-                cardResult.rows.forEach { row ->
-                    add("${row.phenomenon.name}: ${row.shutterSeconds?.let { formatShutter(it) } ?: "-"}")
+        if (acknowledged) {
+            EclipseIsoSelector(isoOptions, isoIndex) { isoIndex = it }
+            Text(text = stringResource(R.string.eclipse_type_label), style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    EclipseType.TOTAL to R.string.eclipse_type_total,
+                    EclipseType.ANNULAR to R.string.eclipse_type_annular,
+                    EclipseType.PARTIAL to R.string.eclipse_type_partial,
+                    EclipseType.HYBRID to R.string.eclipse_type_hybrid,
+                ).forEach { (type, res) ->
+                    FilterChip(
+                        selected = eclipseType == type,
+                        onClick = { eclipseType = type },
+                        label = { Text(stringResource(res)) },
+                    )
                 }
             }
         }
@@ -852,6 +937,7 @@ private fun MeteorCalculator(
     location: GeoLocation,
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
+    computeSignal: Int,
 ) {
     var shower by remember(showers) {
         mutableStateOf(showers.firstOrNull { it.iauCode == "PER" } ?: showers.firstOrNull())
@@ -874,7 +960,7 @@ private fun MeteorCalculator(
     )
     Slider(value = hours, onValueChange = { hours = it }, valueRange = 1f..8f, steps = 6)
     val selectedShower = shower ?: return
-    ActionButton(text = stringResource(R.string.calc_calculate)) {
+    fun compute() {
         val radiant = EquatorialCoordinates(
             selectedShower.radiantRaHours, Degrees(selectedShower.radiantDecDeg),
         )
@@ -891,6 +977,12 @@ private fun MeteorCalculator(
             "${context.getString(R.string.cat_meteor)} · ${selectedShower.nameZh} · ${focalMm.roundToInt()}mm · ${formatAperture(aperture)}",
             "${context.getString(R.string.meteor_single)}: ${formatShutter(result.result.singleFrameSeconds)} · ISO ${result.result.iso} · ${result.result.frameCount} frames",
         )
+    }
+    androidx.compose.runtime.LaunchedEffect(computeSignal) {
+        if (computeSignal > 0) compute()
+    }
+    androidx.compose.runtime.LaunchedEffect(strictness) {
+        if (card != null) compute()
     }
     val result = card ?: return
     val res = result.result

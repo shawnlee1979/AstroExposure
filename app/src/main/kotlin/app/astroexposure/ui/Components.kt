@@ -241,6 +241,29 @@ fun StrictnessSelector(
     }
 }
 
+/**
+ * A static badge: looks like a chip but is not a control — no click,
+ * no focus, and accessibility services read it as plain text. (The
+ * strictness and unmeasured badges previously used a disabled-purpose
+ * FilterChip, which screen readers announced as a tappable chip that
+ * did nothing.)
+ */
+@Composable
+fun BadgeChip(text: String, modifier: Modifier = Modifier) {
+    androidx.compose.material3.Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
 fun strictnessNameRes(tier: Strictness): Int = when (tier) {
     Strictness.STRICT -> R.string.strictness_strict
     Strictness.STANDARD -> R.string.strictness_standard
@@ -292,7 +315,7 @@ fun ResultCard(
             ) {
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
                 if (badge != null) {
-                    FilterChip(selected = true, onClick = {}, label = { Text(badge) })
+                    BadgeChip(badge)
                 }
             }
             if (warning != null) {

@@ -186,6 +186,7 @@
     <string name="calc_aperture">Aperture</string>
     <string name="calc_profile">Tracking profile</string>
     <string name="calc_declination">Target declination (°, negative = south)</string>
+    <string name="calc_declination_invalid">Invalid declination: enter a value between −90 and 90; not calculated.</string>
     <string name="calc_calculate">Calculate</string>
     <string name="calc_recalculate">Recalculate</string>
     <string name="calc_footer">Starting values — trust the histogram and a test frame; protect the highlights first.</string>

@@ -187,6 +187,7 @@
     <string name="calc_aperture">光圈</string>
     <string name="calc_profile">跟踪档案</string>
     <string name="calc_declination">目标赤纬（°，南纬为负）</string>
+    <string name="calc_declination_invalid">赤纬无效：请输入 −90 到 90 之间的数值，未计算。</string>
     <string name="calc_calculate">计算</string>
     <string name="calc_recalculate">重算</string>
     <string name="calc_footer">起步值 — 请以直方图与试拍为准，亮部不溢出优先。</string>

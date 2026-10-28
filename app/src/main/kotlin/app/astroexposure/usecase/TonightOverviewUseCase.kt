@@ -280,7 +280,7 @@ class TonightOverviewUseCase(
         val sky = lightPollution?.let {
             SkyAssembly.compose(
                 ephemeris, it, location, dusk,
-                EquatorialCoordinates(GC_RA_HOURS, Degrees(GC_DEC_DEG)),
+                app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES,
                 manualBortle,
             )
         }
@@ -348,7 +348,7 @@ class TonightOverviewUseCase(
         val night = ephemeris.astronomicalNight(location, date)
         val sunAltitude = ephemeris.horizontalPosition(location, CelestialBody.SUN, cursor).altitude.value
         val moonPosition = ephemeris.horizontalPosition(location, CelestialBody.MOON, cursor)
-        val gcTarget = EquatorialCoordinates(GC_RA_HOURS, Degrees(GC_DEC_DEG))
+        val gcTarget = app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES
         val gcSky = SkyAssembly.compose(ephemeris, lightPollution, location, cursor, gcTarget, manualBortle)
         val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 +
             (gcSky.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
@@ -670,7 +670,7 @@ class TonightOverviewUseCase(
         val baselineTotal = SkyBrightness.NATURAL_SKY_MCD_M2 +
             (skyAtDusk.totalSky.baselineArtificialMcdPerM2 ?: 0.0)
         val threshold = baselineTotal / 3.0
-        val gcTarget = EquatorialCoordinates(GC_RA_HOURS, Degrees(GC_DEC_DEG))
+        val gcTarget = app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES
         val windows = mutableListOf<LowMoonlightWindow>()
         var runStart: Instant? = null
         var t = night.dusk
@@ -785,9 +785,6 @@ class TonightOverviewUseCase(
     }
 
     companion object {
-        /** Galactic centre coordinates (design §4.1), same values as the ephemeris adapter. */
-        const val GC_RA_HOURS = 17.75
-        const val GC_DEC_DEG = -29.0
         const val MAX_MAGNITUDE = 6.5
         const val MIN_CULMINATION_DEG = 40.0
         const val MAX_RECOMMENDATIONS = 10
