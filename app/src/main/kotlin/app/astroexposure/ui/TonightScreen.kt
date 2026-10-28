@@ -211,7 +211,7 @@ fun TonightScreen(
         }
         moonAlt?.let {
             stringResource(
-                R.string.cursor_bubble_moon, it, Math.round(illumination * 100),
+                R.string.cursor_bubble_moon, it, percentRounded(illumination),
                 overview.lightPollutionInfo?.artificialMcdPerM2?.let { lp ->
                     "%.2f".format(lp)
                 } ?: "—",
@@ -253,21 +253,7 @@ fun TonightScreen(
         }
 
         // Time-health warnings, stated plainly (design §2.2).
-        for (warning in timeHealth.warnings) {
-            Text(
-                text = when (warning) {
-                    TimeHealthCheck.Warning.ZONE_MISMATCH ->
-                        stringResource(R.string.time_health_zone_mismatch)
-                    TimeHealthCheck.Warning.CLOCK_SKEW ->
-                        stringResource(
-                            R.string.time_health_clock_skew,
-                            timeHealth.clockSkewSeconds ?: 0L,
-                        )
-                },
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+        TimeHealthWarningText(timeHealth)
 
         LocationCard(
             overview = overview,
@@ -426,7 +412,7 @@ fun TonightScreen(
                     Text(
                         text = stringResource(
                             R.string.tonight_moon_degraded,
-                            Math.round(overview.moonIllumination * 100),
+                            percentRounded(overview.moonIllumination),
                         ),
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -659,7 +645,7 @@ private fun timelineMarkFor(
                                     MoonPhaseName.WANING_CRESCENT -> R.string.phase_waning_crescent
                                 },
                             ),
-                            Math.round(detail.illumination * 100),
+                            percentRounded(detail.illumination),
                         ),
                     )
                 },
@@ -738,15 +724,15 @@ private fun LocationCard(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
                             .clickable {
-                                latText = "%.4f".format(latitudeDeg)
-                                lonText = "%.4f".format(longitudeDeg)
+                                latText = formatCoordinateValue(latitudeDeg)
+                                lonText = formatCoordinateValue(longitudeDeg)
                                 editError = false
                                 editing = true
                             },
                         contentAlignment = Alignment.CenterStart,
                     ) {
                         Text(
-                            text = "%.4f°  %.4f°  ✎".format(latitudeDeg, longitudeDeg),
+                            text = "${formatCoordinateValue(latitudeDeg)}°  ${formatCoordinateValue(longitudeDeg)}°  ✎",
                             fontFamily = FontFamily.Monospace,
                             style = MaterialTheme.typography.titleMedium,
                         )
@@ -930,6 +916,13 @@ private fun DateSwitchRow(
 }
 
 /** Display name of a key moment (ui-design §7.4 moment set), for the cursor bubble's snap label. */
+/** The moonlight-interference tier's display name (status row and target detail share it). */
+fun moonInterferenceNameRes(tier: TimelineCursor.MoonInterference): Int = when (tier) {
+    TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
+    TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
+    TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
+}
+
 @Composable
 private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = stringResource(
     when (kind) {
@@ -982,11 +975,7 @@ private fun CursorStatusCard(
                 },
             )
             val interferenceText = stringResource(
-                when (evaluation.moonInterference) {
-                    TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
-                    TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
-                    TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
-                },
+                moonInterferenceNameRes(evaluation.moonInterference),
             )
             val lowMoonText = when (val status = evaluation.lowMoonStatus) {
                 is TimelineCursor.LowMoonStatus.Inside ->
@@ -1149,11 +1138,7 @@ private fun targetDetailLines(
     // colour to carry it); with the Moon down the angle is
     // reference only and says so.
     val interferenceLabel = stringResource(
-        when (active.moonInterference) {
-            TimelineCursor.MoonInterference.NONE -> R.string.cursor_interference_none
-            TimelineCursor.MoonInterference.WEAK -> R.string.cursor_interference_weak
-            TimelineCursor.MoonInterference.STRONG -> R.string.cursor_interference_strong
-        },
+        moonInterferenceNameRes(active.moonInterference),
     )
     add(
         stringResource(
@@ -1194,7 +1179,7 @@ private fun targetDetailLines(
                     Math.round(framing.lowFocalMm),
                     Math.round(framing.highFocalMm),
                     Math.round(framing.referenceFocalMm),
-                    Math.round(framing.referenceShare * 100),
+                    percentRounded(framing.referenceShare),
                 )
             is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMaxFocal ->
                 stringResource(
@@ -1202,7 +1187,7 @@ private fun targetDetailLines(
                     Math.round(
                         app.astroexposure.domain.camera.FullFrameFraming.MAX_FOCAL_MM,
                     ).toInt(),
-                    Math.round(framing.shareAtMaxFocal * 100),
+                    percentRounded(framing.shareAtMaxFocal),
                 )
             is app.astroexposure.domain.camera.FullFrameFraming.Advice.CappedAtMinFocal ->
                 stringResource(
@@ -1210,7 +1195,7 @@ private fun targetDetailLines(
                     Math.round(
                         app.astroexposure.domain.camera.FullFrameFraming.MIN_FOCAL_MM,
                     ).toInt(),
-                    Math.round(framing.shareAtMinFocal * 100),
+                    percentRounded(framing.shareAtMinFocal),
                 )
         },
     )

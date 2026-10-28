@@ -2,6 +2,7 @@ package app.astroexposure.persistence
 
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.camera.BuiltInCameras
+import app.astroexposure.domain.geo.Coordinates
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.lens.Lens
 import app.astroexposure.domain.tracking.BuiltInTrackingProfiles
@@ -280,8 +281,12 @@ fun validatePlace(
     manualBortle: Int?,
 ): FormResult<SavedPlace> {
     if (name.isBlank()) return FormResult.Invalid(FormError.BLANK_NAME)
-    if (latitudeDeg !in -90.0..90.0) return FormResult.Invalid(FormError.LATITUDE_OUT_OF_RANGE)
-    if (longitudeDeg !in -180.0..180.0) return FormResult.Invalid(FormError.LONGITUDE_OUT_OF_RANGE)
+    if (!Coordinates.isValidLatitude(latitudeDeg)) {
+        return FormResult.Invalid(FormError.LATITUDE_OUT_OF_RANGE)
+    }
+    if (!Coordinates.isValidLongitude(longitudeDeg)) {
+        return FormResult.Invalid(FormError.LONGITUDE_OUT_OF_RANGE)
+    }
     if (manualBortle != null && manualBortle !in 1..9) {
         return FormResult.Invalid(FormError.BORTLE_OUT_OF_RANGE)
     }

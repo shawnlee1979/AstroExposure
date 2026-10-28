@@ -23,6 +23,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +38,7 @@ import app.astroexposure.R
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.lens.Lens
 import app.astroexposure.domain.strictness.Strictness
+import app.astroexposure.support.TimeHealthCheck
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -54,12 +56,29 @@ fun formatShutter(seconds: Double): String = when {
     else -> "%.0f s".format(seconds)
 }
 
-fun formatAperture(aperture: Double): String =
+/** The aperture number alone, without the f/ prefix (whole values from f/8 up print bare). */
+fun formatApertureValue(aperture: Double): String =
     if (aperture == aperture.roundToInt().toDouble() && aperture >= 8.0) {
-        "f/${aperture.roundToInt()}"
+        aperture.roundToInt().toString()
     } else {
-        "f/$aperture"
+        aperture.toString()
     }
+
+fun formatAperture(aperture: Double): String = "f/" + formatApertureValue(aperture)
+
+/** Percent of a 0..1 fraction, rounded — the one rounding every percent display shares. */
+fun percentRounded(fraction: Double): Long = Math.round(fraction * 100)
+
+/** Coordinate value at the app's four-decimal display precision (ui-design §7.2). */
+fun formatCoordinateValue(value: Double): String = "%.4f".format(value)
+
+/**
+ * Data volume with one decimal (the deep-sky and meteor result
+ * cards' format). The value is nullable — a camera without a
+ * recorded RAW file size has no data volume — and passes to the
+ * formatter exactly as the call sites always did.
+ */
+fun formatDataGb(dataGb: Double?): String = "%.1f".format(dataGb)
 
 /** A label + button + dropdown selection control (large touch targets, no tiny spinners). */
 @Composable
@@ -230,17 +249,7 @@ fun StrictnessSelector(
                     modifier = Modifier.heightIn(min = 48.dp),
                     selected = tier == value,
                     onClick = { onChange(tier) },
-                    label = {
-                        Text(
-                            stringResource(
-                                when (tier) {
-                                    Strictness.STRICT -> R.string.strictness_strict
-                                    Strictness.STANDARD -> R.string.strictness_standard
-                                    Strictness.RELAXED -> R.string.strictness_relaxed
-                                },
-                            ),
-                        )
-                    },
+                    label = { Text(stringResource(strictnessNameRes(tier))) },
                 )
             }
         }
@@ -384,6 +393,51 @@ fun ActionButton(
 ) {
     Button(onClick = onClick, modifier = modifier.fillMaxWidth(), enabled = enabled) {
         Text(text)
+    }
+}
+
+/**
+ * The recompute effects the calculators share (ui-design §4.3): a
+ * press of the fixed bottom button (the signal rising above zero)
+ * runs one computation, and a strictness change recomputes a result
+ * that is already on screen. Calculators without a strictness tier
+ * (the eclipse one) pass a null [strictnessKey] and skip the second
+ * effect.
+ */
+@Composable
+fun CalculatorEffects(
+    computeSignal: Int,
+    strictnessKey: Any?,
+    hasResult: () -> Boolean,
+    compute: () -> Unit,
+) {
+    LaunchedEffect(computeSignal) { if (computeSignal > 0) compute() }
+    LaunchedEffect(strictnessKey) {
+        if (strictnessKey != null && hasResult()) compute()
+    }
+}
+
+/**
+ * The time-health warning lines (design §2.2): the warning-to-text
+ * mapping the tonight and settings pages share, stated plainly in
+ * the error colour.
+ */
+@Composable
+fun TimeHealthWarningText(result: TimeHealthCheck.Result) {
+    for (warning in result.warnings) {
+        Text(
+            text = when (warning) {
+                TimeHealthCheck.Warning.ZONE_MISMATCH ->
+                    stringResource(R.string.time_health_zone_mismatch)
+                TimeHealthCheck.Warning.CLOCK_SKEW ->
+                    stringResource(
+                        R.string.time_health_clock_skew,
+                        result.clockSkewSeconds ?: 0L,
+                    )
+            },
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

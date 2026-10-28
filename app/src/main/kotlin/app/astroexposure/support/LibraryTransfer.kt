@@ -353,34 +353,8 @@ object LibraryTransfer {
 
     // --- JSON primitives ------------------------------------------------------
 
-    private fun obj(vararg fields: Pair<String, String>): String =
-        fields.joinToString(", ", "{", "}") { (k, v) -> "${quoted(k)}: $v" }
-
-    private fun num(v: Double): String {
-        // NaN / Infinity are not legal JSON numbers: refuse the export
-        // loudly rather than writing a backup that can never be re-imported.
-        require(v.isFinite()) { "non-finite value cannot be exported as JSON: $v" }
-        return if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
-    }
-
-    private fun optNum(v: Double?): String = v?.let { num(it) } ?: "null"
-
-    private fun optInt(v: Int?): String = v?.toString() ?: "null"
-
-    private fun quoted(s: String): String {
-        val sb = StringBuilder("\"")
-        for (ch in s) {
-            when (ch) {
-                '"' -> sb.append("\\\"")
-                '\\' -> sb.append("\\\\")
-                '\n' -> sb.append("\\n")
-                '\r' -> sb.append("\\r")
-                '\t' -> sb.append("\\t")
-                else -> if (ch < ' ') sb.append("\\u%04x".format(ch.code)) else sb.append(ch)
-            }
-        }
-        return sb.append('"').toString()
-    }
+    // The JSON writers (obj / num / optNum / optInt / quoted) are the
+    // shared JsonSupport top-level functions in this package.
 
     private fun JsonValue.Obj.str(key: String): String? =
         (entries[key] as? JsonValue.Str)?.value

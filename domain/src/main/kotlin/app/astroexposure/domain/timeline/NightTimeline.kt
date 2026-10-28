@@ -150,10 +150,14 @@ object NightTimeline {
         return ((instant.epochSecond - axisStart.epochSecond).toDouble() / total).coerceIn(0.0, 1.0)
     }
 
-    /** The instant at [fraction] along the axis — the inverse of [fractionOf]. */
+    /**
+     * The instant at [fraction] along the axis — the inverse of
+     * [fractionOf]. Sub-second remainders truncate, the convention the
+     * axis labels and the cursor placement always used.
+     */
     fun instantAtFraction(fraction: Double, axisStart: Instant, axisEnd: Instant): Instant {
         val total = axisEnd.epochSecond - axisStart.epochSecond
-        return axisStart.plusSeconds(Math.round(fraction * total))
+        return axisStart.plusSeconds((fraction * total).toLong())
     }
 
     /** Margin below the deepest sample on the altitude axis (layout spacing, empirical). */

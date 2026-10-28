@@ -83,45 +83,22 @@ fun SettingsScreen(
         // Cameras.
         Text(text = stringResource(R.string.settings_cameras), style = MaterialTheme.typography.titleSmall)
         cameras.forEach { (camera, custom) ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "${camera.displayName} · " + stringResource(
-                        if (custom) R.string.settings_custom_badge else R.string.settings_builtin_badge,
-                    ),
-                )
-                if (custom) {
-                    TextButton(onClick = { onDeleteCamera(camera, custom) }) {
-                        Text(stringResource(R.string.settings_delete))
-                    }
-                }
-            }
+            LibraryItemRow(
+                text = camera.displayName,
+                custom = custom,
+                onDelete = if (custom) ({ onDeleteCamera(camera, custom) }) else null,
+            )
         }
         CameraForm(onAddCamera)
 
         // Lenses.
         Text(text = stringResource(R.string.settings_lenses), style = MaterialTheme.typography.titleSmall)
         lenses.forEach { (lens, custom) ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "${lens.name} · " + stringResource(
-                        if (custom) R.string.settings_custom_badge else R.string.settings_builtin_badge,
-                    ),
-                    modifier = Modifier.weight(1f),
-                )
-                if (custom) {
-                    TextButton(onClick = { onDeleteLens(lens, custom) }) {
-                        Text(stringResource(R.string.settings_delete))
-                    }
-                }
-            }
+            LibraryItemRow(
+                text = lens.name,
+                custom = custom,
+                onDelete = if (custom) ({ onDeleteLens(lens, custom) }) else null,
+            )
         }
         LensForm(onAddLens)
 
@@ -138,9 +115,8 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = place.name, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        text = "%.4f, %.4f".format(
-                            place.location.latitude.value, place.location.longitude.value,
-                        ),
+                        text = "${formatCoordinateValue(place.location.latitude.value)}, " +
+                            formatCoordinateValue(place.location.longitude.value),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Row {
@@ -195,26 +171,71 @@ fun SettingsScreen(
         if (timeHealth.healthy) {
             Text(text = stringResource(R.string.time_health_ok))
         } else {
-            timeHealth.warnings.forEach { warning ->
-                Text(
-                    text = when (warning) {
-                        TimeHealthCheck.Warning.ZONE_MISMATCH ->
-                            stringResource(R.string.time_health_zone_mismatch)
-                        TimeHealthCheck.Warning.CLOCK_SKEW ->
-                            stringResource(
-                                R.string.time_health_clock_skew,
-                                timeHealth.clockSkewSeconds ?: 0L,
-                            )
-                    },
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+            TimeHealthWarningText(timeHealth)
         }
 
         // Data sources & licences.
         SectionTitle(stringResource(R.string.settings_data_sources))
         Text(text = dataSourcesText, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** One equipment-library row: name, built-in/custom badge, and a delete action for custom entries. */
+@Composable
+private fun LibraryItemRow(text: String, custom: Boolean, onDelete: (() -> Unit)?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "$text · " + stringResource(
+                if (custom) R.string.settings_custom_badge else R.string.settings_builtin_badge,
+            ),
+            modifier = Modifier.weight(1f),
+        )
+        if (onDelete != null) {
+            TextButton(onClick = onDelete) {
+                Text(stringResource(R.string.settings_delete))
+            }
+        }
+    }
+}
+
+/**
+ * The shell every add-to-library form shares: the form title, the
+ * caller's fields, the shared error line and the full-width submit
+ * button. [submit] validates the current field values; on Ok the
+ * shell clears the error and hands the value to [onAdded] (which adds
+ * it and resets the form's fields — the order the forms always used);
+ * on Invalid the error line shows and nothing is added.
+ */
+@Composable
+private fun <T> SettingsFormShell(
+    titleRes: Int,
+    submit: () -> FormResult<T>,
+    onAdded: (T) -> Unit,
+    fields: @Composable () -> Unit,
+) {
+    var error by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(text = stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
+        fields()
+        if (error) {
+            Text(text = stringResource(R.string.settings_form_error), color = MaterialTheme.colorScheme.error)
+        }
+        OutlinedButton(
+            onClick = {
+                when (val result = submit()) {
+                    is FormResult.Ok -> {
+                        error = false
+                        onAdded(result.value)
+                    }
+                    is FormResult.Invalid -> error = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_add)) }
     }
 }
 
@@ -225,19 +246,10 @@ private fun CameraForm(onAdd: (Camera) -> Unit) {
     var height by remember { mutableStateOf("") }
     var px by remember { mutableStateOf("") }
     var py by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = stringResource(R.string.settings_add_camera), style = MaterialTheme.typography.labelLarge)
-        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(width, { width = it }, label = { Text(stringResource(R.string.settings_field_sensor_w)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(height, { height = it }, label = { Text(stringResource(R.string.settings_field_sensor_h)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(px, { px = it }, label = { Text(stringResource(R.string.settings_field_pixels_x)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(py, { py = it }, label = { Text(stringResource(R.string.settings_field_pixels_y)) }, modifier = Modifier.fillMaxWidth())
-        if (error) {
-            Text(text = stringResource(R.string.settings_form_error), color = MaterialTheme.colorScheme.error)
-        }
-        OutlinedButton(onClick = {
-            val result = validateCustomCamera(
+    SettingsFormShell(
+        titleRes = R.string.settings_add_camera,
+        submit = {
+            validateCustomCamera(
                 id = "custom-" + UUID.randomUUID().toString(),
                 name = name,
                 sensorWidthMm = width.toDoubleOrNull() ?: 0.0,
@@ -245,15 +257,17 @@ private fun CameraForm(onAdd: (Camera) -> Unit) {
                 pixelsX = px.toIntOrNull() ?: 0,
                 pixelsY = py.toIntOrNull() ?: 0,
             )
-            when (result) {
-                is FormResult.Ok -> {
-                    error = false
-                    onAdd(result.value)
-                    name = ""; width = ""; height = ""; px = ""; py = ""
-                }
-                is FormResult.Invalid -> error = true
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_add)) }
+        },
+        onAdded = { camera ->
+            onAdd(camera)
+            name = ""; width = ""; height = ""; px = ""; py = ""
+        },
+    ) {
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(width, { width = it }, label = { Text(stringResource(R.string.settings_field_sensor_w)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(height, { height = it }, label = { Text(stringResource(R.string.settings_field_sensor_h)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(px, { px = it }, label = { Text(stringResource(R.string.settings_field_pixels_x)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(py, { py = it }, label = { Text(stringResource(R.string.settings_field_pixels_y)) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -265,20 +279,10 @@ private fun LensForm(onAdd: (Lens) -> Unit) {
     var max by remember { mutableStateOf("") }
     var aperture by remember { mutableStateOf("") }
     var tele by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = stringResource(R.string.settings_add_lens), style = MaterialTheme.typography.labelLarge)
-        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(mount, { mount = it }, label = { Text(stringResource(R.string.settings_field_mount)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(min, { min = it }, label = { Text(stringResource(R.string.settings_field_focal_min)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(max, { max = it }, label = { Text(stringResource(R.string.settings_field_focal_max)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(aperture, { aperture = it }, label = { Text(stringResource(R.string.settings_field_max_aperture)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(tele, { tele = it }, label = { Text(stringResource(R.string.settings_field_max_aperture_tele)) }, modifier = Modifier.fillMaxWidth())
-        if (error) {
-            Text(text = stringResource(R.string.settings_form_error), color = MaterialTheme.colorScheme.error)
-        }
-        OutlinedButton(onClick = {
-            val result = validateCustomLens(
+    SettingsFormShell(
+        titleRes = R.string.settings_add_lens,
+        submit = {
+            validateCustomLens(
                 id = "custom-" + UUID.randomUUID().toString(),
                 name = name,
                 mount = mount,
@@ -287,15 +291,18 @@ private fun LensForm(onAdd: (Lens) -> Unit) {
                 maxAperture = aperture.toDoubleOrNull() ?: 0.0,
                 maxApertureAtMaxFocal = tele.toDoubleOrNull(),
             )
-            when (result) {
-                is FormResult.Ok -> {
-                    error = false
-                    onAdd(result.value)
-                    name = ""; mount = ""; min = ""; max = ""; aperture = ""; tele = ""
-                }
-                is FormResult.Invalid -> error = true
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_add)) }
+        },
+        onAdded = { lens ->
+            onAdd(lens)
+            name = ""; mount = ""; min = ""; max = ""; aperture = ""; tele = ""
+        },
+    ) {
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(mount, { mount = it }, label = { Text(stringResource(R.string.settings_field_mount)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(min, { min = it }, label = { Text(stringResource(R.string.settings_field_focal_min)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(max, { max = it }, label = { Text(stringResource(R.string.settings_field_focal_max)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(aperture, { aperture = it }, label = { Text(stringResource(R.string.settings_field_max_aperture)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(tele, { tele = it }, label = { Text(stringResource(R.string.settings_field_max_aperture_tele)) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -390,20 +397,12 @@ private fun PlaceForm(currentZone: ZoneId, onAdd: (SavedPlace) -> Unit) {
     var lat by remember { mutableStateOf("") }
     var lon by remember { mutableStateOf("") }
     var bortle by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = stringResource(R.string.settings_add_place), style = MaterialTheme.typography.labelLarge)
-        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(lat, { lat = it }, label = { Text(stringResource(R.string.location_latitude)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(lon, { lon = it }, label = { Text(stringResource(R.string.location_longitude)) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(bortle, { bortle = it }, label = { Text(stringResource(R.string.bortle_manual_label)) }, modifier = Modifier.fillMaxWidth())
-        if (error) {
-            Text(text = stringResource(R.string.settings_form_error), color = MaterialTheme.colorScheme.error)
-        }
-        OutlinedButton(onClick = {
+    SettingsFormShell(
+        titleRes = R.string.settings_add_place,
+        submit = {
             val latDeg = lat.toDoubleOrNull() ?: Double.NaN
             val lonDeg = lon.toDoubleOrNull() ?: Double.NaN
-            val result = validatePlace(
+            validatePlace(
                 id = "place-" + UUID.randomUUID().toString(),
                 name = name,
                 latitudeDeg = latDeg,
@@ -414,14 +413,15 @@ private fun PlaceForm(currentZone: ZoneId, onAdd: (SavedPlace) -> Unit) {
                 zone = app.astroexposure.domain.geo.SiteTimeZone.resolve(latDeg, lonDeg, currentZone),
                 manualBortle = bortle.toIntOrNull(),
             )
-            when (result) {
-                is FormResult.Ok -> {
-                    error = false
-                    onAdd(result.value)
-                    name = ""; lat = ""; lon = ""; bortle = ""
-                }
-                is FormResult.Invalid -> error = true
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_add)) }
+        },
+        onAdded = { place ->
+            onAdd(place)
+            name = ""; lat = ""; lon = ""; bortle = ""
+        },
+    ) {
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.settings_field_name)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(lat, { lat = it }, label = { Text(stringResource(R.string.location_latitude)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(lon, { lon = it }, label = { Text(stringResource(R.string.location_longitude)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(bortle, { bortle = it }, label = { Text(stringResource(R.string.bortle_manual_label)) }, modifier = Modifier.fillMaxWidth())
     }
 }

@@ -131,12 +131,13 @@ private fun cursorInstantAt(
     widthPx: Int,
     timeline: TonightOverviewUseCase.Timeline,
 ): Instant {
-    val totalSec = (timeline.axisEnd.epochSecond - timeline.axisStart.epochSecond)
-        .toDouble().coerceAtLeast(1.0)
     val fraction = if (widthPx > 0) (xPx / widthPx).coerceIn(0f, 1f) else 0f
-    val epoch = timeline.axisStart.epochSecond + (fraction * totalSec).toLong()
     return TimelineCursor.clampToAxis(
-        TimelineCursor.truncatedToMinute(Instant.ofEpochSecond(epoch)),
+        TimelineCursor.truncatedToMinute(
+            NightTimeline.instantAtFraction(
+                fraction.toDouble(), timeline.axisStart, timeline.axisEnd,
+            ),
+        ),
         timeline.axisStart, timeline.axisEnd,
     )
 }
@@ -306,7 +307,7 @@ fun NightTimelineCard(
                 Text(
                     text = stringResource(
                         R.string.timeline_moon_note,
-                        Math.round(moonIllumination * 100),
+                        percentRounded(moonIllumination),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -408,11 +409,10 @@ fun NightTimelineCard(
                             },
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            val totalSec = (timeline.axisEnd.epochSecond - timeline.axisStart.epochSecond)
-                                .toDouble().coerceAtLeast(1.0)
                             fun xOf(instant: Instant): Float =
-                                ((instant.epochSecond - timeline.axisStart.epochSecond) / totalSec)
-                                    .toFloat() * size.width
+                                NightTimeline.fractionOf(
+                                    instant, timeline.axisStart, timeline.axisEnd,
+                                ).toFloat() * size.width
                             val maxAlt = max(
                                 40.0,
                                 timeline.samples.maxOfOrNull {
@@ -669,9 +669,10 @@ fun NightTimelineCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        val totalSec = timeline.axisEnd.epochSecond - timeline.axisStart.epochSecond
                         listOf(0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0).forEach { fraction ->
-                            val instant = timeline.axisStart.plusSeconds((totalSec * fraction).toLong())
+                            val instant = NightTimeline.instantAtFraction(
+                                fraction, timeline.axisStart, timeline.axisEnd,
+                            )
                             Text(
                                 text = formatTime(instant, zone),
                                 style = MaterialTheme.typography.labelSmall,
@@ -685,10 +686,9 @@ fun NightTimelineCard(
                     Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
                         if (cursorActive && cursorInstant != null) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
-                                val totalSec = (timeline.axisEnd.epochSecond -
-                                    timeline.axisStart.epochSecond).toDouble().coerceAtLeast(1.0)
-                                val cursorX = ((cursorInstant.epochSecond -
-                                    timeline.axisStart.epochSecond) / totalSec).toFloat() * size.width
+                                val cursorX = NightTimeline.fractionOf(
+                                    cursorInstant, timeline.axisStart, timeline.axisEnd,
+                                ).toFloat() * size.width
                                 drawLine(
                                     color = borderColor,
                                     start = Offset(0f, size.height / 2),
@@ -741,12 +741,10 @@ fun NightTimelineCard(
                                             .height(ARC_LANE_HEIGHT_DP),
                                     ) {
                                     Canvas(modifier = Modifier.fillMaxSize()) {
-                                        val totalSec = (timeline.axisEnd.epochSecond -
-                                            timeline.axisStart.epochSecond).toDouble()
-                                            .coerceAtLeast(1.0)
                                         fun xOf(instant: Instant): Float =
-                                            ((instant.epochSecond - timeline.axisStart.epochSecond) /
-                                                totalSec).toFloat() * size.width
+                                            NightTimeline.fractionOf(
+                                                instant, timeline.axisStart, timeline.axisEnd,
+                                            ).toFloat() * size.width
                                         val barTop = 2.dp.toPx()
                                         val barHeight = size.height - 4.dp.toPx()
                                         fun segment(

@@ -36,6 +36,7 @@ import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseType
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
+import app.astroexposure.domain.geo.Coordinates
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.lens.Lens
 import app.astroexposure.domain.model.DeepSkyModel
@@ -49,6 +50,9 @@ import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.support.SkyContext
 import app.astroexposure.support.StrictnessRecommendation
+import app.astroexposure.support.num
+import app.astroexposure.support.obj
+import app.astroexposure.support.quoted
 import app.astroexposure.usecase.DeepSkyUseCase
 import app.astroexposure.usecase.EclipseUseCase
 import app.astroexposure.usecase.WideFieldUseCase
@@ -323,7 +327,7 @@ private fun WideFieldCalculator(
         // unparseable or out-of-range declination is reported and NOT
         // silently replaced by a default value.
         val dec = declinationText.toDoubleOrNull()
-        if (dec == null || dec !in -90.0..90.0) {
+        if (dec == null || !Coordinates.isValidLatitude(dec)) {
             onDeclinationErrorChange(true)
             // A failed validation must not leave a previous result on
             // screen: the result card's badge follows the CURRENT
@@ -355,14 +359,9 @@ private fun WideFieldCalculator(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(computeSignal) {
-        if (computeSignal > 0) compute()
-    }
     // Tier switch recomputes an existing result at once (ui-design §6):
     // the badge and the numbers always belong to the same tier.
-    androidx.compose.runtime.LaunchedEffect(strictness) {
-        if (card != null) compute()
-    }
+    CalculatorEffects(computeSignal, strictness, { card != null }) { compute() }
     val result = card ?: return
     ResultCard(
         title = stringResource(R.string.cat_wide_field),
@@ -420,7 +419,12 @@ private fun WideFieldCalculator(
             "WIDE_FIELD",
             "${context.getString(R.string.cat_wide_field)} · ${focalMm.roundToInt()}mm",
             lines.joinToString("\n"),
-            "{\"focalMm\":$focalMm,\"aperture\":$aperture,\"strictness\":\"${strictness.name}\",\"profileId\":\"${profile.id}\"}",
+            obj(
+                "focalMm" to num(focalMm),
+                "aperture" to num(aperture),
+                "strictness" to quoted(strictness.name),
+                "profileId" to quoted(profile.id),
+            ),
         )
     }
 }
@@ -456,15 +460,7 @@ private fun LandscapeCalculator(
                     methods = if (checked) methods + method else methods - method
                 },
             )
-            Text(
-                text = stringResource(
-                    when (method) {
-                        LandscapeModel.ForegroundMethod.BLUE_HOUR -> R.string.landscape_method_blue_hour
-                        LandscapeModel.ForegroundMethod.NIGHT_LONG_EXPOSURE -> R.string.landscape_method_night
-                        LandscapeModel.ForegroundMethod.HIGH_ISO_STACK -> R.string.landscape_method_stack
-                    },
-                ),
-            )
+            Text(text = stringResource(foregroundMethodNameRes(method)))
         }
     }
     fun compute() {
@@ -527,12 +523,7 @@ private fun LandscapeCalculator(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(computeSignal) {
-        if (computeSignal > 0) compute()
-    }
-    androidx.compose.runtime.LaunchedEffect(strictness) {
-        if (result != null) compute()
-    }
+    CalculatorEffects(computeSignal, strictness, { result != null }) { compute() }
     val res = result ?: return
     ResultCard(
         title = stringResource(R.string.cat_landscape),
@@ -543,27 +534,22 @@ private fun LandscapeCalculator(
         Text(
             text = stringResource(
                 R.string.landscape_frame_line,
-                res.skyFrame.iso.toString(), "%.1f".format(res.skyFrame.aperture),
+                res.skyFrame.iso.toString(), formatApertureValue(res.skyFrame.aperture),
                 formatShutter(res.skyFrame.shutterSeconds),
             ),
         )
         Text(text = stringResource(R.string.landscape_foreground_frame), style = MaterialTheme.typography.titleSmall)
         res.foregroundFrames.forEach { frame ->
             Text(
-                text = stringResource(
-                    when (frame.method) {
-                        LandscapeModel.ForegroundMethod.BLUE_HOUR -> R.string.landscape_method_blue_hour
-                        LandscapeModel.ForegroundMethod.NIGHT_LONG_EXPOSURE -> R.string.landscape_method_night
-                        LandscapeModel.ForegroundMethod.HIGH_ISO_STACK -> R.string.landscape_method_stack
-                    },
-                ),
+                text = stringResource(foregroundMethodNameRes(frame.method)),
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(
                 text = stringResource(
                     R.string.landscape_frame_line,
                     "${frame.isoRange.first}–${frame.isoRange.last}",
-                    "${frame.apertureRange.start}–${frame.apertureRange.endInclusive}",
+                    "${formatApertureValue(frame.apertureRange.start)}–" +
+                        formatApertureValue(frame.apertureRange.endInclusive),
                     if (frame.shutterMinSeconds == frame.shutterMaxSeconds) {
                         formatShutter(frame.shutterMinSeconds)
                     } else {
@@ -597,7 +583,11 @@ private fun LandscapeCalculator(
             "LANDSCAPE",
             "${context.getString(R.string.cat_landscape)} · ${focalMm.roundToInt()}mm",
             lines.joinToString("\n"),
-            "{\"focalMm\":$focalMm,\"aperture\":$aperture,\"strictness\":\"${strictness.name}\"}",
+            obj(
+                "focalMm" to num(focalMm),
+                "aperture" to num(aperture),
+                "strictness" to quoted(strictness.name),
+            ),
         )
     }
 }
@@ -661,12 +651,7 @@ private fun DeepSkyCalculator(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(computeSignal) {
-        if (computeSignal > 0) compute()
-    }
-    androidx.compose.runtime.LaunchedEffect(strictness) {
-        if (card != null) compute()
-    }
+    CalculatorEffects(computeSignal, strictness, { card != null }) { compute() }
     val result = card ?: return
     when (val outcome = result.outcome) {
         is DeepSkyModel.Outcome.Ready -> ResultCard(
@@ -698,7 +683,7 @@ private fun DeepSkyCalculator(
                     stringResource(
                         R.string.deepsky_total,
                         outcome.totalHoursRepresentative, outcome.totalHoursMin,
-                        outcome.totalHoursMax, outcome.frameCount, "%.1f".format(outcome.dataGb),
+                        outcome.totalHoursMax, outcome.frameCount, formatDataGb(outcome.dataGb),
                     )
                 } else {
                     stringResource(
@@ -743,7 +728,11 @@ private fun DeepSkyCalculator(
             "DEEP_SKY",
             "${context.getString(R.string.cat_deep_sky)} · ${camera.displayName}",
             lines.joinToString("\n"),
-            "{\"aperture\":$aperture,\"strictness\":\"${strictness.name}\",\"targetClass\":\"${targetClass.name}\"}",
+            obj(
+                "aperture" to num(aperture),
+                "strictness" to quoted(strictness.name),
+                "targetClass" to quoted(targetClass.name),
+            ),
         )
     }
 }
@@ -806,9 +795,7 @@ private fun EclipseCalculator(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(computeSignal) {
-        if (computeSignal > 0) compute()
-    }
+    CalculatorEffects(computeSignal, null, { false }) { compute() }
 
     if (!solarMode) {
         EclipseIsoSelector(isoOptions, isoIndex) { isoIndex = it }
@@ -827,7 +814,7 @@ private fun EclipseCalculator(
                     text = stringResource(
                         R.string.moon_reason,
                         cardResult.result.phaseCorrectionStops,
-                        Math.round(cardResult.illumination * 100),
+                        percentRounded(cardResult.illumination),
                         if (cardResult.result.lowAltitudeCorrectionApplied) {
                             stringResource(R.string.moon_low_altitude_note)
                         } else {
@@ -841,7 +828,11 @@ private fun EclipseCalculator(
                 onSavePlan(
                     "ECLIPSE", context.getString(R.string.eclipse_mode_moon),
                     lines.joinToString("\n"),
-                    "{\"mode\":\"MOON\",\"iso\":$iso,\"aperture\":$aperture}",
+                    obj(
+                        "mode" to quoted("MOON"),
+                        "iso" to num(iso),
+                        "aperture" to num(aperture),
+                    ),
                 )
             }
         }
@@ -947,11 +938,23 @@ private fun EclipseCalculator(
                     "ECLIPSE",
                     "${context.getString(R.string.eclipse_mode_solar)} · ${eclipseType.name}",
                     lines.joinToString("\n"),
-                    "{\"mode\":\"SOLAR\",\"type\":\"${eclipseType.name}\",\"iso\":$iso,\"aperture\":$aperture}",
+                    obj(
+                        "mode" to quoted("SOLAR"),
+                        "type" to quoted(eclipseType.name),
+                        "iso" to num(iso),
+                        "aperture" to num(aperture),
+                    ),
                 )
             }
         }
     }
+}
+
+/** The landscape foreground method's display name (method picker and frame list share it). */
+fun foregroundMethodNameRes(method: LandscapeModel.ForegroundMethod): Int = when (method) {
+    LandscapeModel.ForegroundMethod.BLUE_HOUR -> R.string.landscape_method_blue_hour
+    LandscapeModel.ForegroundMethod.NIGHT_LONG_EXPOSURE -> R.string.landscape_method_night
+    LandscapeModel.ForegroundMethod.HIGH_ISO_STACK -> R.string.landscape_method_stack
 }
 
 private fun phenomenonRes(phenomenon: EclipseModel.Phenomenon): Int = when (phenomenon) {
@@ -1020,12 +1023,7 @@ private fun MeteorCalculator(
             "${context.getString(R.string.meteor_single)}: ${formatShutter(result.result.singleFrameSeconds)} · ISO ${result.result.iso} · ${result.result.frameCount} frames",
         )
     }
-    androidx.compose.runtime.LaunchedEffect(computeSignal) {
-        if (computeSignal > 0) compute()
-    }
-    androidx.compose.runtime.LaunchedEffect(strictness) {
-        if (card != null) compute()
-    }
+    CalculatorEffects(computeSignal, strictness, { card != null }) { compute() }
     val result = card ?: return
     val res = result.result
     ResultCard(
@@ -1062,7 +1060,7 @@ private fun MeteorCalculator(
         }
         Text(
             text = if (res.dataGb != null) {
-                stringResource(R.string.meteor_budget, res.frameCount, "%.1f".format(res.dataGb))
+                stringResource(R.string.meteor_budget, res.frameCount, formatDataGb(res.dataGb))
             } else {
                 stringResource(R.string.meteor_budget_no_data, res.frameCount)
             },
@@ -1102,7 +1100,12 @@ private fun MeteorCalculator(
             "METEOR",
             "${context.getString(R.string.cat_meteor)} · ${selectedShower.nameZh}",
             lines.joinToString("\n"),
-            "{\"shower\":\"${selectedShower.iauCode}\",\"focalMm\":$focalMm,\"aperture\":$aperture,\"hours\":${hours.toDouble()}}",
+            obj(
+                "shower" to quoted(selectedShower.iauCode),
+                "focalMm" to num(focalMm),
+                "aperture" to num(aperture),
+                "hours" to num(hours.toDouble()),
+            ),
         )
     }
 }
