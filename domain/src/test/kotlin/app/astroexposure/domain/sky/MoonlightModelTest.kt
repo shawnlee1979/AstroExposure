@@ -54,4 +54,22 @@ class MoonlightModelTest {
         val low = MoonlightModel.contributionMcdPerM2(1.0, 10.0, 90.0, 60.0)
         assertTrue(high > low)
     }
+
+    @Test
+    fun `illumination fraction is not brightness - a just-risen bright-phase moon contributes little`() {
+        // The two Moon figures the UI shows side by side are different
+        // concepts and must never be conflated (ui-design §7.5, 0.6.0):
+        // the illumination fraction is the phase geometry only (0.95
+        // just after full moon, whatever the altitude), while the
+        // CONTRIBUTION carries the Moon's altitude through atmospheric
+        // extinction. So the just-risen Moon at 1° with illumination
+        // 0.95 contributes far less sky brightness than the same Moon
+        // culminated at 81° with a slightly LOWER illumination 0.94.
+        val justRisen = MoonlightModel.contributionMcdPerM2(0.95, 1.0, 60.0, 40.0)
+        val culminated = MoonlightModel.contributionMcdPerM2(0.94, 81.0, 60.0, 40.0)
+        assertTrue(
+            "just-risen contribution $justRisen not far below culminated $culminated",
+            justRisen < culminated * 0.25,
+        )
+    }
 }

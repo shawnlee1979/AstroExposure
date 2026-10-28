@@ -24,7 +24,16 @@ interface EphemerisProvider {
      */
     fun astronomicalNight(location: GeoLocation, date: LocalDate): NightWindow?
 
-    /** Moon illumination fraction in [0, 1] at [instant] (1 = full moon). */
+    /**
+     * Moon illumination fraction in [0, 1] at [instant] (1 = full
+     * moon): the PHASE fraction of the disc lit, a function of the
+     * lunar phase only — it does NOT vary with the Moon's altitude
+     * and is NOT the moonlight brightness on the ground. Ground sky
+     * contribution is a different quantity, computed by the moonlight
+     * model from this fraction plus altitude and separation; the two
+     * must never be displayed or used interchangeably (ui-design
+     * §7.5, 0.6.0 concept split).
+     */
     fun moonIllumination(instant: Instant): Double
 
     /**

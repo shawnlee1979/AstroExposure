@@ -1,8 +1,12 @@
 package app.astroexposure.domain.timeline
 
+import app.astroexposure.domain.ephemeris.HorizontalCoordinates
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlin.math.acos
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Pure mathematics of the timeline cursor (ui-design §7.5): snapping to
@@ -286,6 +290,145 @@ object TimelineCursor {
             setting = setting,
             culmination = peak,
         )
+    }
+
+    // --- Recommended shooting window (ui-design §7.5, 0.6.0) -------------------
+
+    /** Altitude floor of the recommended window for high passes (ui-design §7.5). */
+    const val RECOMMENDED_MIN_ALTITUDE_DEG = 40.0
+
+    /** Drop from culmination that still counts as recommended for high passes. */
+    const val RECOMMENDED_DROP_DEG = 10.0
+
+    /**
+     * A target's recommended shooting window for one night (ui-design
+     * §7.5, 0.6.0): the maximal run of samples around the culmination
+     * that stays at or above [thresholdDeg], where the threshold is
+     * max(40°, culmination − 10°) for passes culminating at or above
+     * 40°, and (culmination − 10°) for lower passes — those are
+     * [relativeBest] windows and the detail card must say so instead of
+     * dressing a low pass up as a good one. Interval ends follow the
+     * [aboveThresholdIntervals] convention (first sample after the run,
+     * or the axis end).
+     */
+    data class RecommendedWindow(
+        val interval: NightTimeline.Interval,
+        val thresholdDeg: Double,
+        val culminationAltitudeDeg: Double,
+        val relativeBest: Boolean,
+    )
+
+    /** Recommended window of a target from its night altitude samples, or null when there are none. */
+    fun recommendedWindow(
+        samples: List<AltitudeSample>,
+        axisEnd: Instant,
+    ): RecommendedWindow? {
+        if (samples.isEmpty()) return null
+        val peakIndex = samples.indices.maxByOrNull { samples[it].altitudeDeg } ?: return null
+        val peak = samples[peakIndex].altitudeDeg
+        val relativeBest = peak < RECOMMENDED_MIN_ALTITUDE_DEG
+        val threshold = if (relativeBest) {
+            peak - RECOMMENDED_DROP_DEG
+        } else {
+            maxOf(RECOMMENDED_MIN_ALTITUDE_DEG, peak - RECOMMENDED_DROP_DEG)
+        }
+        var start = peakIndex
+        while (start > 0 && samples[start - 1].altitudeDeg >= threshold) start--
+        var end = peakIndex
+        while (end + 1 < samples.size && samples[end + 1].altitudeDeg >= threshold) end++
+        val intervalEnd = if (end + 1 < samples.size) samples[end + 1].instant else axisEnd
+        return RecommendedWindow(
+            interval = NightTimeline.Interval(samples[start].instant, intervalEnd),
+            thresholdDeg = threshold,
+            culminationAltitudeDeg = peak,
+            relativeBest = relativeBest,
+        )
+    }
+
+    /** Where the cursor sits relative to a recommended window (ui-design §7.5). */
+    enum class RecommendedState { BEFORE, INSIDE, AFTER }
+
+    /** Cursor state against [window]: before its start, inside [start, end), or from its end on. */
+    fun recommendedState(window: RecommendedWindow, instant: Instant): RecommendedState = when {
+        instant.isBefore(window.interval.start) -> RecommendedState.BEFORE
+        !instant.isBefore(window.interval.end) -> RecommendedState.AFTER
+        else -> RecommendedState.INSIDE
+    }
+
+    /** Whole minutes until the cursor enters [window]; 0 once it is inside or past it. */
+    fun recommendedMinutesUntil(window: RecommendedWindow, instant: Instant): Long =
+        if (instant.isBefore(window.interval.start)) {
+            Duration.between(instant, window.interval.start).toMinutes()
+        } else {
+            0L
+        }
+
+    // --- Moon separation and exclusion (ui-design §7.5, 0.6.0) ------------------
+
+    /** Separations strictly below this angle can exclude a target (ui-design §7.5). */
+    const val MOON_EXCLUSION_SEPARATION_DEG = 40.0
+
+    /** Separations below this angle earn the detail card a moonlight caution line. */
+    const val MOON_CAUTION_SEPARATION_DEG = 60.0
+
+    /**
+     * True spherical angular separation in degrees between two
+     * directions given by their horizontal coordinates, via the
+     * spherical law of cosines on (altitude, azimuth). This is the
+     * actual angle between the two lines of sight — NOT the altitude
+     * difference, which is only a lower bound and is never presented
+     * as a separation anywhere in the cursor rules.
+     */
+    fun angularSeparationDeg(a: HorizontalCoordinates, b: HorizontalCoordinates): Double {
+        val altA = Math.toRadians(a.altitude.value)
+        val altB = Math.toRadians(b.altitude.value)
+        val deltaAz = Math.toRadians(a.azimuth.value - b.azimuth.value)
+        val cosSep = sin(altA) * sin(altB) + cos(altA) * cos(altB) * cos(deltaAz)
+        return Math.toDegrees(acos(cosSep.coerceIn(-1.0, 1.0)))
+    }
+
+    /**
+     * The cursor-set exclusion (ui-design §7.5, 0.6.0): a target drops
+     * out of the shootable set at the cursor instant only when ALL
+     * three hold — the Moon is above the horizon (strictly, altitude
+     * > 0°), the true separation is strictly below 40°, and the
+     * moonlight interference toward the target is STRONG (the existing
+     * ≥1/3-of-baseline tier). A weak contribution or a wide separation
+     * never excludes; a Moon below the horizon never excludes whatever
+     * the geometry says.
+     */
+    fun moonExcluded(
+        separationDeg: Double,
+        moonAltitudeDeg: Double,
+        interference: MoonInterference,
+    ): Boolean =
+        moonAltitudeDeg > 0.0 &&
+            separationDeg < MOON_EXCLUSION_SEPARATION_DEG &&
+            interference == MoonInterference.STRONG
+
+    /** How the Moon bears on one target at the cursor (detail-card lines, ui-design §7.5). */
+    enum class MoonProximity { EXCLUDED, CAUTION, CLEAR }
+
+    /**
+     * Detail-card moon classification: EXCLUDED per [moonExcluded];
+     * CAUTION when the Moon is up, some interference is present, and
+     * either the tier is WEAK or the separation is below 60° (the
+     * neutral reminder line); CLEAR otherwise — including every case
+     * with the Moon below the horizon, where the separation is shown
+     * for reference only.
+     */
+    fun moonProximity(
+        separationDeg: Double,
+        moonAltitudeDeg: Double,
+        interference: MoonInterference,
+    ): MoonProximity = when {
+        moonExcluded(separationDeg, moonAltitudeDeg, interference) ->
+            MoonProximity.EXCLUDED
+        moonAltitudeDeg > 0.0 && interference != MoonInterference.NONE &&
+            (interference == MoonInterference.WEAK ||
+                separationDeg < MOON_CAUTION_SEPARATION_DEG) ->
+            MoonProximity.CAUTION
+        else -> MoonProximity.CLEAR
     }
 
     /** Where an instant sits in a target's pass (ui-design §7.5 detail-card wording). */

@@ -333,6 +333,215 @@ class TimelineCursorTest {
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
     }
 
+    // --- Recommended shooting window (0.6.0) -------------------------------------
+
+    /** Altitude samples every 5 minutes from BASE, for the given altitude curve. */
+    private fun samplesOf(vararg altitudesDeg: Double): List<TimelineCursor.AltitudeSample> =
+        altitudesDeg.mapIndexed { index, altitude ->
+            TimelineCursor.AltitudeSample(t((index * 5).toLong()), altitude)
+        }
+
+    private fun axisEndAfterSamples(count: Int): Instant = t((count * 5).toLong())
+
+    @Test
+    fun recommendedWindowHighPassUsesFortyDegreeFloor() {
+        // Peak 74° -> threshold max(40, 64) = 64; the run of samples at
+        // or above 64 around the peak is indices 2..4.
+        val samples = samplesOf(30.0, 55.0, 66.0, 74.0, 66.0, 55.0, 30.0)
+        val window = TimelineCursor.recommendedWindow(samples, axisEndAfterSamples(7))!!
+        assertEquals(64.0, window.thresholdDeg, 1e-9)
+        assertEquals(74.0, window.culminationAltitudeDeg, 1e-9)
+        assertFalse(window.relativeBest)
+        assertEquals(t(10), window.interval.start)
+        assertEquals(t(25), window.interval.end)
+    }
+
+    @Test
+    fun recommendedWindowPeakExactlyFortyUsesFortyThreshold() {
+        // Peak exactly 40° is NOT relative-best: threshold is 40 itself.
+        val samples = samplesOf(20.0, 38.0, 40.0, 39.0, 20.0)
+        val window = TimelineCursor.recommendedWindow(samples, axisEndAfterSamples(5))!!
+        assertEquals(40.0, window.thresholdDeg, 1e-9)
+        assertFalse(window.relativeBest)
+        assertEquals(t(10), window.interval.start)
+        assertEquals(t(15), window.interval.end)
+    }
+
+    @Test
+    fun recommendedWindowLowPassIsRelativeBest() {
+        // Peak 35° (< 40) -> threshold 25, flagged relative-best.
+        val samples = samplesOf(10.0, 24.0, 35.0, 26.0, 10.0)
+        val window = TimelineCursor.recommendedWindow(samples, axisEndAfterSamples(5))!!
+        assertEquals(25.0, window.thresholdDeg, 1e-9)
+        assertTrue(window.relativeBest)
+        assertEquals(t(10), window.interval.start)
+        assertEquals(t(20), window.interval.end)
+    }
+
+    @Test
+    fun recommendedWindowCanTouchAxisStartAndEnd() {
+        // Monotonic fall from the first sample: the window starts at
+        // the first sample. Monotonic rise to the last sample: the
+        // window ends at the axis end.
+        val falling = samplesOf(70.0, 68.0, 60.0, 30.0)
+        val fallingWindow = TimelineCursor.recommendedWindow(falling, axisEndAfterSamples(4))!!
+        assertEquals(60.0, fallingWindow.thresholdDeg, 1e-9)
+        assertEquals(t(0), fallingWindow.interval.start)
+        assertEquals(t(15), fallingWindow.interval.end)
+        val rising = samplesOf(30.0, 60.0, 68.0, 70.0)
+        val risingWindow = TimelineCursor.recommendedWindow(rising, axisEndAfterSamples(4))!!
+        assertEquals(t(5), risingWindow.interval.start)
+        assertEquals(axisEndAfterSamples(4), risingWindow.interval.end)
+    }
+
+    @Test
+    fun recommendedWindowSinglePoint() {
+        // Only the peak sample clears the threshold: the window is
+        // that one sample's slot (5 minutes at sample resolution).
+        val samples = samplesOf(20.0, 39.0, 45.0, 39.0, 20.0)
+        val window = TimelineCursor.recommendedWindow(samples, axisEndAfterSamples(5))!!
+        assertEquals(40.0, window.thresholdDeg, 1e-9)
+        assertEquals(t(10), window.interval.start)
+        assertEquals(t(15), window.interval.end)
+    }
+
+    @Test
+    fun recommendedWindowNullWithoutSamples() {
+        assertNull(TimelineCursor.recommendedWindow(emptyList(), t(0)))
+    }
+
+    @Test
+    fun recommendedStateCoversBeforeInsideAfter() {
+        val samples = samplesOf(30.0, 55.0, 66.0, 74.0, 66.0, 55.0, 30.0)
+        val window = TimelineCursor.recommendedWindow(samples, axisEndAfterSamples(7))!!
+        assertEquals(
+            TimelineCursor.RecommendedState.BEFORE,
+            TimelineCursor.recommendedState(window, t(9)),
+        )
+        assertEquals(1L, TimelineCursor.recommendedMinutesUntil(window, t(9)))
+        assertEquals(
+            TimelineCursor.RecommendedState.INSIDE,
+            TimelineCursor.recommendedState(window, t(10)),
+        )
+        assertEquals(
+            TimelineCursor.RecommendedState.INSIDE,
+            TimelineCursor.recommendedState(window, t(24)),
+        )
+        assertEquals(0L, TimelineCursor.recommendedMinutesUntil(window, t(24)))
+        // The end itself already belongs to AFTER (half-open window).
+        assertEquals(
+            TimelineCursor.RecommendedState.AFTER,
+            TimelineCursor.recommendedState(window, t(25)),
+        )
+    }
+
+    // --- Moon separation and exclusion (0.6.0) -----------------------------------
+
+    private fun horizontal(altDeg: Double, azDeg: Double) =
+        app.astroexposure.domain.ephemeris.HorizontalCoordinates(
+            app.astroexposure.domain.units.Degrees(altDeg),
+            app.astroexposure.domain.units.Degrees(azDeg),
+        )
+
+    @Test
+    fun separationOfSameDirectionIsZero() {
+        assertEquals(
+            0.0,
+            TimelineCursor.angularSeparationDeg(horizontal(30.0, 100.0), horizontal(30.0, 100.0)),
+            1e-9,
+        )
+    }
+
+    @Test
+    fun separationOfOppositeHorizonsIs180() {
+        assertEquals(
+            180.0,
+            TimelineCursor.angularSeparationDeg(horizontal(0.0, 0.0), horizontal(0.0, 180.0)),
+            1e-6,
+        )
+    }
+
+    @Test
+    fun separationFromZenithIsAltitudeComplement() {
+        // Zenith to a point at 30° altitude is 60° whatever the azimuth.
+        assertEquals(
+            60.0,
+            TimelineCursor.angularSeparationDeg(horizontal(90.0, 0.0), horizontal(30.0, 200.0)),
+            1e-6,
+        )
+    }
+
+    @Test
+    fun separationAlongHorizonIsAzimuthDifference() {
+        assertEquals(
+            90.0,
+            TimelineCursor.angularSeparationDeg(horizontal(0.0, 10.0), horizontal(0.0, 100.0)),
+            1e-6,
+        )
+        // NOT the altitude difference: two points 50° apart in azimuth
+        // at 40° altitude are closer than 50° on the sphere.
+        val sep = TimelineCursor.angularSeparationDeg(horizontal(40.0, 0.0), horizontal(40.0, 50.0))
+        assertTrue(sep < 50.0 && sep > 35.0)
+    }
+
+    @Test
+    fun exclusionNeedsAllThreeConditions() {
+        val strong = TimelineCursor.MoonInterference.STRONG
+        assertTrue(TimelineCursor.moonExcluded(39.9, 10.0, strong))
+        // Separation exactly 40° does NOT exclude (strictly below).
+        assertFalse(TimelineCursor.moonExcluded(40.0, 10.0, strong))
+        assertFalse(TimelineCursor.moonExcluded(80.0, 10.0, strong))
+    }
+
+    @Test
+    fun exclusionNeverFiresWithMoonDown() {
+        val strong = TimelineCursor.MoonInterference.STRONG
+        // Moon altitude exactly 0° is not "above the horizon".
+        assertFalse(TimelineCursor.moonExcluded(5.0, 0.0, strong))
+        assertFalse(TimelineCursor.moonExcluded(5.0, -20.0, strong))
+    }
+
+    @Test
+    fun exclusionNeverFiresForWeakOrNoInterference() {
+        assertFalse(TimelineCursor.moonExcluded(5.0, 10.0, TimelineCursor.MoonInterference.WEAK))
+        assertFalse(TimelineCursor.moonExcluded(5.0, 10.0, TimelineCursor.MoonInterference.NONE))
+    }
+
+    @Test
+    fun proximityClassifiesExcludedCautionClear() {
+        val strong = TimelineCursor.MoonInterference.STRONG
+        val weak = TimelineCursor.MoonInterference.WEAK
+        val none = TimelineCursor.MoonInterference.NONE
+        assertEquals(
+            TimelineCursor.MoonProximity.EXCLUDED,
+            TimelineCursor.moonProximity(20.0, 15.0, strong),
+        )
+        // Weak tier at any separation earns the caution line.
+        assertEquals(
+            TimelineCursor.MoonProximity.CAUTION,
+            TimelineCursor.moonProximity(120.0, 15.0, weak),
+        )
+        // Strong tier but separation inside the caution band (< 60°).
+        assertEquals(
+            TimelineCursor.MoonProximity.CAUTION,
+            TimelineCursor.moonProximity(50.0, 15.0, strong),
+        )
+        // Strong and far away: clear. No interference: clear even near.
+        assertEquals(
+            TimelineCursor.MoonProximity.CLEAR,
+            TimelineCursor.moonProximity(90.0, 15.0, strong),
+        )
+        assertEquals(
+            TimelineCursor.MoonProximity.CLEAR,
+            TimelineCursor.moonProximity(20.0, 15.0, none),
+        )
+        // Moon below the horizon: clear whatever the geometry.
+        assertEquals(
+            TimelineCursor.MoonProximity.CLEAR,
+            TimelineCursor.moonProximity(10.0, -5.0, strong),
+        )
+    }
+
     private companion object {
         val BASE: Instant = Instant.parse("2026-10-27T22:00:00Z")
     }
