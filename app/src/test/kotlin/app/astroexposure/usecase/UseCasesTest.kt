@@ -469,6 +469,61 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightTargetDetailFailurePathsReturnNull() {
+        // The detail dialog's failure branch (ui-design §7.5) keys on
+        // this contract: every failure to evaluate a tapped target —
+        // no catalogue wired, a catalogue whose load throws, an id the
+        // catalogue does not contain — is reported as null, so the UI
+        // can show its failure line instead of an endless placeholder.
+        // (The unknown-id case is also asserted in the on-demand test
+        // above.)
+        val date = LocalDate.of(2026, 8, 12)
+        val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
+
+        val noCatalog = TonightOverviewUseCase(ephemeris = ephemeris)
+        val noCatalogOverview = noCatalog.execute(nyc, date)
+        assertEquals(
+            null,
+            noCatalog.evaluateTargetAtCursor(
+                nyc, date, cursor, noCatalogOverview.timeline, objectId = "M33",
+            ),
+        )
+
+        val throwingCatalog = object : ObjectCatalog {
+            override fun allObjects(): List<DeepSkyObject> =
+                throw IllegalStateException("catalogue load failed")
+            override val dataVersion: String = "test"
+        }
+        val failing = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = throwingCatalog,
+        )
+        val failingOverview = failing.execute(nyc, date)
+        assertEquals(
+            null,
+            failing.evaluateTargetAtCursor(
+                nyc, date, cursor, failingOverview.timeline, objectId = "M33",
+            ),
+        )
+
+        val emptyCatalog = object : ObjectCatalog {
+            override fun allObjects(): List<DeepSkyObject> = emptyList()
+            override val dataVersion: String = "test"
+        }
+        val empty = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = emptyCatalog,
+        )
+        val emptyOverview = empty.execute(nyc, date)
+        assertEquals(
+            null,
+            empty.evaluateTargetAtCursor(
+                nyc, date, cursor, emptyOverview.timeline, objectId = "M33",
+            ),
+        )
+    }
+
+    @Test
     fun tonightCursorMoonExclusionRemovesTargetFromSet() {
         // The 0.6.0 exclusion end to end: with the Moon parked exactly
         // on the control evaluation's top target (full illumination,

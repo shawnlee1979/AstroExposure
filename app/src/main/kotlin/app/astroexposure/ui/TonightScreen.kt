@@ -114,6 +114,11 @@ fun TonightScreen(
     var targetDetail by remember(date) {
         mutableStateOf<TonightOverviewUseCase.TargetDetail?>(null)
     }
+    // True once the on-demand evaluation for [detailObjectId] has
+    // finished and produced nothing: the use case reports a missing or
+    // failed catalogue and an unknown id alike as null, and the dialog
+    // must show that as a failure, not as an endless "loading" state.
+    var detailLoadFailed by remember(date) { mutableStateOf(false) }
     var lastSnappedMoment by remember(date) { mutableStateOf<Int?>(null) }
     // Cursor lock (ui-design §7.5, 0.5.2 anti-mistouch): bound to the
     // selected night like every other cursor state — switching the
@@ -169,10 +174,13 @@ fun TonightScreen(
     // is modal, so the cursor cannot move while it is open).
     LaunchedEffect(detailObjectId, overview) {
         val id = detailObjectId
+        detailLoadFailed = false
         targetDetail = if (id != null && retainedCursor != null) {
-            withContext(Dispatchers.Default) {
+            val evaluated = withContext(Dispatchers.Default) {
                 onEvaluateTarget(retainedCursor!!, id)
             }
+            detailLoadFailed = evaluated == null
+            evaluated
         } else {
             null
         }
@@ -381,7 +389,12 @@ fun TonightScreen(
             val category = detail?.let { targetCalcCategory(it.obj.type) }
             DetailDialog(
                 title = detail?.obj?.let { it.nameZh ?: it.name } ?: tappedName ?: "…",
-                lines = detail?.let { targetDetailLines(it, zone) } ?: listOf("…"),
+                lines = when {
+                    detail != null -> targetDetailLines(detail, zone)
+                    detailLoadFailed ->
+                        listOf(stringResource(R.string.cursor_detail_unavailable))
+                    else -> listOf("…")
+                },
                 onDismiss = { detailObjectId = null },
                 actionLabel = if (detail != null && category != null) {
                     stringResource(R.string.cursor_detail_goto_calculator)

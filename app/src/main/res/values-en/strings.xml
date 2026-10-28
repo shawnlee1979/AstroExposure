@@ -103,6 +103,7 @@
     <string name="cursor_detail_constellation">Constellation %1$s</string>
     <string name="cursor_detail_state">Altitude %1$.0f° · azimuth %2$.0f° · %3$s</string>
     <string name="cursor_detail_goto_calculator">Open calculator</string>
+    <string name="cursor_detail_unavailable">Couldn’t load this target’s details — the catalogue is unavailable. Close and try again.</string>
     <string name="cursor_detail_window">Shootable window %1$s–%2$s · culmination %3$s · %4$.0f°</string>
     <string name="cursor_detail_moon_separation">Moon separation %1$d° · interference %2$s</string>
     <string name="cursor_moon_below_horizon">Moon below the horizon — separation is reference only</string>
