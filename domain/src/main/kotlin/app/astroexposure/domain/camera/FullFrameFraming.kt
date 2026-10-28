@@ -37,9 +37,6 @@ object FullFrameFraming {
     /** Full-frame long side, mm (36.0 x 24.0 mm). */
     const val FRAME_LONG_MM = 36.0
 
-    /** Full-frame short side, mm. */
-    const val FRAME_SHORT_MM = 24.0
-
     /** Lowest focal length the advice will name, mm. */
     const val MIN_FOCAL_MM = 24.0
 

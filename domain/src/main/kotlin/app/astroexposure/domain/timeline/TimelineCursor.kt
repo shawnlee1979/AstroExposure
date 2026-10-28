@@ -141,16 +141,11 @@ object TimelineCursor {
         axisEnd: Instant,
     ): List<NightTimeline.Interval> {
         val out = mutableListOf<NightTimeline.Interval>()
-        var runStart: Instant? = null
-        for (sample in samples) {
-            val up = sample.altitudeDeg >= thresholdDeg
-            if (up && runStart == null) runStart = sample.instant
-            if (!up && runStart != null) {
-                out += NightTimeline.Interval(runStart, sample.instant)
-                runStart = null
-            }
+        for (run in NightTimeline.contiguousRuns(samples) { it.altitudeDeg >= thresholdDeg }) {
+            val start = samples[run.first].instant
+            val end = if (run.last + 1 < samples.size) samples[run.last + 1].instant else axisEnd
+            out += NightTimeline.Interval(start, end)
         }
-        if (runStart != null) out += NightTimeline.Interval(runStart, axisEnd)
         return out.filter { it.end.isAfter(it.start) }
     }
 
@@ -186,17 +181,8 @@ object TimelineCursor {
      * the cursor bubble while it is being dragged; outside the sampled
      * span the nearest edge sample is used.
      */
-    fun moonAltitudeAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? {
-        if (samples.isEmpty()) return null
-        if (!instant.isAfter(samples.first().instant)) return samples.first().moonAltitudeDeg
-        if (!instant.isBefore(samples.last().instant)) return samples.last().moonAltitudeDeg
-        val upper = samples.first { !it.instant.isBefore(instant) }
-        val lower = samples.last { !it.instant.isAfter(instant) }
-        if (lower.instant == upper.instant) return lower.moonAltitudeDeg
-        val span = (upper.instant.epochSecond - lower.instant.epochSecond).toDouble()
-        val fraction = (instant.epochSecond - lower.instant.epochSecond) / span
-        return lower.moonAltitudeDeg + fraction * (upper.moonAltitudeDeg - lower.moonAltitudeDeg)
-    }
+    fun moonAltitudeAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? =
+        interpolateSampleValue(samples, instant) { it.moonAltitudeDeg }
 
     /**
      * Moon illumination fraction at an arbitrary instant, interpolated
@@ -204,16 +190,24 @@ object TimelineCursor {
      * the bubble's two Moon figures always describe the SAME instant
      * (the cursor's), never a mixture of cursor time and dusk.
      */
-    fun moonIlluminationAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? {
+    fun moonIlluminationAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? =
+        interpolateSampleValue(samples, instant) { it.moonIllumination }
+
+    /** The one interpolation both sampled Moon series share. */
+    private fun interpolateSampleValue(
+        samples: List<NightTimeline.Sample>,
+        instant: Instant,
+        selector: (NightTimeline.Sample) -> Double,
+    ): Double? {
         if (samples.isEmpty()) return null
-        if (!instant.isAfter(samples.first().instant)) return samples.first().moonIllumination
-        if (!instant.isBefore(samples.last().instant)) return samples.last().moonIllumination
+        if (!instant.isAfter(samples.first().instant)) return selector(samples.first())
+        if (!instant.isBefore(samples.last().instant)) return selector(samples.last())
         val upper = samples.first { !it.instant.isBefore(instant) }
         val lower = samples.last { !it.instant.isAfter(instant) }
-        if (lower.instant == upper.instant) return lower.moonIllumination
+        if (lower.instant == upper.instant) return selector(lower)
         val span = (upper.instant.epochSecond - lower.instant.epochSecond).toDouble()
         val fraction = (instant.epochSecond - lower.instant.epochSecond) / span
-        return lower.moonIllumination + fraction * (upper.moonIllumination - lower.moonIllumination)
+        return selector(lower) + fraction * (selector(upper) - selector(lower))
     }
 
     /** Drop from the night's peak altitude that still counts as "near culmination" (ui-design §7.5). */

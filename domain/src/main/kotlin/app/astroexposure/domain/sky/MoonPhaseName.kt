@@ -42,15 +42,13 @@ object MoonPhaseNames {
     /** The phase name for [thetaDeg] in degrees; any real value is normalised into [0, 360). */
     fun ofDegrees(thetaDeg: Double): MoonPhaseName {
         val theta = ((thetaDeg % 360.0) + 360.0) % 360.0
-        return when {
-            theta >= 337.5 || theta < 22.5 -> MoonPhaseName.NEW_MOON
-            theta < 67.5 -> MoonPhaseName.WAXING_CRESCENT
-            theta < 112.5 -> MoonPhaseName.FIRST_QUARTER
-            theta < 157.5 -> MoonPhaseName.WAXING_GIBBOUS
-            theta < 202.5 -> MoonPhaseName.FULL_MOON
-            theta < 247.5 -> MoonPhaseName.WANING_GIBBOUS
-            theta < 292.5 -> MoonPhaseName.LAST_QUARTER
-            else -> MoonPhaseName.WANING_CRESCENT
-        }
+        // Sectors are [SECTOR_DEG] wide, centred on the cardinal names
+        // (the New Moon sector straddles θ = 0°), and the enum is
+        // declared in phase order — so the sector index counts whole
+        // sectors from the half-sector offset. Every sector boundary is
+        // a multiple of [HALF_SECTOR_DEG], an exact binary fraction, so
+        // the division lands exactly on the boundary values.
+        val index = ((theta + HALF_SECTOR_DEG) / SECTOR_DEG).toInt() % MoonPhaseName.entries.size
+        return MoonPhaseName.entries[index]
     }
 }

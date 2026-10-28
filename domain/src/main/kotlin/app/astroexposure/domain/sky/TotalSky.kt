@@ -25,6 +25,14 @@ data class TotalSky(
      */
     val moonDegraded: Boolean,
 ) {
+    /**
+     * The baseline-only total (natural floor + artificial baseline, no
+     * moonlight) in mcd/m² — the reference the moonlight-interference
+     * tiers divide by. A missing baseline counts as 0 artificial light,
+     * the same footing as [compose].
+     */
+    val baselineTotalMcdPerM2: Double
+        get() = SkyBrightness.NATURAL_SKY_MCD_M2 + (baselineArtificialMcdPerM2 ?: 0.0)
     companion object {
         /**
          * Compose a [TotalSky]. A missing baseline counts as 0 artificial

@@ -66,16 +66,9 @@ object WideFieldModel {
     fun trackedSettings(camera: Camera, maxShutter: Seconds): TrackedSettings {
         val tidy = TIDY_SHUTTERS.firstOrNull { it <= maxShutter.value }
         val shutter = Seconds(tidy ?: maxShutter.value)
-        val gain = camera.preferredDualGainIso
-        return if (gain != null && camera.photoGainVerified) {
-            TrackedSettings(shutter = shutter, iso = gain, unverifiedGainFlag = false)
-        } else {
-            TrackedSettings(
-                shutter = shutter,
-                iso = camera.fallbackDeepSkyIso ?: gain,
-                unverifiedGainFlag = true,
-            )
-        }
+        // The ISO branch is the shared adsorption discipline (see below).
+        val (iso, unverifiedGainFlag) = adsorbedIso(camera)
+        return TrackedSettings(shutter = shutter, iso = iso, unverifiedGainFlag = unverifiedGainFlag)
     }
 
     /**

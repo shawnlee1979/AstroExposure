@@ -84,17 +84,52 @@ object NightTimeline {
      */
     fun moonAboveIntervals(samples: List<Sample>, axisStart: Instant, axisEnd: Instant): List<Interval> {
         val out = mutableListOf<Interval>()
-        var runStart: Instant? = null
-        for (sample in samples) {
-            val up = sample.moonAltitudeDeg > 0.0
-            if (up && runStart == null) runStart = maxOf(sample.instant, axisStart)
-            if (!up && runStart != null) {
-                out += Interval(runStart, minOf(sample.instant, axisEnd))
-                runStart = null
+        for (run in contiguousRuns(samples) { it.moonAltitudeDeg > 0.0 }) {
+            val start = maxOf(samples[run.first].instant, axisStart)
+            val end = if (run.last + 1 < samples.size) {
+                minOf(samples[run.last + 1].instant, axisEnd)
+            } else {
+                axisEnd
+            }
+            out += Interval(start, end)
+        }
+        return out.filter { it.end.isAfter(it.start) }
+    }
+
+    /**
+     * The maximal runs of consecutive indices whose elements satisfy
+     * [predicate], as index ranges. Endpoint conventions (what an index
+     * range means in time) stay with each caller; only the scanning is
+     * shared.
+     */
+    fun <T> contiguousRuns(items: List<T>, predicate: (T) -> Boolean): List<IntRange> {
+        val out = mutableListOf<IntRange>()
+        var runStart = -1
+        for (i in items.indices) {
+            if (predicate(items[i])) {
+                if (runStart < 0) runStart = i
+            } else if (runStart >= 0) {
+                out += runStart..(i - 1)
+                runStart = -1
             }
         }
-        if (runStart != null) out += Interval(runStart, axisEnd)
-        return out.filter { it.end.isAfter(it.start) }
+        if (runStart >= 0) out += runStart..items.lastIndex
+        return out
+    }
+
+    /**
+     * Sampling instants from [start] to [end] (both inclusive) at a fixed
+     * [stepMinutes] step — the one sampling grid the tonight timeline and
+     * the per-target altitude series share.
+     */
+    fun sampleInstants(start: Instant, end: Instant, stepMinutes: Long = SAMPLE_STEP_MINUTES): List<Instant> {
+        val out = mutableListOf<Instant>()
+        var t = start
+        while (!t.isAfter(end)) {
+            out += t
+            t = t.plusSeconds(stepMinutes * 60)
+        }
+        return out
     }
 
     /**
@@ -113,6 +148,12 @@ object NightTimeline {
         val total = axisEnd.epochSecond - axisStart.epochSecond
         if (total <= 0) return 0.0
         return ((instant.epochSecond - axisStart.epochSecond).toDouble() / total).coerceIn(0.0, 1.0)
+    }
+
+    /** The instant at [fraction] along the axis — the inverse of [fractionOf]. */
+    fun instantAtFraction(fraction: Double, axisStart: Instant, axisEnd: Instant): Instant {
+        val total = axisEnd.epochSecond - axisStart.epochSecond
+        return axisStart.plusSeconds(Math.round(fraction * total))
     }
 
     /** Margin below the deepest sample on the altitude axis (layout spacing, empirical). */

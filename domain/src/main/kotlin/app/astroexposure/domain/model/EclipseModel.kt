@@ -4,7 +4,6 @@ import app.astroexposure.domain.catalog.EclipseType
 import app.astroexposure.domain.units.Seconds
 import kotlin.math.abs
 import kotlin.math.log2
-import kotlin.math.pow
 
 /**
  * Solar-eclipse exposure reference (design §5.4.2) — a TABLE model, not a
@@ -90,9 +89,10 @@ object EclipseModel {
      */
     fun shutterFor(phenomenon: Phenomenon, aperture: Double, iso: Int): Seconds? {
         val col = nearestColumn(aperture)
-        val base = TABLE_SECONDS.getValue(phenomenon)[col] ?: return null
-        val columnAperture = TABLE_APERTURES[col]
-        val corrected = base * (aperture / columnAperture).pow(2) * (100.0 / iso)
+        // The cell value comes through [tableSeconds] so the table has a
+        // single access path; [col] is still needed for the anchor.
+        val base = tableSeconds(phenomenon, aperture) ?: return null
+        val corrected = scaleSeconds(base, aperture, TABLE_APERTURES[col], iso)
         // The table's longest cell is 32 s, beyond the dial scale's 30 s top;
         // return it unsnapped rather than silently shortening it.
         return if (corrected > 30.0) Seconds(corrected) else ShutterScale.snap(corrected)

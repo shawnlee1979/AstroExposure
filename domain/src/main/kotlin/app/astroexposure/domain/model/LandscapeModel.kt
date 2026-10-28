@@ -1,7 +1,5 @@
 package app.astroexposure.domain.model
 
-import kotlin.math.pow
-
 /**
  * Landscape-with-sky model (design §5.1): the output is a DUAL parameter
  * set — a sky frame (computed elsewhere by the NPF / drift models and
@@ -106,9 +104,7 @@ object LandscapeModel {
                     } else {
                     // EV shift from the f/8 + ISO 100 base to the chosen settings.
                     val base = blueHourBaseSeconds(minutes)
-                    val shifted = base *
-                        (input.blueHourAperture / 8.0).pow(2) *
-                        (100.0 / input.blueHourIso)
+                    val shifted = scaleSeconds(base, input.blueHourAperture, 8.0, input.blueHourIso)
                     ForegroundFrame(
                         method = method,
                         isoRange = 100..400,
