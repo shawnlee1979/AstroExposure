@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>曝光参谋 · 首页（今晚页）整合排版设计样张 v1.0（定稿）</title>
+<style>
+  :root{
+    --bg:#05070D; --card:#0C1120; --card2:#131B31; --border:#22304F;
+    --tx:#E9EEF8; --tx2:#96A3BE; --tx3:#5D6C8C; --gold:#F2C66D;
+    --info:#6EA8FE; --ok:#4CC38A; --warn:#F5A524; --bad:#E5484D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#02030A; color:var(--tx); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; padding:28px 20px 48px;}
+  h1{font-size:20px; font-weight:600; margin-bottom:6px;}
+  .sub{color:var(--tx2); font-size:13px; margin-bottom:24px; line-height:1.7;}
+  .wrap{display:flex; gap:36px; flex-wrap:wrap; align-items:flex-start;}
+  /* phone */
+  .phone{width:380px; background:var(--bg); border:1px solid var(--border); border-radius:28px; padding:16px 14px 10px; box-shadow:0 8px 40px rgba(0,0,0,.6);}
+  .stack{display:flex; flex-direction:column; gap:12px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:12px 14px;}
+  .rowline{display:flex; justify-content:space-between; align-items:center;}
+  .small{font-size:11px; color:var(--tx3);}
+  .lab{font-size:12px; color:var(--tx2);}
+  .val{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:14px; color:var(--tx); font-variant-numeric:tabular-nums;}
+  .val.gold{color:var(--gold); font-weight:600;}
+  .title{font-size:15px; font-weight:600;}
+  .sect{font-size:12px; color:var(--tx3); letter-spacing:.12em; margin-bottom:8px;}
+  .envrow{display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; border-top:1px dashed rgba(34,48,79,.7);}
+  .envrow:first-of-type{border-top:none;}
+  .divider{height:1px; background:var(--border); margin:9px 0 4px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px 18px;}
+  .cell .lab{display:block; margin-bottom:2px;}
+  /* timeline — mirrors the shipped app: sun band / moon band / marker row / target lanes / low-moon band */
+  .tl{position:relative; background:#070B18; border-radius:10px; overflow:hidden; padding:6px 0 4px;}
+  .sunband{height:16px; margin:0 8px; border-radius:4px; background:linear-gradient(90deg,#8A5A20 0%, #3D4E7D 18%, #101C42 38%, #101C42 74%, #3D4E7D 88%, #8A5A20 100%); position:relative;}
+  .sunband span{position:absolute; top:2px; font-size:8.5px; color:#C9D4EE;}
+  .moonband{height:12px; margin:5px 8px 0; border-radius:4px; background:#131B31; position:relative;}
+  .moonband i{position:absolute; top:0; bottom:0; left:20%; right:26%; background:#6EA8FE40; border-radius:4px;}
+  .moonband span{position:absolute; top:1px; font-size:8.5px; color:var(--tx2);}
+  .markers{height:14px; margin:2px 8px 0; position:relative; font-size:9px; color:var(--tx3);}
+  .markers b{position:absolute; font-weight:400; transform:translateX(-50%);}
+  .lane{height:26px; margin:5px 8px 0; background:var(--card2); border:1px solid var(--border); border-radius:6px; position:relative; overflow:hidden;}
+  .lane .seg{position:absolute; top:0; bottom:0; background:#22304F;}
+  .lane .culm{position:absolute; top:0; bottom:0; background:#F2C66D55;}
+  .lane .rec{position:absolute; top:0; bottom:0; border:1.5px solid var(--gold); border-radius:6px;}
+  .lane .nm{position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:10.5px; color:var(--tx); white-space:nowrap; z-index:2;}
+  .lane .culmlab{position:absolute; top:50%; transform:translate(-50%,-50%); font-size:9px; color:var(--gold); white-space:nowrap; z-index:2;}
+  .lowmoon{height:10px; margin:6px 8px 2px; border-radius:3px; background:#131B31; position:relative;}
+  .lowmoon i{position:absolute; top:0; bottom:0; left:26%; right:30%; background:#4CC38A38; border-radius:3px;}
+  .lowmoon span{position:absolute; top:0; font-size:8px; color:var(--ok);}
+  .cursor{position:absolute; top:0; bottom:0; width:2px; background:var(--gold); z-index:5;}
+  .bubble{position:absolute; z-index:6; background:var(--card2); border:1px solid var(--gold); border-radius:8px; padding:4px 8px; font-family:ui-monospace,Menlo,monospace; font-size:10px; line-height:1.5; color:var(--tx); white-space:nowrap;}
+  .axis{display:flex; justify-content:space-between; font-size:9px; color:var(--tx3); font-family:ui-monospace,Menlo,monospace; margin-top:4px;}
+  .tabs{display:flex; border-top:1px solid var(--border); margin-top:6px; padding-top:8px;}
+  .tabs div{flex:1; text-align:center; font-size:12px; color:var(--tx3); padding:4px 0;}
+  .tabs div.on{color:var(--gold); font-weight:600;}
+  .switch{width:34px; height:20px; border-radius:10px; background:var(--card2); border:1px solid var(--border); position:relative; display:inline-block; vertical-align:middle;}
+  .switch::after{content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--tx3);}
+  .endnote{border:1px dashed var(--border); border-radius:12px; padding:10px 12px; color:var(--tx3); font-size:12px; line-height:1.7; text-align:center;}
+  /* notes */
+  .notes{max-width:430px; display:flex; flex-direction:column; gap:14px;}
+  .note{background:#0A0E1C; border:1px solid var(--border); border-radius:14px; padding:14px 16px;}
+  .note h3{font-size:14px; margin-bottom:6px; color:var(--gold); font-weight:600;}
+  .note p{font-size:13px; color:var(--tx2); line-height:1.75;}
+  .note p b{color:var(--tx); font-weight:600;}
+  .num{display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; background:var(--gold); color:#131313; font-size:12px; font-weight:700; margin-right:6px;}
+  .tag{display:inline-block; border:1px solid var(--border); border-radius:6px; padding:0 6px; font-size:11px; color:var(--tx2); margin-right:4px;}
+</style>
+</head>
+<body>
+<h1>首页（今晚页）整合排版 · 设计样张 v1.0（定稿）</h1>
+<p class="sub">数值为示意，非真实历算。改动只有三处：环境数据并入地点卡、今晚概览立于时间轴上方、页底五类计算入口删除。样张中的时间轴已按当前 App 的实际样子复刻（日光带／月亮带／标记行／目标泳道含中天金段与推荐区间金框／低月光带／游标气泡），本稿不改时间轴本体与游标行为。</p>
+
+<div class="wrap">
+  <!-- ============ PHONE ============ -->
+  <div class="phone">
+    <div class="stack">
+
+      <!-- status row -->
+      <div class="rowline">
+        <span style="font-size:12px;"><span style="color:var(--ok);">●</span> <span style="color:var(--tx2);">时间正常</span></span>
+        <span class="lab">红光 <span class="switch"></span></span>
+      </div>
+
+      <!-- 1 location + environment -->
+      <div class="card">
+        <div class="rowline">
+          <span class="title">湖畔营地</span>
+          <span class="small">GPS 定位 · 10月28日更新</span>
+        </div>
+        <div class="small" style="margin-top:2px; font-family:ui-monospace,Menlo,monospace;">40.0123° N · 74.0060° W</div>
+        <div class="divider"></div>
+        <div class="sect">环境（黄昏时 · 朝向银心）</div>
+        <div class="envrow"><span class="lab">光害</span><span class="val">3.24 <span class="small">mcd/m² · Bortle 估计 5</span></span></div>
+        <div class="envrow"><span class="lab">月光贡献</span><span class="val">1.86 <span class="small">mcd/m²</span></span></div>
+        <div class="envrow"><span class="lab">总天光</span><span class="val gold">21.02 <span class="small" style="color:var(--tx3);">mag/arcsec²</span></span></div>
+      </div>
+
+      <!-- date row -->
+      <div class="rowline" style="padding:0 2px;">
+        <span class="val">‹</span>
+        <span style="font-size:14px;">10月28日 <span class="small">周三</span></span>
+        <span class="val">›</span>
+      </div>
+
+      <!-- 2 tonight overview block -->
+      <div class="card">
+        <div class="sect">今晚概览</div>
+        <div class="grid2">
+          <div class="cell"><span class="lab">天文夜</span><span class="val">18:47 – 05:58</span></div>
+          <div class="cell"><span class="lab">日高（游标 21:40）</span><span class="val">−24°</span></div>
+          <div class="cell"><span class="lab">月光干扰</span><span class="val">弱</span></div>
+          <div class="cell"><span class="lab">低月光窗口</span><span class="val">21:30 – 02:15</span></div>
+        </div>
+      </div>
+
+      <!-- timeline (faithful to the shipped app; this draft does not change it) -->
+      <div class="card" style="padding:10px 6px 8px;">
+        <div class="tl">
+          <div class="sunband"><span style="left:4px;">日落 17:52</span><span style="left:38%;">天文夜</span><span style="right:4px;">日出 07:05</span></div>
+          <div class="moonband"><i></i><span style="left:22%;">☾ 月亮 · 照明 94%</span></div>
+          <div class="markers"><b style="left:18%;">▽暮光终</b><b style="left:47%;">△中天</b><b style="left:74%;">▽月落</b><b style="left:88%;">△暮光始</b></div>
+          <div class="lane"><div class="seg" style="left:12%; right:14%;"></div><div class="culm" style="left:44%; right:34%;"></div><div class="rec" style="left:40%; right:30%;"></div><span class="nm">M31 仙女座星系</span><span class="culmlab" style="left:55%;">中天 23:56</span></div>
+          <div class="lane"><div class="seg" style="left:28%; right:22%;"></div><div class="culm" style="left:56%; right:32%;"></div><span class="nm">NGC 752</span></div>
+          <div class="lane"><div class="seg" style="left:6%; right:58%;"></div><div class="culm" style="left:22%; right:66%;"></div><span class="nm">银心</span></div>
+          <div class="lowmoon"><i></i><span style="left:27%;">低月光窗口</span></div>
+          <div class="cursor" style="left:44%;"></div>
+          <div class="bubble" style="left:calc(44% + 6px); top:44px;">21:40<br>月高 32°，月相 94%，光害 3.24</div>
+        </div>
+        <div class="axis"><span>17:00</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span></div>
+        <div class="rowline" style="margin-top:6px;">
+          <span style="font-size:12px; color:var(--tx2);">21:40 · 天文夜 · 银心可见时段</span>
+          <span class="small">◂ 1′ ▸</span>
+        </div>
+      </div>
+
+      <!-- shortlist -->
+      <div class="card">
+        <div class="sect">今晚短名单</div>
+        <div class="envrow"><span style="font-size:13px;">M31 仙女座星系</span><span class="val">中天 88°</span></div>
+        <div class="envrow"><span style="font-size:13px;">NGC 752 疏散星团</span><span class="val">中天 62°</span></div>
+        <div class="envrow"><span style="font-size:13px;">M45 昴星团</span><span class="val">中天 71°</span></div>
+      </div>
+
+      <div class="endnote">— 页面到此 —<br>五类计算入口已移至「计算」页顶部选择，此处不再出现</div>
+
+      <div class="tabs"><div class="on">今晚</div><div>计算</div><div>计划</div><div>设置</div></div>
+    </div>
+  </div>
+
+  <!-- ============ NOTES ============ -->
+  <div class="notes">
+    <div class="note">
+      <h3><span class="num">1</span>地点卡 = 地点＋环境</h3>
+      <p>光害、月光贡献、总天光三行并入地点卡下半区，口径小字（黄昏时 · 朝向银心）收进区标题。原来单独的「月光与总天光」块<b>整块删除</b>，全页天光数字只此一份。满月降级直话仍在本卡内出现（有则置于总天光行下），不降级。</p>
+    </div>
+    <div class="note">
+      <h3><span class="num">2</span>今晚概览块立于时间轴上方</h3>
+      <p>四项收齐：<b>天文夜起止</b>（整晚口径）、<b>日高</b>（游标时刻，跟游标走、标签注明游标时刻）、<b>月光干扰档</b>（整晚判定）、<b>低月光窗口</b>（有则起止、无则直写「今晚无低月光窗口」）。轴下状态行瘦身为「时刻 · 阶段」，不再重复这四项。</p>
+    </div>
+    <div class="note">
+      <h3><span class="num">3</span>五类计算入口删除</h3>
+      <p>页底入口网格整组移除，今晚页以短名单收尾。类别选择回到<b>计算页顶部</b>（现成机制）；目标详情窗「去计算」直达不受影响。</p>
+    </div>
+    <div class="note">
+      <h3><span class="num">4</span>地点识别与保存（追加）</h3>
+      <p>GPS 定位后自动比对收藏地点：<b>100 m 内</b>有收藏点就直接显示它的名字；没有匹配时卡面只显坐标＋<b>海拔</b>（GPS 自带，椭球高、精度粗，仅参考），并给一个<b>「保存为收藏地点」</b>按钮，点按命名即存，下次再来自动认出。手动地点无海拔来源时显 —，不编造。</p>
+    </div>
+    <div class="note">
+      <h3>不变项</h3>
+      <p><span class="tag">时间轴本体</span><span class="tag">游标与气泡</span><span class="tag">短名单口径</span><span class="tag">红光主题</span> 全部沿用现行；本稿只搬数据、去重复、删入口，不新增任何数值口径。</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
