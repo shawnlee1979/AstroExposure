@@ -9,6 +9,23 @@
     <string name="tab_settings">Settings</string>
 
     <string name="location_source_gps">Location source: GPS</string>
+    <string name="location_source_gps_matched">Location source: GPS · matched to a favourite place</string>
+    <string name="location_altitude">Altitude approx. %1$d m (GPS ellipsoidal height, coarse — reference only)</string>
+    <string name="location_altitude_none">Altitude —</string>
+    <string name="location_save_favourite">Save as a favourite place</string>
+    <string name="location_env_title">Environment (at dusk · toward the galactic centre)</string>
+    <string name="location_env_moonlight">Moonlight contribution %1$.2f mcd/m²</string>
+    <string name="location_env_total">Total sky %1$.2f mag/arcsec²</string>
+    <string name="tonight_overview_title">Tonight at a glance</string>
+    <string name="tonight_overview_night">Astronomical night</string>
+    <string name="tonight_overview_night_none">No astronomical night</string>
+    <string name="tonight_overview_sun_alt">Sun altitude</string>
+    <string name="tonight_overview_sun_alt_cursor">Sun altitude (cursor %1$s)</string>
+    <string name="tonight_overview_sun_alt_value">%1$.0f°</string>
+    <string name="tonight_overview_moon">Moonlight interference</string>
+    <string name="tonight_overview_low_moon">Low-moonlight window</string>
+    <string name="tonight_overview_low_moon_none">No low-moonlight window tonight</string>
+    <string name="tonight_overview_window_separator">, </string>
     <string name="location_source_manual">Location source: manual coordinates</string>
     <string name="location_source_favourite">Location source: favourite place</string>
     <string name="location_source_sample">Location source: built-in sample (not located)</string>
@@ -22,14 +39,11 @@
     <string name="time_health_clock_skew">Warning: GPS time and system time differ by %1$d s (&gt;60 s) — make sure network time sync is on; all ephemeris work in this app uses the device clock.</string>
 
 
-    <string name="tonight_sky_title">Moonlight and total sky (at dusk, toward the galactic centre)</string>
-    <string name="tonight_sky_total">Total sky %1$.2f mag/arcsec² (Bortle estimate %2$s)</string>
     <string name="tonight_sky_source_atlas">Baseline source: light-pollution atlas estimate</string>
     <string name="tonight_sky_source_manual">Baseline source: manual Bortle override</string>
     <string name="tonight_sky_source_none">The atlas has no data at these coordinates — pick a manual Bortle class as the fallback</string>
     <string name="tonight_moon_degraded">Strong moonlight tonight (illumination %1$d%%): deep-sky / Milky Way conditions are poor — sub-exposures are squeezed by sky brightness and total time is heavily discounted. The Moon itself or moonlit landscapes are better targets tonight.</string>
     <string name="tonight_events_title">Events within ±3 days</string>
-    <string name="tonight_entries_title">Calculators</string>
     <string name="tonight_event_eclipse">%1$s · %2$s eclipse (%3$s)</string>
     <string name="tonight_event_shower">%1$s · %2$s (peak approx. %3$s, ZHR %4$d)</string>
     <string name="tonight_events_none">No eclipse or shower peak within ±3 days</string>
@@ -80,7 +94,7 @@
     <string name="cursor_show_whole_night">Whole night ✕</string>
     <string name="cursor_lock">Lock</string>
     <string name="cursor_locked">Locked</string>
-    <string name="cursor_status">%1$s · Sun %2$.0f° · moonlight %3$s · %4$s</string>
+    <string name="cursor_status">%1$s · %2$s</string>
     <string name="cursor_segment_day">Daytime</string>
     <string name="cursor_segment_civil">Civil twilight</string>
     <string name="cursor_segment_nautical">Nautical twilight</string>
@@ -89,9 +103,6 @@
     <string name="cursor_interference_none">none</string>
     <string name="cursor_interference_weak">weak</string>
     <string name="cursor_interference_strong">strong</string>
-    <string name="cursor_low_moon_inside">In a low-moonlight window (until %1$s)</string>
-    <string name="cursor_low_moon_next">Low-moonlight window starts %1$s</string>
-    <string name="cursor_low_moon_none">No low-moonlight window tonight</string>
     <string name="cursor_arc_culmination">Culm. %1$s · %2$.0f°</string>
     <string name="cursor_detail_goto_calculator">Open calculator</string>
     <string name="cursor_detail_unavailable">Couldn’t load this target’s details. Close and try again.</string>

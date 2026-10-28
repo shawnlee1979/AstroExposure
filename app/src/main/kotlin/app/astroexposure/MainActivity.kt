@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astroexposure.domain.camera.Camera
 import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
+import app.astroexposure.domain.geo.FavouriteMatch
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.geo.SiteTimeZone
 import app.astroexposure.domain.lens.Lens
@@ -63,6 +64,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -352,6 +354,26 @@ private fun AstroApp(container: AppContainer) {
         ) { padding ->
             when (tab) {
                 Tab.TONIGHT -> overview?.let { result ->
+                    // Favourite recognition (ui-design §7.2): a GPS fix
+                    // within the match radius of a saved place is "at
+                    // that place" — the card shows its name and says the
+                    // match happened; the coordinates stay the fix's
+                    // own, nothing is snapped.
+                    val favouriteMatch = if (site.source == LocationSource.GPS) {
+                        FavouriteMatch.nearestWithinRadius(
+                            location.latitude.value,
+                            location.longitude.value,
+                            places.map { place ->
+                                FavouriteMatch.Candidate(
+                                    name = place.name,
+                                    latitudeDeg = place.location.latitude.value,
+                                    longitudeDeg = place.location.longitude.value,
+                                )
+                            },
+                        )
+                    } else {
+                        null
+                    }
                     TonightScreen(
                         overview = result,
                         date = tonightDate,
@@ -360,13 +382,14 @@ private fun AstroApp(container: AppContainer) {
                         deviceZone = ZoneId.systemDefault(),
                         latitudeDeg = location.latitude.value,
                         longitudeDeg = location.longitude.value,
-                        locationLabel = location.label,
+                        locationLabel = location.label ?: favouriteMatch?.name,
                         locationSourceText = stringResource(
-                            when (site.source) {
-                                LocationSource.GPS -> R.string.location_source_gps
-                                LocationSource.MANUAL -> R.string.location_source_manual
-                                LocationSource.FAVOURITE -> R.string.location_source_favourite
-                                LocationSource.SAMPLE -> R.string.location_source_sample
+                            when {
+                                favouriteMatch != null -> R.string.location_source_gps_matched
+                                site.source == LocationSource.GPS -> R.string.location_source_gps
+                                site.source == LocationSource.MANUAL -> R.string.location_source_manual
+                                site.source == LocationSource.FAVOURITE -> R.string.location_source_favourite
+                                else -> R.string.location_source_sample
                             },
                         ) + if (gpsFailed) " · " + stringResource(R.string.location_gps_failed) else "",
                         timeHealth = timeHealth,
@@ -389,9 +412,27 @@ private fun AstroApp(container: AppContainer) {
                             gpsFailed = false
                         },
                         onDateChange = { selectedDate = it },
-                        onOpenCategory = { cat ->
-                            calcCategory = cat
-                            tab = Tab.CALCULATE
+                        showAltitudeLine = site.source == LocationSource.GPS ||
+                            site.source == LocationSource.MANUAL,
+                        gpsAltitudeMeters = if (site.source == LocationSource.GPS && site.hasAltitude) {
+                            location.heightMeters
+                        } else {
+                            null
+                        },
+                        canSaveFavourite = site.source == LocationSource.GPS && favouriteMatch == null,
+                        onSaveFavourite = { name ->
+                            // The same store the Settings tab manages:
+                            // one place repository, no second path.
+                            val place = SavedPlace(
+                                id = "place-" + UUID.randomUUID().toString(),
+                                name = name,
+                                location = location.copy(label = name),
+                                manualBortle = manualBortle,
+                            )
+                            scope.launch(Dispatchers.IO) {
+                                repo.upsertPlace(place)
+                                reloadLibrary()
+                            }
                         },
                         onEvaluateCursor = { instant ->
                             container.tonightOverview.evaluateCursor(

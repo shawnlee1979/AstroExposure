@@ -9,6 +9,23 @@
     <string name="tab_settings">设置</string>
 
     <string name="location_source_gps">位置来源：GPS</string>
+    <string name="location_source_gps_matched">位置来源：GPS 定位 · 已匹配收藏地点</string>
+    <string name="location_altitude">海拔约 %1$d m（GPS 椭球高，精度粗，仅供参考）</string>
+    <string name="location_altitude_none">海拔 —</string>
+    <string name="location_save_favourite">保存为收藏地点</string>
+    <string name="location_env_title">环境（黄昏时 · 朝向银心）</string>
+    <string name="location_env_moonlight">月光贡献 %1$.2f mcd/m²</string>
+    <string name="location_env_total">总天光 %1$.2f mag/arcsec²</string>
+    <string name="tonight_overview_title">今晚概览</string>
+    <string name="tonight_overview_night">天文夜</string>
+    <string name="tonight_overview_night_none">无天文夜</string>
+    <string name="tonight_overview_sun_alt">日高</string>
+    <string name="tonight_overview_sun_alt_cursor">日高（游标 %1$s）</string>
+    <string name="tonight_overview_sun_alt_value">%1$.0f°</string>
+    <string name="tonight_overview_moon">月光干扰</string>
+    <string name="tonight_overview_low_moon">低月光窗口</string>
+    <string name="tonight_overview_low_moon_none">今晚无低月光窗口</string>
+    <string name="tonight_overview_window_separator">，</string>
     <string name="location_source_manual">位置来源：手动经纬度</string>
     <string name="location_source_favourite">位置来源：收藏地点</string>
     <string name="location_source_sample">位置来源：内置示例（未定位）</string>
@@ -22,14 +39,11 @@
     <string name="time_health_clock_skew">警告：GPS 时间与系统时间偏差 %1$d 秒（&gt;60 秒）——请确认已开启网络时间自动同步；本 App 的全部历算以设备时钟为准。</string>
 
 
-    <string name="tonight_sky_title">月光与总天光（黄昏时，朝向银心）</string>
-    <string name="tonight_sky_total">总天光 %1$.2f mag/arcsec²（Bortle 估计 %2$s）</string>
     <string name="tonight_sky_source_atlas">基线来源：光害图谱估算</string>
     <string name="tonight_sky_source_manual">基线来源：手动 Bortle 覆盖</string>
     <string name="tonight_sky_source_none">图谱在该坐标无数据——请手动选择 Bortle 等级兜底</string>
     <string name="tonight_moon_degraded">今晚月光强（照明比 %1$d%%），深空 / 银河条件差：子曝光被天光压短、总时长等效打折明显。今晚更适合拍月亮本体或带月光地景的星野。</string>
     <string name="tonight_events_title">±3 天事件</string>
-    <string name="tonight_entries_title">五类计算入口</string>
     <string name="tonight_event_eclipse">%1$s · %2$s食（%3$s）</string>
     <string name="tonight_event_shower">%1$s · %2$s（峰值约 %3$s，ZHR %4$d）</string>
     <string name="tonight_events_none">±3 天内无食或流星雨峰值事件</string>
@@ -80,7 +94,7 @@
     <string name="cursor_show_whole_night">看整晚 ✕</string>
     <string name="cursor_lock">锁定</string>
     <string name="cursor_locked">已锁定</string>
-    <string name="cursor_status">%1$s · 日高 %2$.0f° · 月光干扰 %3$s · %4$s</string>
+    <string name="cursor_status">%1$s · %2$s</string>
     <string name="cursor_segment_day">日间</string>
     <string name="cursor_segment_civil">民用暮光</string>
     <string name="cursor_segment_nautical">航海暮光</string>
@@ -89,9 +103,6 @@
     <string name="cursor_interference_none">无</string>
     <string name="cursor_interference_weak">弱</string>
     <string name="cursor_interference_strong">强</string>
-    <string name="cursor_low_moon_inside">在低月光窗口内（至 %1$s）</string>
-    <string name="cursor_low_moon_next">低月光窗口 %1$s 开始</string>
-    <string name="cursor_low_moon_none">今晚无低月光窗口</string>
     <string name="cursor_arc_culmination">中天 %1$s · %2$.0f°</string>
     <string name="cursor_detail_goto_calculator">去计算</string>
     <string name="cursor_detail_unavailable">目标详情加载失败，请关闭后重试</string>

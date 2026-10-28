@@ -243,6 +243,14 @@ class TonightOverviewUseCase(
         val skyAtDusk: SkyContext?,
         /** True when moonlight degrades deep-sky / galactic-centre work tonight (design §5 rule 2). */
         val moonDegraded: Boolean,
+        /**
+         * The whole-night moonlight-interference tier (ui-design §7.2):
+         * the tier of the dusk sky toward the galactic centre — the
+         * same [skyAtDusk] sample the location card's environment
+         * section shows, classified by the shared tier function; null
+         * when there is no sky context.
+         */
+        val moonInterferenceAtDusk: TimelineCursor.MoonInterference? = null,
         val lowMoonlightWindows: List<LowMoonlightWindow>,
         val events: List<Event>,
         /** False when an event catalogue failed to load and events are incomplete. */
@@ -328,6 +336,11 @@ class TonightOverviewUseCase(
             galacticCenter = gc,
             skyAtDusk = sky,
             moonDegraded = sky?.totalSky?.moonDegraded ?: false,
+            moonInterferenceAtDusk = sky?.let {
+                TimelineCursor.moonInterference(
+                    it.moonlightMcdPerM2, it.totalSky.baselineTotalMcdPerM2,
+                )
+            },
             lowMoonlightWindows = lowMoonlightWindows(location, night, sky),
             events = eventList,
             eventsAvailable = eventsOk,

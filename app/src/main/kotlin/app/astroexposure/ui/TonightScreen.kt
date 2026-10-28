@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -59,16 +60,19 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * Tonight overview (ui-design §4.1 and §7): location card (positioning +
- * light pollution in one card) → date switch → the static four-layer
- * timeline as the page backbone → moon/total-sky verdict → static
- * bright-object shortlist → ±3-day events. Conclusion first;
- * degradations stated plainly in their §7.4 positions.
+ * Tonight overview (ui-design §4.1 and §7): location card (positioning,
+ * light pollution and the dusk environment in one card) → date switch →
+ * tonight-at-a-glance block → the static four-layer timeline as the
+ * page backbone → static bright-object shortlist → ±3-day events; the
+ * page ends with the shortlist and events — calculator categories are
+ * chosen on the Calculate tab. Conclusion first; degradations stated
+ * plainly in their §7.4 positions.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -90,7 +94,13 @@ fun TonightScreen(
     onManualBortleChange: (Int?) -> Unit,
     onManualLocation: (Double, Double) -> Unit,
     onDateChange: (LocalDate) -> Unit,
-    onOpenCategory: (CalcCategory) -> Unit,
+    /** Whether the altitude line shows in the location card (GPS and manual sites, ui-design §7.2). */
+    showAltitudeLine: Boolean,
+    /** The GPS fix's altitude in metres; null when the fix carried none. */
+    gpsAltitudeMeters: Double?,
+    /** True for an unsaved GPS site: the card offers "save as a favourite place". */
+    canSaveFavourite: Boolean,
+    onSaveFavourite: (String) -> Unit,
     onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
     onOpenTargetCalculator: (CalcCategory, DeepSkyObject) -> Unit,
@@ -302,6 +312,10 @@ fun TonightScreen(
             onManualBortleChange = onManualBortleChange,
             onManualLocation = onManualLocation,
             onUseGps = onUseGps,
+            showAltitudeLine = showAltitudeLine,
+            gpsAltitudeMeters = gpsAltitudeMeters,
+            canSaveFavourite = canSaveFavourite,
+            onSaveFavourite = onSaveFavourite,
         )
 
         // §7.6: when the displayed zone is not the device zone, name it.
@@ -314,6 +328,18 @@ fun TonightScreen(
         }
 
         DateSwitchRow(date = date, anchorDate = anchorDate, onDateChange = onDateChange)
+
+        // Tonight at a glance (ui-design §7.2): the night's four
+        // headline facts above the timeline — astronomical night span,
+        // the Sun altitude at the cursor, the whole-night moonlight
+        // tier and the low-moonlight windows, all from data the
+        // overview already computed.
+        TonightOverviewBlock(
+            overview = overview,
+            cursorEvaluation = if (evalMatchesCursor) cursorEval else null,
+            cursorInstant = if (cursorActive) retainedCursor else null,
+            zone = zone,
+        )
 
         NightTimelineCard(
             timeline = overview.timeline,
@@ -459,46 +485,6 @@ fun TonightScreen(
             }
         }
 
-        // Moon / total-sky verdict card (the Bortle fallback lives in the
-        // location card now; the source annotation stays here).
-        val sky = overview.skyAtDusk
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                SectionTitle(stringResource(R.string.tonight_sky_title))
-                if (overview.moonDegraded) {
-                    Text(
-                        text = stringResource(
-                            R.string.tonight_moon_degraded,
-                            percentRounded(overview.moonIllumination),
-                        ),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (sky == null) {
-                    Text(text = stringResource(R.string.tonight_sky_source_none))
-                } else {
-                    InfoRow(
-                        stringResource(R.string.tonight_sky_total, sky.totalSky.totalMpsas, sky.totalSky.bortleEstimate?.toString() ?: "—"),
-                        "",
-                    )
-                    Text(
-                        text = stringResource(
-                            when (sky.totalSky.baselineSource) {
-                                BaselineSource.ATLAS -> R.string.tonight_sky_source_atlas
-                                BaselineSource.MANUAL_BORTLE -> R.string.tonight_sky_source_manual
-                                BaselineSource.NONE -> R.string.tonight_sky_source_none
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
         if (cursorActive && retainedCursor != null) {
             // Cursor state (ui-design §7.5): below the axis only the
             // status row remains — target details live in the dialog.
@@ -572,35 +558,6 @@ fun TonightScreen(
             }
         }
 
-        // Five-category entry grid (ui-design §3 / §4.1): the tonight
-        // page's flow ends in direct entries to each calculator.
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SectionTitle(stringResource(R.string.tonight_entries_title))
-                CalcCategory.entries.chunked(3).forEach { rowCats ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowCats.forEach { cat ->
-                            OutlinedButton(
-                                onClick = { onOpenCategory(cat) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 48.dp),
-                            ) {
-                                Text(stringResource(categoryNameRes(cat)))
-                            }
-                        }
-                        repeat(3 - rowCats.size) {
-                            androidx.compose.foundation.layout.Spacer(
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -736,12 +693,102 @@ private fun timelineMarkFor(
 }
 
 /**
- * Location card (ui-design §7.2): positioning and light pollution in one
- * card. Coordinates are shown as numbers with an edit affordance and are
- * edited in place; the GPS button overwrites without confirmation. The
- * light-pollution row shows the grid cell value with its data version,
- * or — where the grid has no data — the manual Bortle selector, the only
- * one in the app.
+ * The tonight-at-a-glance block (ui-design §7.2): four headline facts
+ * above the timeline, every one read from data the overview or the
+ * cursor evaluation already computed — astronomical night span, Sun
+ * altitude at the cursor (labelled with the cursor time), the
+ * whole-night moonlight tier and the low-moonlight windows. Without a
+ * cursor the Sun-altitude cell honestly shows "—".
+ */
+@Composable
+private fun TonightOverviewBlock(
+    overview: TonightOverviewUseCase.Result,
+    cursorEvaluation: TonightOverviewUseCase.CursorEvaluation?,
+    cursorInstant: Instant?,
+    zone: ZoneId,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SectionTitle(stringResource(R.string.tonight_overview_title))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    OverviewCellLabel(stringResource(R.string.tonight_overview_night))
+                    Text(
+                        text = overview.night?.let { night ->
+                            "${formatTime(night.dusk, zone)} – ${formatTime(night.dawn, zone)}"
+                        } ?: stringResource(R.string.tonight_overview_night_none),
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    OverviewCellLabel(
+                        if (cursorInstant != null) {
+                            stringResource(
+                                R.string.tonight_overview_sun_alt_cursor,
+                                formatTime(cursorInstant, zone),
+                            )
+                        } else {
+                            stringResource(R.string.tonight_overview_sun_alt)
+                        },
+                    )
+                    Text(
+                        text = cursorEvaluation?.let {
+                            stringResource(R.string.tonight_overview_sun_alt_value, it.sunAltitudeDeg)
+                        } ?: "—",
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    OverviewCellLabel(stringResource(R.string.tonight_overview_moon))
+                    Text(
+                        text = overview.moonInterferenceAtDusk?.let {
+                            stringResource(moonInterferenceNameRes(it))
+                        } ?: "—",
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    OverviewCellLabel(stringResource(R.string.tonight_overview_low_moon))
+                    Text(
+                        text = if (overview.lowMoonlightWindows.isEmpty()) {
+                            stringResource(R.string.tonight_overview_low_moon_none)
+                        } else {
+                            overview.lowMoonlightWindows.joinToString(
+                                separator = stringResource(R.string.tonight_overview_window_separator),
+                            ) { window ->
+                                "${formatTime(window.start, zone)} – ${formatTime(window.end, zone)}"
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewCellLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Location card (ui-design §7.2): positioning, light pollution and the
+ * dusk environment in one card. Coordinates are shown as numbers with
+ * an edit affordance and are edited in place; the GPS button
+ * overwrites without confirmation. The light-pollution row shows the
+ * grid cell value with its data version, or — where the grid has no
+ * data — the manual Bortle selector, the only one in the app. The
+ * environment section below it carries the moonlight contribution and
+ * the total sky (the page's only copy of those figures), the full-moon
+ * degradation line and the baseline source note. A GPS site shows its
+ * fix altitude (or "—" when the fix carried none) and, while it is not
+ * yet a favourite, a button that saves it as one.
  */
 @Composable
 private fun LocationCard(
@@ -754,11 +801,17 @@ private fun LocationCard(
     onManualBortleChange: (Int?) -> Unit,
     onManualLocation: (Double, Double) -> Unit,
     onUseGps: () -> Unit,
+    showAltitudeLine: Boolean,
+    gpsAltitudeMeters: Double?,
+    canSaveFavourite: Boolean,
+    onSaveFavourite: (String) -> Unit,
 ) {
     var editing by remember { mutableStateOf(false) }
     var latText by remember { mutableStateOf("") }
     var lonText by remember { mutableStateOf("") }
     var editError by remember { mutableStateOf(false) }
+    var savingFavourite by remember { mutableStateOf(false) }
+    var favouriteName by remember { mutableStateOf("") }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -842,6 +895,71 @@ private fun LocationCard(
                 }
             }
 
+            // The GPS fix's altitude (ui-design §7.2): shown for GPS
+            // and manual sites; a fix without altitude — and a manual
+            // site, which has no altitude source — shows "—" rather
+            // than an invented 0 m.
+            if (showAltitudeLine) {
+                Text(
+                    text = gpsAltitudeMeters?.let {
+                        stringResource(R.string.location_altitude, it.roundToInt())
+                    } ?: stringResource(R.string.location_altitude_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // Saving the current GPS site as a favourite (ui-design
+            // §7.2): offered only while the site is an unsaved GPS fix;
+            // once saved, the favourite match takes over the name line
+            // and this button disappears.
+            if (canSaveFavourite) {
+                OutlinedButton(
+                    onClick = {
+                        favouriteName = ""
+                        savingFavourite = true
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.location_save_favourite))
+                }
+            }
+            if (savingFavourite) {
+                AlertDialog(
+                    onDismissRequest = { savingFavourite = false },
+                    title = { Text(stringResource(R.string.location_save_favourite)) },
+                    text = {
+                        OutlinedTextField(
+                            value = favouriteName,
+                            onValueChange = { favouriteName = it },
+                            label = { Text(stringResource(R.string.settings_field_name)) },
+                            singleLine = true,
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onSaveFavourite(favouriteName.trim())
+                                savingFavourite = false
+                            },
+                            enabled = favouriteName.isNotBlank(),
+                        ) { Text(stringResource(R.string.location_edit_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { savingFavourite = false }) {
+                            Text(stringResource(R.string.location_edit_cancel))
+                        }
+                    },
+                )
+            }
+
+            // Environment section (ui-design §7.2): light pollution,
+            // moonlight contribution and total sky under one heading —
+            // the page's only copy of the sky figures.
+            Text(
+                text = stringResource(R.string.location_env_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             val info = overview.lightPollutionInfo
             if (info?.artificialMcdPerM2 != null) {
                 // One line end to end (ui-design §7.2): brightness,
@@ -872,6 +990,46 @@ private fun LocationCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+            // Moonlight contribution and total sky, moved here from
+            // the former standalone sky card (ui-design §7.2): same
+            // dusk sample toward the galactic centre, same figures.
+            // The total is the section's conclusion value and carries
+            // the accent colour; the full-moon degradation line sits
+            // directly under it, inside this card.
+            val sky = overview.skyAtDusk
+            if (sky == null) {
+                Text(text = stringResource(R.string.tonight_sky_source_none))
+            } else {
+                Text(
+                    text = stringResource(R.string.location_env_moonlight, sky.moonlightMcdPerM2),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.location_env_total, sky.totalSky.totalMpsas),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (overview.moonDegraded) {
+                    Text(
+                        text = stringResource(
+                            R.string.tonight_moon_degraded,
+                            percentRounded(overview.moonIllumination),
+                        ),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Text(
+                    text = stringResource(
+                        when (sky.totalSky.baselineSource) {
+                            BaselineSource.ATLAS -> R.string.tonight_sky_source_atlas
+                            BaselineSource.MANUAL_BORTLE -> R.string.tonight_sky_source_manual
+                            BaselineSource.NONE -> R.string.tonight_sky_source_none
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1000,12 +1158,14 @@ private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = st
 
 /**
  * The cursor state's strip below the axis (ui-design §7.5): ONLY the
- * four-item status row. Target details moved into the dialog opened
- * from the arc lanes; the whole "shootable at this moment" section —
- * title, ranked content and the activated target's detail card — is
- * gone. [evaluation] is null while an evaluation for the current
- * cursor position is still in flight — the strip then shows an
- * ellipsis, never stale results presented as current.
+ * slim status row — cursor time and the segment it falls in. The Sun
+ * altitude, moonlight tier and low-moonlight facts moved to the
+ * tonight-at-a-glance block above the timeline (ui-design §7.2), so
+ * nothing is stated twice; the evaluation still carries them for the
+ * block and the arcs. Target details live in the dialog opened from
+ * the arc lanes. [evaluation] is null while an evaluation for the
+ * current cursor position is still in flight — the strip then shows
+ * an ellipsis, never stale results presented as current.
  */
 @Composable
 private fun CursorStatusCard(
@@ -1021,8 +1181,7 @@ private fun CursorStatusCard(
                 Text(text = "…", style = MaterialTheme.typography.bodyMedium)
                 return@Column
             }
-            // Status row: segment, Sun altitude, moonlight tier,
-            // low-moonlight window membership (ui-design §7.5).
+            // Status row: cursor time + the segment it falls in.
             val segmentText = stringResource(
                 when (evaluation.segment) {
                     NightTimeline.SunBand.DAY -> R.string.cursor_segment_day
@@ -1034,21 +1193,10 @@ private fun CursorStatusCard(
                         R.string.cursor_segment_astronomical_night
                 },
             )
-            val interferenceText = stringResource(
-                moonInterferenceNameRes(evaluation.moonInterference),
-            )
-            val lowMoonText = when (val status = evaluation.lowMoonStatus) {
-                is TimelineCursor.LowMoonStatus.Inside ->
-                    stringResource(R.string.cursor_low_moon_inside, formatTime(status.end, zone))
-                is TimelineCursor.LowMoonStatus.Next ->
-                    stringResource(R.string.cursor_low_moon_next, formatTime(status.start, zone))
-                TimelineCursor.LowMoonStatus.None ->
-                    stringResource(R.string.cursor_low_moon_none)
-            }
             Text(
                 text = stringResource(
                     R.string.cursor_status,
-                    segmentText, evaluation.sunAltitudeDeg, interferenceText, lowMoonText,
+                    formatTime(evaluation.instant, zone), segmentText,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

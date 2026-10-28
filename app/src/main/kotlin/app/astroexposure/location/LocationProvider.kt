@@ -23,6 +23,14 @@ data class LocatedSite(
     val source: LocationSource,
     /** GPS fix time when the source is GPS; feeds the time-health clock-skew check. */
     val gpsTime: Instant?,
+    /**
+     * True when a GPS fix actually carried an altitude. The fix's
+     * altitude lands in [GeoLocation.heightMeters], which is 0.0 both
+     * for a sea-level fix and for a fix without altitude — this flag
+     * keeps the two apart so the UI never presents a missing altitude
+     * as a measured 0 m (ui-design §7.2).
+     */
+    val hasAltitude: Boolean = false,
 )
 
 /**
@@ -136,5 +144,6 @@ class LocationProvider(private val context: Context) {
         ),
         source = LocationSource.GPS,
         gpsTime = if (location.time > 0) Instant.ofEpochMilli(location.time) else null,
+        hasAltitude = location.hasAltitude(),
     )
 }
