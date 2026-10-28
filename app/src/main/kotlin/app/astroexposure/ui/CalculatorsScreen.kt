@@ -697,12 +697,13 @@ private fun DeepSkyCalculator(
                     outcome.otherC, outcome.subExposureOtherCSeconds,
                 ),
             )
+            val totalDataGb = outcome.dataGb
             Text(
-                text = if (outcome.dataGb != null) {
+                text = if (totalDataGb != null) {
                     stringResource(
                         R.string.deepsky_total,
                         outcome.totalHoursRepresentative, outcome.totalHoursMin,
-                        outcome.totalHoursMax, outcome.frameCount, formatDataGb(outcome.dataGb),
+                        outcome.totalHoursMax, outcome.frameCount, formatDataGb(totalDataGb),
                     )
                 } else {
                     stringResource(
@@ -1079,9 +1080,10 @@ private fun MeteorCalculator(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        val budgetDataGb = res.dataGb
         Text(
-            text = if (res.dataGb != null) {
-                stringResource(R.string.meteor_budget, res.frameCount, formatDataGb(res.dataGb))
+            text = if (budgetDataGb != null) {
+                stringResource(R.string.meteor_budget, res.frameCount, formatDataGb(budgetDataGb))
             } else {
                 stringResource(R.string.meteor_budget_no_data, res.frameCount)
             },
