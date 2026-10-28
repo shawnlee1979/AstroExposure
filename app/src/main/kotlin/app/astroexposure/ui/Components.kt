@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
@@ -137,6 +138,7 @@ fun AperturePicker(
         ) {
             scale.forEach { stop ->
                 FilterChip(
+                    modifier = Modifier.heightIn(min = 48.dp),
                     selected = stop == selected,
                     onClick = { onSelect(stop) },
                     label = { Text(formatAperture(stop)) },
@@ -222,6 +224,7 @@ fun StrictnessSelector(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Strictness.entries.forEach { tier ->
                 FilterChip(
+                    modifier = Modifier.heightIn(min = 48.dp),
                     selected = tier == value,
                     onClick = { onChange(tier) },
                     label = {
@@ -305,6 +308,27 @@ fun ResultCard(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
+        // Degradation is stated by a full-width warn bar across the very
+        // top of the card (ui-design §4.2), not an inset sub-card in a
+        // bad-semantic colour: the "!" glyph carries the state alongside
+        // the colour.
+        if (warning != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .androidx.compose.foundation.background(
+                        app.astroexposure.ui.theme.LocalStateColors.current.warn,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    text = "! $warning",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+            }
+        }
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -316,19 +340,6 @@ fun ResultCard(
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
                 if (badge != null) {
                     BadgeChip(badge)
-                }
-            }
-            if (warning != null) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
-                ) {
-                    Text(
-                        text = warning,
-                        modifier = Modifier.padding(12.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                    )
                 }
             }
             content()

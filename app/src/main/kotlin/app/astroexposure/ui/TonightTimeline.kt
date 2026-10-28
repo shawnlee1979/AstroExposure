@@ -4,7 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,7 +45,14 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.changedToDown
 
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -258,6 +266,7 @@ fun NightTimelineCard(
     onToggleCursorLock: () -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
+    val chartDescription = stringResource(R.string.timeline_chart_description)
     // Anti-mistouch gesture state (ui-design §7.5): snapshots read at
     // gesture start — deliberately NOT pointerInput keys, since a key
     // change would restart a detector mid-gesture. The plain drag owns
@@ -315,6 +324,9 @@ fun NightTimelineCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp)
+                            .semantics {
+                                contentDescription = chartDescription
+                            }
                             .pointerInput(timeline.axisStart, timeline.axisEnd) {
                                 // Cursor tap (ui-design §7.5) with the
                                 // coexistence rule documented on the
@@ -330,24 +342,44 @@ fun NightTimelineCard(
                                 )
                             }
                             .pointerInput(timeline.axisStart, timeline.axisEnd) {
-                                detectDragGestures(
-                                    onDragStart = { offset ->
-                                        // Snapshot (anti-mistouch,
-                                        // ui-design §7.5): a plain drag
-                                        // moves the cursor only when its
-                                        // gesture began with none placed;
-                                        // the snapshot then carries the
-                                        // whole gesture, so the placing
-                                        // drag keeps following the finger.
-                                        plainDragMovesCursor = !cursorPlacedState.value
-                                        if (plainDragMovesCursor) {
-                                            onCursorDrag(
-                                                cursorInstantAt(offset.x, size.width, timeline),
-                                            )
-                                        }
-                                    },
-                                    onDrag = { change, _ ->
-                                        if (plainDragMovesCursor) {
+                                // Direction-aware drag (interaction fix):
+                                // the first slop-crossing movement decides
+                                // the axis. A vertically dominant drag is
+                                // NOT consumed, so the page scroll keeps it;
+                                // only horizontal drags move the cursor.
+                                // (detectDragGestures consumed every axis
+                                // and made the chart - the page's largest
+                                // block - a scroll trap.)
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    plainDragMovesCursor = !cursorPlacedState.value
+                                    var totalDx = 0f
+                                    var totalDy = 0f
+                                    var horizontal: Boolean? = null
+                                    var change = currentEvent.changes.firstOrNull { it.id == down.id }
+                                    while (change != null && !change.changedToUp()) {
+                                        val event = awaitPointerEvent()
+                                        change = event.changes.firstOrNull { it.id == down.id }
+                                            ?: break
+                                        if (change.changedToUp()) break
+                                        val delta = change.positionChange()
+                                        totalDx += delta.x
+                                        totalDy += delta.y
+                                        if (horizontal == null &&
+                                            (kotlin.math.abs(totalDx) > viewConfiguration.touchSlop ||
+                                                kotlin.math.abs(totalDy) > viewConfiguration.touchSlop)
+                                        ) {
+                                            horizontal =
+                                                kotlin.math.abs(totalDx) >= kotlin.math.abs(totalDy)
+                                            if (horizontal == true && plainDragMovesCursor) {
+                                                change.consume()
+                                                onCursorDrag(
+                                                    cursorInstantAt(
+                                                        change.position.x, size.width, timeline,
+                                                    ),
+                                                )
+                                            }
+                                        } else if (horizontal == true && plainDragMovesCursor) {
                                             change.consume()
                                             onCursorDrag(
                                                 cursorInstantAt(
@@ -355,10 +387,9 @@ fun NightTimelineCard(
                                                 ),
                                             )
                                         }
-                                    },
-                                    onDragEnd = { plainDragMovesCursor = false },
-                                    onDragCancel = { plainDragMovesCursor = false },
-                                )
+                                    }
+                                    plainDragMovesCursor = false
+                                }
                             }
                             .pointerInput(timeline.axisStart, timeline.axisEnd) {
                                 // Repositioning a placed cursor
@@ -572,7 +603,8 @@ fun NightTimelineCard(
                                 modifier = Modifier
                                     .offset(x = leftDp.dp)
                                     .size(width = 40.dp, height = 150.dp)
-                                    .clickable { selectedMark = mark },
+                                    .clickable { selectedMark = mark }
+                                    .semantics { contentDescription = mark.title },
                             )
                         }
                         // Cursor bubble (ui-design §7.5): cursor time
@@ -704,9 +736,16 @@ fun NightTimelineCard(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(ARC_LANE_HEIGHT_DP)
-                                        .clickable { onArcTap(index) },
+                                        .height(48.dp)
+                                        .clickable { onArcTap(index) }
+                                        .semantics { contentDescription = arc.label },
+                                    contentAlignment = Alignment.Center,
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(ARC_LANE_HEIGHT_DP),
+                                    ) {
                                     Canvas(modifier = Modifier.fillMaxSize()) {
                                         val totalSec = (timeline.axisEnd.epochSecond -
                                             timeline.axisStart.epochSecond).toDouble()
@@ -857,6 +896,7 @@ fun NightTimelineCard(
                                             )
                                         }
                                     }
+                                    }
                                 }
                             }
                         }
@@ -980,6 +1020,17 @@ private fun CursorStepButton(
         modifier = Modifier
             .size(48.dp)
             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            // The press/hold gesture below is pointer-level, so expose
+            // the step as a real accessibility action: a screen reader
+            // can invoke the one-minute step and hears the button's name.
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+                onClick(label = label) {
+                    onStep(1L)
+                    true
+                }
+            }
             .pointerInput(label) {
                 detectTapGestures(
                     onPress = {

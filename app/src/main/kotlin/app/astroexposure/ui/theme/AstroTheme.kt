@@ -102,12 +102,41 @@ private val AstroShapes = Shapes(
     extraLarge = RoundedCornerShape(16.dp),
 )
 
+/**
+ * The four state colours (spec §2) as a composition local: Material's
+ * role table has no warn/info/ok slots distinct from primary/tertiary/
+ * error, and state must never be carried by hue alone — call sites pair
+ * these colours with the spec's glyph and line-style channels (check
+ * for ok, ! for warn, warning triangle for bad).
+ */
+data class StateColors(val info: Color, val ok: Color, val warn: Color, val bad: Color)
+
+private val NightStateColors = StateColors(
+    info = Color(0xFF6EA8FE),
+    ok = Color(0xFF4CC38A),
+    warn = Color(0xFFF5A524),
+    bad = Color(0xFFE5484D),
+)
+
+private val RedStateColors = StateColors(
+    info = Color(0xFFFF9D8A),
+    ok = Color(0xFFE5563C),
+    warn = Color(0xFFFF7A45),
+    bad = Color(0xFFFF4A3D),
+)
+
+val LocalStateColors = androidx.compose.runtime.compositionLocalOf { NightStateColors }
+
 @Composable
 fun AstroTheme(redLight: Boolean, content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (redLight) RedScheme else NightScheme,
-        typography = AstroTypography,
-        shapes = AstroShapes,
-        content = content,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalStateColors provides if (redLight) RedStateColors else NightStateColors,
+    ) {
+        MaterialTheme(
+            colorScheme = if (redLight) RedScheme else NightScheme,
+            typography = AstroTypography,
+            shapes = AstroShapes,
+            content = content,
+        )
+    }
 }

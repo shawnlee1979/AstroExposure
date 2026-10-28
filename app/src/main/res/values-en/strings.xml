@@ -90,6 +90,7 @@
     <string name="date_label_past">%1$d days ago · %2$s</string>
     <string name="tonight_zone_note">Times shown in %1$s</string>
     <string name="timeline_title">Timeline</string>
+    <string name="timeline_chart_description">Timeline chart: Sun and Moon altitude curves with nine key-moment ticks. Tap a tick for details; drag horizontally to place the cursor.</string>
     <string name="timeline_no_night">No astronomical night tonight</string>
     <string name="timeline_moon_note">Moon · phase illumination %1$d%%</string>
     <string name="timeline_legend_sun">Sun (solid line)</string>

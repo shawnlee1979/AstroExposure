@@ -3,10 +3,12 @@ package app.astroexposure.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -220,12 +222,16 @@ fun TonightScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Health reads by glyph AND colour (ui-design §2 triple
+            // encoding): a filled disc when healthy, a warning triangle
+            // when not — previously both states rendered the same disc
+            // in two red-theme colours one hex step apart.
             Text(
-                text = if (timeHealth.healthy) "●" else "●",
+                text = if (timeHealth.healthy) "●" else "▲",
                 color = if (timeHealth.healthy) {
-                    MaterialTheme.colorScheme.primary
+                    app.astroexposure.ui.theme.LocalStateColors.current.ok
                 } else {
-                    MaterialTheme.colorScheme.error
+                    app.astroexposure.ui.theme.LocalStateColors.current.bad
                 },
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -661,17 +667,25 @@ private fun LocationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(
-                        text = "%.4f°  %.4f°  ✎".format(latitudeDeg, longitudeDeg),
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.clickable {
-                            latText = "%.4f".format(latitudeDeg)
-                            lonText = "%.4f".format(longitudeDeg)
-                            editError = false
-                            editing = true
-                        },
-                    )
+                    // The edit entry is a full 48dp-tall touch target
+                    // (ui-design §2), not just the text line's height.
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .clickable {
+                                latText = "%.4f".format(latitudeDeg)
+                                lonText = "%.4f".format(longitudeDeg)
+                                editError = false
+                                editing = true
+                            },
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text(
+                            text = "%.4f°  %.4f°  ✎".format(latitudeDeg, longitudeDeg),
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
                     OutlinedButton(onClick = onUseGps) {
                         Text(stringResource(R.string.location_use_gps))
                     }
@@ -719,26 +733,23 @@ private fun LocationCard(
 
             val info = overview.lightPollutionInfo
             if (info?.artificialMcdPerM2 != null) {
-                Text(
-                    text = stringResource(
-                        R.string.location_light_row,
-                        info.bortleEstimate ?: 0,
-                        info.artificialMcdPerM2,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                // Short display composed from the grid header fields
-                // (ui-design §7.2), in the current UI language; the raw
-                // header string is the fallback when a field is missing.
+                // One line end to end (ui-design §7.2): brightness,
+                // Bortle estimate and the data version's short display.
+                // The short display is composed from the grid header
+                // fields in the current UI language; the raw header
+                // string is the fallback when a field is missing.
                 val english = androidx.compose.ui.platform.LocalConfiguration.current
                     .locales[0]?.language == "en"
                 val shortVersion = info.versionInfo?.let {
                     LightPollutionVersionFormat.shortDisplay(it, english)
                 } ?: info.dataVersion
                 Text(
-                    text = stringResource(R.string.location_light_version, shortVersion),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(
+                        R.string.location_light_row,
+                        info.bortleEstimate ?: 0,
+                        info.artificialMcdPerM2,
+                    ) + " · " + shortVersion,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
                 Text(text = stringResource(R.string.location_light_no_data))
@@ -797,15 +808,20 @@ private fun DateSwitchRow(
         OutlinedButton(
             onClick = { onDateChange(TonightDateWindow.stepped(anchorDate, date, -1)) },
             enabled = TonightDateWindow.canStep(anchorDate, date, -1),
+            modifier = Modifier.heightIn(min = 48.dp),
         ) { Text("◀") }
         TextButton(onClick = { showPicker = true }) { Text(label) }
         OutlinedButton(
             onClick = { onDateChange(TonightDateWindow.stepped(anchorDate, date, 1)) },
             enabled = TonightDateWindow.canStep(anchorDate, date, 1),
+            modifier = Modifier.heightIn(min = 48.dp),
         ) { Text("▶") }
     }
     if (relative != TonightDateWindow.Relative.TONIGHT) {
-        TextButton(onClick = { onDateChange(anchorDate) }) {
+        TextButton(
+            onClick = { onDateChange(anchorDate) },
+            modifier = Modifier.heightIn(min = 48.dp),
+        ) {
             Text(stringResource(R.string.date_back_to_tonight))
         }
     }
@@ -1188,6 +1204,7 @@ fun BortleSelector(selected: Int?, onChange: (Int?) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             (1..9).forEach { bortle ->
                 FilterChip(
+                    modifier = Modifier.heightIn(min = 48.dp),
                     selected = selected == bortle,
                     onClick = { onChange(if (selected == bortle) null else bortle) },
                     label = { Text(bortle.toString()) },

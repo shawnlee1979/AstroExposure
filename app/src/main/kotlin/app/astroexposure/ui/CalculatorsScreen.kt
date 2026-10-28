@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -128,6 +129,7 @@ fun CalculatorsScreen(
         ) {
             CalcCategory.entries.forEach { cat ->
                 FilterChip(
+                    modifier = Modifier.heightIn(min = 48.dp),
                     selected = category == cat,
                     onClick = { category = cat },
                     label = { Text(stringResource(categoryNameRes(cat))) },
@@ -226,6 +228,7 @@ private fun EclipseIsoSelector(options: List<Int>, selectedIndex: Int, onSelect:
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEachIndexed { index, iso ->
             FilterChip(
+                modifier = Modifier.heightIn(min = 48.dp),
                 selected = selectedIndex == index,
                 onClick = { onSelect(index) },
                 label = { Text(iso.toString()) },
@@ -584,6 +587,7 @@ private fun DeepSkyCalculator(
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         DeepSkyModel.TargetClass.entries.forEach { cls ->
             FilterChip(
+                modifier = Modifier.heightIn(min = 48.dp),
                 selected = targetClass == cls,
                 onClick = { targetClass = cls },
                 label = {
@@ -730,10 +734,12 @@ private fun EclipseCalculator(
 
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FilterChip(
+            modifier = Modifier.heightIn(min = 48.dp),
             selected = !solarMode, onClick = { solarMode = false },
             label = { Text(stringResource(R.string.eclipse_mode_moon)) },
         )
         FilterChip(
+            modifier = Modifier.heightIn(min = 48.dp),
             selected = solarMode, onClick = {
                 solarMode = true
                 acknowledged = false // the gate is confirmed on EVERY entry (design §5.4.2)
@@ -853,6 +859,7 @@ private fun EclipseCalculator(
                     EclipseType.HYBRID to R.string.eclipse_type_hybrid,
                 ).forEach { (type, res) ->
                     FilterChip(
+                        modifier = Modifier.heightIn(min = 48.dp),
                         selected = eclipseType == type,
                         onClick = { eclipseType = type },
                         label = { Text(stringResource(res)) },

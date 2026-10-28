@@ -90,6 +90,7 @@
     <string name="date_label_past">%1$d 天前 · %2$s</string>
     <string name="tonight_zone_note">时刻按 %1$s 显示</string>
     <string name="timeline_title">时间轴</string>
+    <string name="timeline_chart_description">时间轴图表：太阳与月亮高度曲线、九类关键时刻刻度。点按刻度查看详情；横向拖动放置游标。</string>
     <string name="timeline_no_night">今晚无天文夜</string>
     <string name="timeline_moon_note">月亮 · 月相照明 %1$d%%</string>
     <string name="timeline_legend_sun">太阳（实线）</string>
