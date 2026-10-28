@@ -350,7 +350,6 @@ class UseCasesTest {
             override val dataVersion: String get() = "failing"
             override fun allObjects(): List<DeepSkyObject> =
                 throw IllegalStateException("catalogue broken")
-            override fun byId(id: String): DeepSkyObject? = null
         }
         val useCase = TonightOverviewUseCase(
             ephemeris = ephemeris,
@@ -674,7 +673,6 @@ class UseCasesTest {
     private fun objectCatalogThrowing(failure: () -> Throwable): ObjectCatalog =
         object : ObjectCatalog {
             override fun allObjects(): List<DeepSkyObject> = throw failure()
-            override fun byId(id: String): DeepSkyObject? = null
             override val dataVersion: String = "broken"
         }
 
@@ -709,7 +707,6 @@ class UseCasesTest {
         val flaky = object : ObjectCatalog {
             override fun allObjects(): List<DeepSkyObject> =
                 if (fail) throw IllegalStateException("boom") else JsonObjectCatalog().allObjects()
-            override fun byId(id: String): DeepSkyObject? = null
             override val dataVersion: String = "flaky"
         }
         val useCase = TonightOverviewUseCase(ephemeris = ephemeris, objectCatalog = flaky)

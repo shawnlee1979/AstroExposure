@@ -11,7 +11,6 @@ import app.astroexposure.domain.ephemeris.MoonRiseSet
 import app.astroexposure.domain.ephemeris.NightWindow
 import app.astroexposure.domain.ephemeris.SunEvents
 import app.astroexposure.domain.ephemeris.TargetPass
-import app.astroexposure.domain.ephemeris.EclipseEvent
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.sky.BaselineSource
 import app.astroexposure.domain.strictness.Strictness
@@ -52,7 +51,6 @@ private class FakeEphemeris(
     override fun targetPass(
         location: GeoLocation, target: EquatorialCoordinates, date: LocalDate, threshold: Degrees,
     ): TargetPass? = null
-    override fun eclipsesBetween(from: Instant, to: Instant): List<EclipseEvent> = emptyList()
     override fun moonPhaseAngle(instant: Instant): Degrees = Degrees(90.0)
 }
 

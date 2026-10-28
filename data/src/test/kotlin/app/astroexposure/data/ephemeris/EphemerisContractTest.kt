@@ -1,7 +1,6 @@
 package app.astroexposure.data.ephemeris
 
 import app.astroexposure.domain.ephemeris.CelestialBody
-import app.astroexposure.domain.ephemeris.EclipseKind
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.GeoLocation
@@ -9,13 +8,11 @@ import app.astroexposure.domain.units.Degrees
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 /**
@@ -251,26 +248,4 @@ class EphemerisContractTest {
         assertTrue("separation $viaHorizontal outside sanity band", viaHorizontal in 20.0..120.0)
     }
 
-    @Test
-    fun `eclipses of 2026 match the NASA catalogue events`() {
-        val events = provider.eclipsesBetween(
-            Instant.parse("2026-01-01T00:00:00Z"),
-            Instant.parse("2027-01-01T00:00:00Z"),
-        )
-        fun assertEvent(kind: EclipseKind, type: String, date: LocalDate) {
-            val match = events.firstOrNull { e ->
-                e.kind == kind && e.type == type &&
-                    kotlin.math.abs(
-                        e.peak.atOffset(ZoneOffset.UTC).toLocalDate().toEpochDay() - date.toEpochDay(),
-                    ) <= 1
-            }
-            if (match == null) {
-                fail("no $kind $type eclipse within ±1 day of $date in $events")
-            }
-        }
-        assertEvent(EclipseKind.SOLAR, "ANNULAR", LocalDate.of(2026, 2, 17))
-        assertEvent(EclipseKind.LUNAR, "TOTAL", LocalDate.of(2026, 3, 3))
-        assertEvent(EclipseKind.SOLAR, "TOTAL", LocalDate.of(2026, 8, 12))
-        assertEvent(EclipseKind.LUNAR, "PARTIAL", LocalDate.of(2026, 8, 28))
-    }
 }

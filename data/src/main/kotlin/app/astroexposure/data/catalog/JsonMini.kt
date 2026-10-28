@@ -237,8 +237,18 @@ internal fun Map<String, JsonValue>.doubleField(key: String, context: String): D
     (required(key, context) as? JsonValue.Num)?.value
         ?: throw IllegalStateException("$context: field '$key' must be a number")
 
-internal fun Map<String, JsonValue>.intField(key: String, context: String): Int {
-    val value = doubleField(key, context)
+/** The one schema-version gate every bundled data document passes (one check, one message). */
+internal fun requireSupportedSchema(schema: Int, context: String) {
+    if (schema != SUPPORTED_SCHEMA_VERSION) {
+        throw IllegalStateException(
+            "$context: unsupported schemaVersion $schema (supported: $SUPPORTED_SCHEMA_VERSION)",
+        )
+    }
+}
+
+/** The one integer-coercion check both the required and the optional int accessors share. */
+internal fun Double.toCheckedInt(key: String, context: String): Int {
+    val value = this
     if (value % 1.0 != 0.0) {
         throw IllegalStateException("$context: field '$key' must be an integer, was $value")
     }
@@ -249,6 +259,9 @@ internal fun Map<String, JsonValue>.intField(key: String, context: String): Int 
     }
     return value.toInt()
 }
+
+internal fun Map<String, JsonValue>.intField(key: String, context: String): Int =
+    doubleField(key, context).toCheckedInt(key, context)
 
 internal fun Map<String, JsonValue>.optionalString(key: String, context: String): String? =
     when (val v = this[key]) {
@@ -265,15 +278,7 @@ internal fun Map<String, JsonValue>.optionalDouble(key: String, context: String)
     }
 
 internal fun Map<String, JsonValue>.optionalInt(key: String, context: String): Int? =
-    optionalDouble(key, context)?.let { value ->
-        if (value % 1.0 != 0.0) {
-            throw IllegalStateException("$context: field '$key' must be an integer, was $value")
-        }
-        if (value > Int.MAX_VALUE.toDouble() || value < Int.MIN_VALUE.toDouble()) {
-            throw IllegalStateException("$context: field '$key' is out of Int range, was $value")
-        }
-        value.toInt()
-    }
+    optionalDouble(key, context)?.toCheckedInt(key, context)
 
 internal fun Map<String, JsonValue>.optionalBoolean(key: String, context: String): Boolean? =
     when (val v = this[key]) {

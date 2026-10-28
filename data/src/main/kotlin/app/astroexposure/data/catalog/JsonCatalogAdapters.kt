@@ -37,12 +37,7 @@ internal object CatalogResources {
     fun readDocument(resourcePath: String): Map<String, JsonValue> {
         val text = readBytes(resourcePath).toString(Charsets.UTF_8)
         val root = JsonMini.parse(text).asObject(resourcePath)
-        val schema = root.intField("schemaVersion", resourcePath)
-        if (schema != SUPPORTED_SCHEMA_VERSION) {
-            throw IllegalStateException(
-                "$resourcePath: unsupported schemaVersion $schema (supported: $SUPPORTED_SCHEMA_VERSION)",
-            )
-        }
+        requireSupportedSchema(root.intField("schemaVersion", resourcePath), resourcePath)
         return root
     }
 }
@@ -78,8 +73,6 @@ class JsonObjectCatalog(
     }
 
     override fun allObjects(): List<DeepSkyObject> = loaded.objects
-
-    override fun byId(id: String): DeepSkyObject? = loaded.objects.firstOrNull { it.id == id }
 
     override val dataVersion: String get() = loaded.dataVersion
 

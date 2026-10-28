@@ -32,7 +32,7 @@ class ObjectCatalogContractTest {
 
     @Test
     fun `M31 fields are mapped from the document`() {
-        val m31 = catalog.byId("M31")
+        val m31 = catalog.allObjects().firstOrNull { it.id == "M31" }
         assertNotNull(m31)
         assertEquals("Andromeda Galaxy", m31!!.name)
         assertEquals(0.712, m31.raHours, 1e-9)
@@ -44,16 +44,16 @@ class ObjectCatalogContractTest {
 
     @Test
     fun `object type strings map to the domain enum`() {
-        assertEquals(DeepSkyObjectType.NEBULA, catalog.byId("M42")!!.type)
-        assertEquals(DeepSkyObjectType.OPEN_CLUSTER, catalog.byId("M45")!!.type)
-        assertEquals(DeepSkyObjectType.GLOBULAR_CLUSTER, catalog.byId("M13")!!.type)
-        assertEquals(DeepSkyObjectType.SUPERNOVA_REMNANT, catalog.byId("M1")!!.type)
+        assertEquals(DeepSkyObjectType.NEBULA, catalog.allObjects().first { it.id == "M42" }.type)
+        assertEquals(DeepSkyObjectType.OPEN_CLUSTER, catalog.allObjects().first { it.id == "M45" }.type)
+        assertEquals(DeepSkyObjectType.GLOBULAR_CLUSTER, catalog.allObjects().first { it.id == "M13" }.type)
+        assertEquals(DeepSkyObjectType.SUPERNOVA_REMNANT, catalog.allObjects().first { it.id == "M1" }.type)
     }
 
     @Test
     fun `catalogue lists all fixture objects and misses unknown ids`() {
         assertEquals(5, catalog.allObjects().size)
-        assertNull(catalog.byId("NGC-0000"))
+        assertNull(catalog.allObjects().firstOrNull { it.id == "NGC-0000" })
         assertEquals("test-fixture-1", catalog.dataVersion)
     }
 

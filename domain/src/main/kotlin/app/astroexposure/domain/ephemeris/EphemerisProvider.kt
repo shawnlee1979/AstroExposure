@@ -90,12 +90,6 @@ interface EphemerisProvider {
         threshold: Degrees = Degrees(30.0),
     ): TargetPass?
 
-    /**
-     * Eclipse events with peak in [[from], [to]) — event-level forecasts only
-     * (design §5.4.2: no local contact times at this layer).
-     */
-    fun eclipsesBetween(from: Instant, to: Instant): List<EclipseEvent>
-
     // --- 0.4.1 addition (G.4: member added, none removed) ---
 
     /**
@@ -133,18 +127,6 @@ data class TargetPass(
 
 /** Which body is eclipsed, at the event level of the catalogue (design §6.1). */
 enum class EclipseKind { SOLAR, LUNAR }
-
-/**
- * One eclipse event. [type] is the engine/catalogue classification string
- * (e.g. "Total", "Annular", "Partial", "Penumbral"); [obscuration] is the
- * peak obscured fraction of the eclipsed body's disc in [0, 1].
- */
-data class EclipseEvent(
-    val kind: EclipseKind,
-    val type: String,
-    val peak: Instant,
-    val obscuration: Double,
-)
 
 /** Dusk (astronomical twilight end) and dawn (astronomical twilight begin). */
 data class NightWindow(val dusk: Instant, val dawn: Instant)

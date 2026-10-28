@@ -71,12 +71,7 @@ class GridLightPollutionSource(
         val header = JsonMini.parse(
             bytes.copyOfRange(HEADER_PREFIX_BYTES, headerEnd).toString(Charsets.UTF_8),
         ).asObject(context)
-        val schema = header.intField("schemaVersion", context)
-        if (schema != SUPPORTED_SCHEMA_VERSION) {
-            throw IllegalStateException(
-                "$context: unsupported schemaVersion $schema (supported: $SUPPORTED_SCHEMA_VERSION)",
-            )
-        }
+        requireSupportedSchema(header.intField("schemaVersion", context), context)
         val grids = header.required("grids", context).asArray(context).map { item ->
             val g = item.asObject(context)
             Grid(

@@ -39,7 +39,6 @@ interface LightPollutionSource {
 /** Deep-sky object catalogue (design §6.1: OpenNGC-derived subset). */
 interface ObjectCatalog {
     fun allObjects(): List<DeepSkyObject>
-    fun byId(id: String): DeepSkyObject?
     val dataVersion: String
 }
 
