@@ -71,7 +71,8 @@ class GridLightPollutionSource(
         val header = JsonMini.parse(
             bytes.copyOfRange(HEADER_PREFIX_BYTES, headerEnd).toString(Charsets.UTF_8),
         ).asObject(context)
-        requireSupportedSchema(header.intField("schemaVersion", context), context)
+        val schema = header.intField("schemaVersion", context)
+        requireSupportedSchema(schema, context)
         val grids = header.required("grids", context).asArray(context).map { item ->
             val g = item.asObject(context)
             Grid(

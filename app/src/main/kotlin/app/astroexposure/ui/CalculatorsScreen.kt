@@ -119,7 +119,7 @@ fun CalculatorsScreen(
     // field accepts (ui-design §7.5). The handover is consumed once.
     var declinationText by remember { mutableStateOf("-29") }
     var declinationError by remember { mutableStateOf(false) }
-    LaunchedEffect(prefillObject) {
+    androidx.compose.runtime.LaunchedEffect(prefillObject) {
         val obj = prefillObject ?: return@LaunchedEffect
         declinationText = obj.decDeg.toString()
         declinationError = false
