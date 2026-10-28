@@ -153,15 +153,15 @@ object NightTimeline {
 
     /**
      * The instant at [fraction] along the axis — the inverse of
-     * [fractionOf]. The premise is a fraction in [0, 1] as produced
-     * by [fractionOf] (which clamps); an out-of-range fraction is
-     * not re-clamped here and extrapolates past the axis end.
-     * Sub-second remainders truncate, the convention the axis labels
-     * and the cursor placement always used.
+     * [fractionOf]. The fraction is clamped to [0, 1] here, the same
+     * clamp [fractionOf] applies, so a caller handing in a raw drag
+     * fraction lands on the nearer axis end instead of extrapolating
+     * past it. Sub-second remainders truncate, the convention the
+     * axis labels and the cursor placement always used.
      */
     fun instantAtFraction(fraction: Double, axisStart: Instant, axisEnd: Instant): Instant {
         val total = axisEnd.epochSecond - axisStart.epochSecond
-        return axisStart.plusSeconds((fraction * total).toLong())
+        return axisStart.plusSeconds((fraction.coerceIn(0.0, 1.0) * total).toLong())
     }
 
     /** Margin below the deepest sample on the altitude axis (layout spacing, empirical). */

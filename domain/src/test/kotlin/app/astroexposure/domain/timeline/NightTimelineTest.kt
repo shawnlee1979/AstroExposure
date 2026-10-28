@@ -111,4 +111,15 @@ class NightTimelineTest {
         assertEquals(0.0, NightTimeline.fractionOf(start.minusSeconds(5), start, axisEnd), 1e-9)
         assertEquals(1.0, NightTimeline.fractionOf(axisEnd.plusSeconds(5), start, axisEnd), 1e-9)
     }
+
+    @Test
+    fun instantAtFractionClampsOutsideTheAxis() {
+        // The inverse of fractionOf clamps the same way: a raw
+        // out-of-range fraction lands on the nearer axis end rather
+        // than extrapolating past it.
+        val axisEnd = start.plusSeconds(3600)
+        assertEquals(start.plusSeconds(1800), NightTimeline.instantAtFraction(0.5, start, axisEnd))
+        assertEquals(start, NightTimeline.instantAtFraction(-0.25, start, axisEnd))
+        assertEquals(axisEnd, NightTimeline.instantAtFraction(1.25, start, axisEnd))
+    }
 }
