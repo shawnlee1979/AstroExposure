@@ -840,9 +840,11 @@ private fun EclipseCalculator(
         // Safety gate first: no parameters are computed or shown before
         // the acknowledgement (design §5.4.2, SafetyGate in the domain
         // model). Presentation per ui-design section 5: a blocking panel
-        // with a thick bad-colour top bar and the warning glyph, and the
-        // type chips / ISO / calculate action stay hidden until the box
-        // is checked.
+        // with a thick bad-colour top bar and the warning glyph; the
+        // type chips and ISO stay hidden until the box is checked. The
+        // shared bottom calculate action remains visible, but an
+        // unconfirmed press produces only the blocked card — the gate
+        // computes no exposure rows before acknowledgement.
         Card(modifier = Modifier.fillMaxWidth()) {
             Column {
                 androidx.compose.foundation.layout.Box(

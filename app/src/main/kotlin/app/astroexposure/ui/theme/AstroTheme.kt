@@ -18,11 +18,12 @@ import androidx.compose.ui.unit.sp
  * reserved for conclusion values. Red-light mode swaps the whole palette
  * to a red scale (dark-adaptation safe), not just a tinted accent.
  *
- * Both schemes fill the full Material role table — including
- * outline/outlineVariant (the spec border), errorContainer and
- * secondaryContainer (chip selected state) — so no component falls back
- * to library-default blue-grey/pink tints, which the red theme in
- * particular must never show (spec §2: red spectrum only).
+ * Both schemes assign every Material role the app actually uses —
+ * including outline/outlineVariant (the spec border), errorContainer
+ * and secondaryContainer (chip selected state) — so no used component
+ * falls back to library-default blue-grey/pink tints, which the red
+ * theme in particular must never show (spec §2: red spectrum only).
+ * Roles the app never references keep their library defaults.
  */
 private val NightScheme = darkColorScheme(
     primary = Color(0xFFF2C66D),
