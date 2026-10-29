@@ -86,13 +86,18 @@
     <string name="timeline_chart_description">时间轴图：日光带、月亮带、九类关键时刻刻度与目标泳道。点按刻度查看详情；横向拖动放置游标。</string>
     <string name="timeline_no_night">今晚无天文夜</string>
     <string name="timeline_moon_note">月亮 · 月相照明 %1$d%%</string>
-    <string name="timeline_band_day">日间</string>
-    <string name="timeline_band_civil">民用黄昏</string>
-    <string name="timeline_band_nautical">航海黄昏</string>
-    <string name="timeline_band_astronomical">天文黄昏</string>
-    <string name="timeline_band_night">天文夜</string>
+    <string name="timeline_sun_sunset">日落</string>
+    <string name="timeline_sun_sunrise">日出</string>
+    <string name="timeline_sun_dusk">黄昏</string>
+    <string name="timeline_sun_dawn">黎明</string>
+    <string name="timeline_sun_night">天文夜</string>
     <string name="timeline_moon_rise">月亮 %1$s 升起</string>
-    <string name="timeline_gc_band">银心窗口</string>
+    <string name="timeline_mark_sunset">日落 %1$s</string>
+    <string name="timeline_mark_sunrise">日出 %1$s</string>
+    <string name="timeline_mark_night_start">天文夜始 %1$s</string>
+    <string name="timeline_mark_night_end">天文夜终 %1$s</string>
+    <string name="timeline_mark_gc">银心过中天</string>
+    <string name="timeline_gc_visible">银心可见</string>
     <string name="timeline_low_moon_band">低月光窗口</string>
     <string name="common_close">关闭</string>
 

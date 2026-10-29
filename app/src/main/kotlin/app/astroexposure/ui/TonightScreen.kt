@@ -564,8 +564,8 @@ fun TonightScreen(
 }
 
 /**
- * Build the label-free timeline mark for one key moment (ui-design
- * §7.4): Sun and Moon moments open the shared Sun / Moon detail (rise
+ * Build the timeline mark for one key moment (ui-design §7.4): Sun
+ * and Moon moments open the shared Sun / Moon detail (rise
  * and set times with azimuths sampled at those instants; the Moon
  * detail adds the phase name and illumination), twilight moments show
  * the moment with the solar altitude that defines it, and the
@@ -580,6 +580,24 @@ private fun twilightTimelineMark(
 ): TimelineMark = TimelineMark(
     instant = moment.instant,
     title = stringResource(titleRes),
+    // The two astronomical-night boundary marks carry the marker
+    // row's top-ranked short labels (ui-design §7.4, 0.8.8); the civil
+    // and nautical marks stay tick-only.
+    shortLabel = when (moment.kind) {
+        TonightOverviewUseCase.MomentKind.ASTRO_DUSK ->
+            stringResource(R.string.timeline_mark_night_start, formatTime(moment.instant, zone))
+        TonightOverviewUseCase.MomentKind.ASTRO_DAWN ->
+            stringResource(R.string.timeline_mark_night_end, formatTime(moment.instant, zone))
+        else -> null
+    },
+    labelRank = if (
+        moment.kind == TonightOverviewUseCase.MomentKind.ASTRO_DUSK ||
+        moment.kind == TonightOverviewUseCase.MomentKind.ASTRO_DAWN
+    ) {
+        3
+    } else {
+        0
+    },
     lines = listOf(
         stringResource(
             R.string.detail_moment_altitude_line,
@@ -602,6 +620,17 @@ private fun timelineMarkFor(
             TimelineMark(
                 instant = moment.instant,
                 title = stringResource(R.string.detail_sun_title),
+                // Marker-row short label (ui-design §7.4, 0.8.8): the
+                // Sun marks name themselves with their moment.
+                shortLabel = stringResource(
+                    if (moment.kind == TonightOverviewUseCase.MomentKind.SUNSET) {
+                        R.string.timeline_mark_sunset
+                    } else {
+                        R.string.timeline_mark_sunrise
+                    },
+                    formatTime(moment.instant, zone),
+                ),
+                labelRank = 1,
                 lines = buildList {
                     if (detail.sunset != null) {
                         add(
@@ -681,6 +710,10 @@ private fun timelineMarkFor(
         TonightOverviewUseCase.MomentKind.GC_CULMINATION -> TimelineMark(
             instant = moment.instant,
             title = stringResource(R.string.moment_gc_culmination),
+            // Name-only short label (ui-design §7.4, 0.8.8): the
+            // culmination moment itself lives in the detail dialog.
+            shortLabel = stringResource(R.string.timeline_mark_gc),
+            labelRank = 2,
             lines = listOf(
                 overview.galacticCenter?.let { gc ->
                     stringResource(
