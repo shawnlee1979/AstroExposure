@@ -420,7 +420,7 @@ private fun AstroApp(container: AppContainer) {
                         locationSourceText = stringResource(
                             when {
                                 favouriteMatch != null -> R.string.location_source_gps_matched
-                                site.source == LocationSource.GPS -> R.string.location_source_gps
+                                site.source == LocationSource.GPS -> R.string.location_source_gps_unsaved
                                 site.source == LocationSource.MANUAL -> R.string.location_source_manual
                                 site.source == LocationSource.FAVOURITE -> R.string.location_source_favourite
                                 else -> R.string.location_source_sample
@@ -450,9 +450,19 @@ private fun AstroApp(container: AppContainer) {
                             gpsFailed = false
                         },
                         onDateChange = { selectedDate = it },
+                        // A favourite selected from the library shows
+                        // the altitude line only when its record carries
+                        // a GPS altitude source (saved from the card,
+                        // ui-design §7.2); onUsePlace threads that fact
+                        // into site.hasAltitude, and the record's own
+                        // height is location.heightMeters in that state.
                         showAltitudeLine = site.source == LocationSource.GPS ||
-                            site.source == LocationSource.MANUAL,
-                        gpsAltitudeMeters = if (site.source == LocationSource.GPS && site.hasAltitude) {
+                            site.source == LocationSource.MANUAL ||
+                            (site.source == LocationSource.FAVOURITE && site.hasAltitude),
+                        gpsAltitudeMeters = if (
+                            (site.source == LocationSource.GPS ||
+                                site.source == LocationSource.FAVOURITE) && site.hasAltitude
+                        ) {
                             location.heightMeters
                         } else {
                             null
@@ -467,6 +477,12 @@ private fun AstroApp(container: AppContainer) {
                                 name = name,
                                 location = location.copy(label = name),
                                 manualBortle = manualBortle,
+                                // Card saves record where the altitude
+                                // came from: only a GPS fix that actually
+                                // carried one gives the record a GPS
+                                // altitude source (ui-design §7.2).
+                                altitudeFromGps = site.source == LocationSource.GPS &&
+                                    site.hasAltitude,
                             )
                             scope.launch(Dispatchers.IO) {
                                 repo.upsertPlace(place)
@@ -660,7 +676,10 @@ private fun AstroApp(container: AppContainer) {
                                 place.location.zone,
                             ),
                         )
-                        site = LocatedSite(resolved, LocationSource.FAVOURITE, null)
+                        site = LocatedSite(
+                            resolved, LocationSource.FAVOURITE, null,
+                            hasAltitude = place.altitudeFromGps,
+                        )
                         manualBortle = place.manualBortle
                         tab = Tab.TONIGHT
                     },

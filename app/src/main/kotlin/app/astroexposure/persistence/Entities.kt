@@ -9,6 +9,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Room persistence for the application layer (design §8.4): equipment
@@ -79,6 +81,12 @@ data class PlaceEntity(
     val zoneId: String,
     /** Optional manual Bortle override (design §2.1/§2.6); null = atlas only. */
     val manualBortle: Int?,
+    /**
+     * True when [heightMeters] came from a GPS fix at card-save time
+     * (ui-design §7.2). Added in schema v2; rows migrated from v1 get
+     * 0 — an old record's height source is unknowable, never assumed.
+     */
+    val altitudeFromGps: Boolean,
 )
 
 @Entity(tableName = "plans")
@@ -189,7 +197,7 @@ interface SettingDao {
         PlanEntity::class,
         SettingEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AstroDatabase : RoomDatabase() {
@@ -199,4 +207,19 @@ abstract class AstroDatabase : RoomDatabase() {
     abstract fun placeDao(): PlaceDao
     abstract fun planDao(): PlanDao
     abstract fun settingDao(): SettingDao
+
+    companion object {
+        /**
+         * v1 → v2: places gain the altitude-source flag. Existing rows
+         * default to 0 (source unknowable), so no pre-v2 record ever
+         * presents an altitude it cannot account for.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE places ADD COLUMN altitudeFromGps INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+    }
 }

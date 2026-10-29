@@ -70,6 +70,22 @@ class MappersTest {
     }
 
     @Test
+    fun placeRoundTripKeepsGpsAltitudeSourceFlag() {
+        // The altitude-source flag (ui-design §7.2) must survive the
+        // Room round trip in both states: card-saved records keep
+        // their GPS provenance; records without it stay unflagged.
+        val flagged = SavedPlace(
+            id = "p2",
+            name = "Hill",
+            location = GeoLocation(Degrees(41.0), Degrees(-73.5), 512.0, ZoneId.of("America/New_York"), "Hill"),
+            manualBortle = null,
+            altitudeFromGps = true,
+        )
+        assertEquals(flagged, flagged.toEntity().toDomain())
+        assertEquals(true, flagged.toEntity().altitudeFromGps)
+    }
+
+    @Test
     fun planRoundTrip() {
         val plan = SavedPlan(
             id = 7,

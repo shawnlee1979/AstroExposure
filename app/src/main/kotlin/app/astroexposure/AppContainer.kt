@@ -45,7 +45,7 @@ class AppContainer(context: Context) {
 
     private val database: AstroDatabase = Room.databaseBuilder(
         context.applicationContext, AstroDatabase::class.java, "astroexposure.db",
-    ).build()
+    ).addMigrations(AstroDatabase.MIGRATION_1_2).build()
 
     val repository = AppRepository(database, lensCatalog)
     val locationProvider = LocationProvider(context.applicationContext)

@@ -29,6 +29,16 @@ data class SavedPlace(
     val location: GeoLocation,
     /** Manual Bortle override from the place record, or null. */
     val manualBortle: Int?,
+    /**
+     * True only when the record was saved from the location card off a
+     * GPS fix that carried an altitude: the record's
+     * [GeoLocation.heightMeters] then has a known GPS source and the
+     * card may present it when the place is selected (ui-design §7.2).
+     * Records typed in on the Settings tab and records from before this
+     * flag existed stay false — their height's source is not knowable
+     * and is never presented. Never inferred from the height value.
+     */
+    val altitudeFromGps: Boolean = false,
 )
 
 /** A saved plan (design §7.3). */
@@ -256,6 +266,7 @@ fun SavedPlace.toEntity(): PlaceEntity = PlaceEntity(
     heightMeters = location.heightMeters,
     zoneId = location.zone.id,
     manualBortle = manualBortle,
+    altitudeFromGps = altitudeFromGps,
 )
 
 fun PlaceEntity.toDomain(): SavedPlace = SavedPlace(
@@ -269,6 +280,7 @@ fun PlaceEntity.toDomain(): SavedPlace = SavedPlace(
         label = name,
     ),
     manualBortle = manualBortle,
+    altitudeFromGps = altitudeFromGps,
 )
 
 fun validatePlace(

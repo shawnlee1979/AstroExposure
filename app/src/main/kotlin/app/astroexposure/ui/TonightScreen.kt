@@ -756,17 +756,31 @@ private fun TonightOverviewBlock(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     OverviewCellLabel(stringResource(R.string.tonight_overview_low_moon))
-                    Text(
-                        text = if (overview.lowMoonlightWindows.isEmpty()) {
-                            stringResource(R.string.tonight_overview_low_moon_none)
-                        } else {
-                            overview.lowMoonlightWindows.joinToString(
+                    // One or two windows share a single line; three or
+                    // more list one per line so the cell stays scannable
+                    // instead of running one long joined string
+                    // (ui-design §7.2).
+                    val windows = overview.lowMoonlightWindows
+                    if (windows.isEmpty()) {
+                        Text(text = stringResource(R.string.tonight_overview_low_moon_none))
+                    } else if (windows.size <= 2) {
+                        Text(
+                            text = windows.joinToString(
                                 separator = stringResource(R.string.tonight_overview_window_separator),
                             ) { window ->
                                 "${formatTime(window.start, zone)} – ${formatTime(window.end, zone)}"
+                            },
+                        )
+                    } else {
+                        Column {
+                            windows.forEach { window ->
+                                Text(
+                                    text = "${formatTime(window.start, zone)} – " +
+                                        formatTime(window.end, zone),
+                                )
                             }
-                        },
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -794,8 +808,9 @@ private fun OverviewCellLabel(text: String) {
  * those figures), the scope footnote directly under the total, the
  * full-moon degradation line and the baseline source note. A GPS or
  * manual site shows the altitude line (a fix altitude, or "—" when
- * there is none) and, while it is not yet a favourite, a button that
- * saves it as one.
+ * there is none), and so does a selected favourite whose record
+ * carries a GPS altitude source; a GPS or manual site that is not yet
+ * a favourite also gets the button that saves it as one.
  */
 @Composable
 private fun LocationCard(
@@ -910,10 +925,11 @@ private fun LocationCard(
                 }
             }
 
-            // The GPS fix's altitude (ui-design §7.2): shown for GPS
-            // and manual sites; a fix without altitude — and a manual
-            // site, which has no altitude source — shows "—" rather
-            // than an invented 0 m.
+            // The altitude line (ui-design §7.2): shown for GPS and
+            // manual sites and for a selected favourite whose record
+            // carries a GPS altitude source; a fix without altitude —
+            // and a manual site, which has no altitude source — shows
+            // "—" rather than an invented 0 m.
             if (showAltitudeLine) {
                 Text(
                     text = gpsAltitudeMeters?.let {

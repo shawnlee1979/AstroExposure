@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,19 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/**
+ * The one shared English-UI判定 for the few places that must pick a
+ * language outside string resources (currently the constellation
+ * names in the target detail dialog). It reads the composition's
+ * current configuration — the same configuration stringResource
+ * resolves against — which follows the in-app language switch
+ * (AppCompat application locales recreate the activity), so a name
+ * chosen with this flag can never drift from the UI language.
+ */
+@Composable
+fun isEnglishUiLanguage(): Boolean =
+    LocalConfiguration.current.locales[0]?.language == "en"
 
 fun formatTime(instant: Instant?, zone: ZoneId): String =
     instant?.let { TIME_FORMAT.format(it.atZone(zone)) } ?: "—"
