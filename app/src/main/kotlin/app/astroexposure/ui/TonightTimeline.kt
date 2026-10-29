@@ -130,7 +130,7 @@ private val ARC_LANE_HEIGHT_DP = 26.dp
 
 /**
  * Layered-panel row metrics (ui-design §7.4, 0.8.7; layout from the
- * approved comparison board): the rows are inset by [PLOT_INSET_DP]
+ * comparison board's layered variant): the rows are inset by [PLOT_INSET_DP]
  * on both sides of the panel, and every row — bands, marker row,
  * lanes, hour axis — shares the plot area between the insets, so a
  * single fraction-to-x mapping serves the whole panel. The board's
@@ -1461,7 +1461,7 @@ private fun HourAxisRow(
 
 /**
  * Gradient colour of one solar band in the sun band strip (ui-design
- * §7.4, 0.8.8; values from the approved comparison board): daytime
+ * §7.4, 0.8.8; values from the comparison board): daytime
  * amber through twilight blues to the astronomical night's deep blue;
  * the red theme maps the same luminance steps onto its red scale.
  */
