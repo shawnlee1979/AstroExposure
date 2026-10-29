@@ -283,7 +283,7 @@ private fun AstroApp(container: AppContainer) {
             gpsFailed = true
         }
     }
-    /** Explicit entry point: the source-line tap only. The entry auto-locate and the refresh loop go through [autoGps], whose results stay guarded. */
+    /** Explicit entry point: the source-line tap only. The entry auto-locate ([autoGps]) and the refresh loop (requestGpsFix(false) called directly) take the guarded automatic path instead. */
     val useGps: () -> Unit = {
         if (container.locationProvider.hasPermission()) {
             requestGpsFix(true)
