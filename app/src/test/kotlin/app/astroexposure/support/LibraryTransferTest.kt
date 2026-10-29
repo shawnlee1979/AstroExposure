@@ -64,6 +64,31 @@ class LibraryTransferTest {
     }
 
     @Test
+    fun roundTripPreservesPlaceAltitudeSourceFlag() {
+        // A place saved from the location card off a GPS fix carries
+        // the altitude-source flag; the backup round trip must keep it
+        // (before 0.8.7 the field was not serialised and the flag
+        // silently reset to false while the height value survived).
+        val flagged = place.copy(altitudeFromGps = true)
+        val text = LibraryTransfer.export(
+            cameras = emptyList(),
+            lenses = emptyList(),
+            trackingProfiles = emptyList(),
+            places = listOf(flagged),
+            plans = emptyList(),
+            exportedAt = Instant.parse("2026-10-26T00:00:00Z"),
+        )
+        val backup = (LibraryTransfer.import(text) as LibraryTransfer.ImportResult.Ok).backup
+        assertEquals(listOf(flagged), backup.places)
+        // A backup written before the field existed still imports,
+        // with the flag at its default false (source not knowable).
+        val legacy = text.replace(", \"altitudeFromGps\": true", "")
+        val legacyBackup =
+            (LibraryTransfer.import(legacy) as LibraryTransfer.ImportResult.Ok).backup
+        assertEquals(listOf(place), legacyBackup.places)
+    }
+
+    @Test
     fun unknownFieldsAreIgnored() {
         val text = sampleExport().replace(
             "\"format\": \"${LibraryTransfer.FORMAT}\"",

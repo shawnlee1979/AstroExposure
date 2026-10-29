@@ -129,6 +129,11 @@ object LibraryTransfer {
         "heightMeters" to num(p.location.heightMeters),
         "zoneId" to quoted(p.location.zone.id),
         "manualBortle" to optInt(p.manualBortle),
+        // The altitude-source flag rides along (0.8.7): without it a
+        // card-saved place silently lost its GPS-altitude provenance
+        // across a backup round trip while the height value itself
+        // survived. Older backups lack the field and read it as false.
+        "altitudeFromGps" to p.altitudeFromGps.toString(),
     )
 
     private fun planJson(p: SavedPlan): String = obj(
@@ -331,7 +336,12 @@ object LibraryTransfer {
                 o.num("manualBortle")?.toInt(),
             )
         ) {
-            is FormResult.Ok -> r.value
+            // The flag is not a form field: validatePlace leaves it at
+            // its default, so it is applied from the document here —
+            // absent (a pre-0.8.7 backup) reads as false.
+            is FormResult.Ok -> r.value.copy(
+                altitudeFromGps = o.bool("altitudeFromGps") ?: false,
+            )
             is FormResult.Invalid -> null
         }
     }
