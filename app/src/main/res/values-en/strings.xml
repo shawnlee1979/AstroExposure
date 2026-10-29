@@ -102,7 +102,13 @@
     <string name="common_close">Close</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">Moon %1$.0f°, phase %2$d%%, LP %3$s</string>
+    <string name="cursor_bubble_moon">Moon %1$.0f° · phase illumination %2$d%%</string>
+    <string name="cursor_bubble_bortle">Bortle %1$d</string>
+    <string name="cursor_segment_day">Daytime</string>
+    <string name="cursor_segment_civil">Civil twilight</string>
+    <string name="cursor_segment_nautical">Nautical twilight</string>
+    <string name="cursor_segment_astronomical">Astronomical twilight</string>
+    <string name="cursor_segment_night">Astronomical night</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">Whole night ✕</string>
@@ -112,7 +118,6 @@
     <string name="cursor_interference_none">none</string>
     <string name="cursor_interference_weak">weak</string>
     <string name="cursor_interference_strong">strong</string>
-    <string name="cursor_arc_culmination">Culm. %1$s · %2$.0f°</string>
     <string name="cursor_detail_goto_calculator">Open calculator</string>
     <string name="cursor_detail_unavailable">Couldn’t load this target’s details. Close and try again.</string>
     <string name="cursor_moon_below_horizon">Moon below the horizon — separation is reference only</string>

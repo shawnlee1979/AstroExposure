@@ -40,7 +40,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.PointerId
@@ -59,27 +58,34 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import app.astroexposure.R
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TimelineCursor
+import app.astroexposure.ui.theme.LocalStateColors
 import app.astroexposure.usecase.TonightOverviewUseCase
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * One tappable mark on the timeline (ui-design §7.4): the tick is the
- * mark. Tapping opens a detail dialog whose [title] and [lines] are
- * resolved by the caller: Sun marks open the Sun detail, Moon marks
- * the Moon detail, twilight marks show the moment and its solar
- * altitude, and the galactic-centre mark shows the culmination time
- * and altitude. Since 0.8.8 the main marks (sunrise / sunset, the
- * astronomical night's start and end, the galactic-centre culmination)
- * also carry a [shortLabel] drawn under the tick; [labelRank] decides
- * which labels survive when neighbouring labels would overlap — the
- * night's start and end rank highest.
+ * One tappable mark on the timeline (ui-design §7.4): the mark's
+ * position on the marker row is the mark — since 0.8.9 the row draws
+ * no ticks, only the main marks' text labels. Tapping (through the
+ * transparent hot zones over the band rows) opens a detail dialog
+ * whose [title] and [lines] are resolved by the caller: Sun marks
+ * open the Sun detail, Moon marks the Moon detail, twilight marks
+ * show the moment and its solar altitude, and the galactic-centre
+ * mark shows the culmination time and altitude. The main marks
+ * (sunrise / sunset, the astronomical night's start and end, the
+ * galactic-centre culmination) carry a [shortLabel]; [labelRank]
+ * decides which labels survive when neighbouring labels would
+ * overlap — the night's start and end rank highest.
  */
 data class TimelineMark(
     val instant: Instant,
@@ -91,43 +97,52 @@ data class TimelineMark(
 
 /**
  * One cursor target's arc on the timeline (ui-design §7.5): the spans
- * where the target is at or above 20°, its culmination instant (drawn
- * as a solid dot) and its display name. Since the 0.5.1 revision the
- * arc is a tall information lane: [phases] segments it into rising /
- * culmination / setting parts, and [culminationText] (e.g. "中天
- * 23:24 · 74°") is drawn inside the culmination segment whenever that
- * segment is wide enough to hold it.
+ * where the target is at or above 20° and its display name. Since
+ * 0.8.9 the lane draws the target's REAL altitude curve from
+ * [altitudeSamples] — the use case's 5-minute samples across the
+ * whole axis, the same series [intervals] and [phases] derive from —
+ * filled under the curve inside the ≥20° window, with the
+ * culmination span's fill in the accent. (Before 0.8.9 the lane was
+ * three flat segments and no curve was ever drawn; the comparison
+ * board's arcs were design sketches.) The lane carries NO
+ * culmination text: culmination figures live in the cursor bubble
+ * and the detail dialog. When [altitudeSamples] is empty the lane
+ * degrades to its name plus the recommended frame — never back to
+ * the retired flat segments.
  */
 data class TimelineArc(
     val intervals: List<NightTimeline.Interval>,
-    val culmination: Instant,
     val label: String,
+    val altitudeSamples: List<TimelineCursor.AltitudeSample> = emptyList(),
     val phases: TimelineCursor.ArcPhases? = null,
-    val culminationText: String? = null,
     /**
      * The recommended shooting window cut to this lane's arc — drawn
-     * as a bright frame over the segmented bar (ui-design §7.5, 0.6.0).
+     * as a bright frame over the curve fills (ui-design §7.5, 0.6.0).
      * The frame is a border SHAPE over the fills, so it stays legible
      * in the red theme where hues collapse into one family.
      */
     val recommendedFrame: NightTimeline.Interval? = null,
 )
 
-/** Arc lane height (ui-design §7.5, 0.5.1): tall enough for readable in-lane text. */
+/** Arc lane visual height (ui-design §7.5): the comparison board's compact 26dp lane. */
 private val ARC_LANE_HEIGHT_DP = 26.dp
 
 /**
  * Layered-panel row metrics (ui-design §7.4, 0.8.7; visual values
  * from the approved comparison board): the rows are inset by
  * [PLOT_INSET_DP] on both sides of the panel, and every row — bands,
- * marker row, lanes — shares the plot area between the insets, so a
- * single fraction-to-x mapping serves the whole panel.
+ * marker row, lanes, hour axis — shares the plot area between the
+ * insets, so a single fraction-to-x mapping serves the whole panel.
  */
 private val PLOT_INSET_DP = 8.dp
 private val SUN_BAND_HEIGHT_DP = 16.dp
 private val MOON_BAND_HEIGHT_DP = 12.dp
-private val MARKER_ROW_HEIGHT_DP = 28.dp
+private val MARKER_ROW_HEIGHT_DP = 14.dp
 private val WINDOW_BAND_HEIGHT_DP = 10.dp
+private val HOUR_AXIS_ROW_HEIGHT_DP = 12.dp
+
+/** Vertical offset of the cursor bubble's top edge inside the panel (ui-design §7.5, 0.8.9). */
+private val BUBBLE_TOP_DP = 55.dp
 
 /**
  * Rough text width estimate in dp for the in-lane labels: CJK glyphs
@@ -271,10 +286,11 @@ private suspend fun PointerInputScope.detectCursorLongPressDrag(
  * The layered timeline (ui-design §7.4, 0.8.7 layout): one inset
  * panel whose rows share a single time scale — the sun band with its
  * stage names in-band, the moon band with the Moon-up spans and the
- * moonrise label, the marker row with the nine key moments as
- * label-free ticks (transparent tap hot zones at least 40dp wide over
- * the band rows), the target lanes (ui-design §7.5), and the
- * low-moonlight and galactic-centre window bands as rows of their own.
+ * moonrise label, the marker row with the main marks' text labels
+ * (no ticks since 0.8.9; transparent tap hot zones at least 40dp
+ * wide over the band rows), the target lanes (ui-design §7.5), the
+ * low-moonlight and galactic-centre window bands as rows of their
+ * own, and the whole-hour axis closing the panel (0.8.9).
  *
  * Degradation (ui-design §7.4): without an astronomical night the
  * low-moonlight and galactic-centre rows are absent and the explicit
@@ -282,9 +298,9 @@ private suspend fun PointerInputScope.detectCursorLongPressDrag(
  * no astronomical-night segment.
  *
  * Information is never carried by hue alone: the sun band's segments
- * carry their stage names in text; the low-moonlight band has a
- * dashed border and the galactic-centre band a dot-dash border
- * (ui-design board, red-light variant).
+ * carry their stage names in text, and each window band names itself
+ * inside its first span (0.8.8), so the two window bands read by
+ * their labels as well as their fills in both themes.
  *
  * Phase 2 (ui-design §7.5) fills the reserved layers: the cursor
  * track, bubble and target arcs, plus the time bar under the axis.
@@ -323,6 +339,10 @@ fun NightTimelineCard(
     bubbleTimeText: String? = null,
     bubbleMoonText: String? = null,
     bubbleSnapLabel: String? = null,
+    /** The cursor's solar-segment name for the bubble's first line (ui-design §7.5, 0.8.9). */
+    bubbleSegmentText: String? = null,
+    /** The bubble's third line: moonlight-interference tier and Bortle grade (ui-design §7.5, 0.8.9). */
+    bubbleTierText: String? = null,
     arcs: List<TimelineArc> = emptyList(),
     onCursorTap: (Instant) -> Unit = {},
     onCursorDrag: (Instant) -> Unit = {},
@@ -346,6 +366,10 @@ fun NightTimelineCard(
     val sunColor = if (redLight) Color(0xFFFF7A45) else Color(0xFFF2C66D)
     val moonColor = if (redLight) Color(0xFFFF9D8A) else Color(0xFF6EA8FE)
     val borderColor = MaterialTheme.colorScheme.outlineVariant
+    // Dim text of the marker row and the hour axis (design token tx3
+    // #5D6C8C; the red theme's muted red equivalent).
+    val axisTextColor = if (redLight) Color(0xFFC05348) else Color(0xFF5D6C8C)
+    val okColor = LocalStateColors.current.ok
     // Text/marks drawn on accent fills take the theme onPrimary token
     // in both themes instead of a hard-coded near-black.
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
@@ -492,15 +516,17 @@ fun NightTimelineCard(
                     ) {
                         Column(
                             modifier = Modifier.padding(
-                                horizontal = PLOT_INSET_DP,
-                                vertical = 6.dp,
+                                start = PLOT_INSET_DP,
+                                end = PLOT_INSET_DP,
+                                top = 6.dp,
+                                bottom = 4.dp,
                             ),
                         ) {
                             // Sun band, moon band and marker row, with
                             // the marks' transparent tap hot zones
                             // overlaid on this section: 40dp wide and
                             // the section's full height, so a mark is
-                            // tappable well beyond its tick line
+                            // tappable well beyond its label
                             // (ui-design §7.4). Where marks are closer
                             // than 40dp the zones overlap and the later
                             // mark wins the overlap.
@@ -523,7 +549,7 @@ fun NightTimelineCard(
                                     MarkerRow(
                                         timeline = timeline,
                                         marks = marks,
-                                        tickColor = borderColor,
+                                        textColor = axisTextColor,
                                         plotWidthDp = plotWidthDp,
                                     )
                                 }
@@ -543,189 +569,58 @@ fun NightTimelineCard(
                                     )
                                 }
                             }
-                            // Target-arc lanes (ui-design §7.5, the phase-1
-                            // reserved slot; 0.5.1 revision): one TALL lane per
-                            // displayed cursor target. The lane's bar is its
-                            // ≥20° window segmented rising / culmination /
-                            // setting: the culmination segment is gold-filled
-                            // (in the red theme the same slot is the brightest
-                            // red AND carries the culmination text, so the
-                            // segment never reads by colour alone), rising is a
-                            // mid-tone fill, setting a dimmer one. The target
-                            // name sits inside the lane at its left-hand end;
-                            // the culmination text sits inside the culmination
-                            // segment when that segment is wide enough —
-                            // otherwise it is omitted (never shrunk, never
-                            // overlapped; the detail dialog always carries
-                            // the same figures). Since 0.6.0 the recommended
-                            // shooting window's overlap with the arc is framed
-                            // with a thick bright border over the fills — a
-                            // shape, not just a colour, so it survives the red
-                            // theme. Tapping a lane opens its target's detail
-                            // dialog.
+                            // Target-arc lanes (ui-design §7.5): one
+                            // compact 26dp lane per displayed cursor
+                            // target, 5dp apart. Each lane draws the
+                            // target's REAL altitude curve from its
+                            // 5-minute samples (0.8.9 — the first true
+                            // curve lanes; the pre-0.8.9 flat rising /
+                            // culmination / setting rectangles are
+                            // retired): inside the ≥20° window the area
+                            // under the curve is filled, the culmination
+                            // span's under-curve area takes the accent
+                            // fill, the curve itself is stroked, and the
+                            // recommended window is framed over the
+                            // fills. The lane carries the target name at
+                            // its left end and NO culmination text —
+                            // culmination figures live in the bubble and
+                            // the detail dialog. Tap targets follow the
+                            // marker rows' transparent-overlay pattern:
+                            // invisible boxes over the visual lanes,
+                            // 31dp tall (visual lane plus its share of
+                            // the row gap), so the visual rhythm stays
+                            // compact while taps still land. Tapping a
+                            // lane opens its target's detail dialog.
                             if (cursorActive && arcs.isNotEmpty()) {
-                                Column(
-                                    modifier = Modifier.padding(top = 5.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    arcs.forEachIndexed { index, arc ->
-                                        val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(48.dp)
-                                                .clickable { onArcTap(index) }
-                                                .semantics { contentDescription = arc.label },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
+                                Box(modifier = Modifier.padding(top = 5.dp)) {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                                    ) {
+                                        arcs.forEach { arc ->
+                                            ArcLane(
+                                                arc = arc,
+                                                timeline = timeline,
+                                                accent = sunColor,
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        arcs.forEachIndexed { index, arc ->
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(ARC_LANE_HEIGHT_DP),
-                                            ) {
-                                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                                fun xOf(instant: Instant): Float =
-                                                    NightTimeline.fractionOf(
-                                                        instant, timeline.axisStart, timeline.axisEnd,
-                                                    ).toFloat() * size.width
-                                                val barTop = 2.dp.toPx()
-                                                val barHeight = size.height - 4.dp.toPx()
-                                                fun segment(
-                                                    interval: NightTimeline.Interval?,
-                                                    fill: Color,
-                                                    outline: Color,
-                                                ) {
-                                                    if (interval == null) return
-                                                    val left = xOf(interval.start)
-                                                    val right = xOf(interval.end)
-                                                    if (right - left < 1f) return
-                                                    drawRoundRect(
-                                                        color = fill,
-                                                        topLeft = Offset(left, barTop),
-                                                        size = Size(right - left, barHeight),
-                                                        cornerRadius = androidx.compose.ui.geometry
-                                                            .CornerRadius(6.dp.toPx()),
+                                                    .height(
+                                                        if (index < arcs.lastIndex) {
+                                                            31.dp
+                                                        } else {
+                                                            ARC_LANE_HEIGHT_DP
+                                                        },
                                                     )
-                                                    drawRoundRect(
-                                                        color = outline,
-                                                        topLeft = Offset(left, barTop),
-                                                        size = Size(right - left, barHeight),
-                                                        cornerRadius = androidx.compose.ui.geometry
-                                                            .CornerRadius(6.dp.toPx()),
-                                                        style = Stroke(width = 1.dp.toPx()),
-                                                    )
-                                                }
-                                                val phases = arc.phases
-                                                if (phases != null) {
-                                                    segment(
-                                                        phases.rising,
-                                                        baseColor.copy(alpha = 0.22f), baseColor,
-                                                    )
-                                                    segment(
-                                                        phases.culminationSpan,
-                                                        sunColor.copy(alpha = 0.55f),
-                                                        sunColor,
-                                                    )
-                                                    segment(
-                                                        phases.setting,
-                                                        baseColor.copy(alpha = 0.10f), baseColor,
-                                                    )
-                                                } else {
-                                                    for (interval in arc.intervals) {
-                                                        segment(
-                                                            interval,
-                                                            baseColor.copy(alpha = 0.16f), baseColor,
-                                                        )
-                                                    }
-                                                }
-                                                // Recommended-window frame
-                                                // (ui-design §7.5, 0.6.0): a thick
-                                                // bright border around the framed
-                                                // span, drawn over the phase fills.
-                                                arc.recommendedFrame?.let { frame ->
-                                                    val left = xOf(frame.start)
-                                                    val right = xOf(frame.end)
-                                                    if (right - left >= 2f) {
-                                                        drawRoundRect(
-                                                            color = sunColor,
-                                                            topLeft = Offset(
-                                                                left, barTop - 1.dp.toPx(),
-                                                            ),
-                                                            size = Size(
-                                                                right - left,
-                                                                barHeight + 2.dp.toPx(),
-                                                            ),
-                                                            cornerRadius = androidx.compose.ui
-                                                                .geometry.CornerRadius(7.dp.toPx()),
-                                                            style = Stroke(width = 2.5.dp.toPx()),
-                                                        )
-                                                    }
-                                                }
-                                                drawCircle(
-                                                    color = if (phases != null) {
-                                                        onPrimaryColor
-                                                    } else {
-                                                        baseColor
+                                                    .clickable { onArcTap(index) }
+                                                    .semantics {
+                                                        contentDescription = arc.label
                                                     },
-                                                    radius = 2.5.dp.toPx(),
-                                                    center = Offset(
-                                                        xOf(arc.culmination), size.height / 2,
-                                                    ),
-                                                )
-                                            }
-                                            // Name inside the lane at its
-                                            // left-hand end (ui-design §7.5,
-                                            // 0.8.8: the comparison board's C
-                                            // drawing — a fixed reading start
-                                            // for every lane, instead of the
-                                            // name travelling with each
-                                            // window's start), single line,
-                                            // ellipsised at the lane edge.
-                                            Text(
-                                                text = arc.label,
-                                                fontSize = 11.sp,
-                                                maxLines = 1,
-                                                overflow = androidx.compose.ui.text.style
-                                                    .TextOverflow.Ellipsis,
-                                                color = baseColor,
-                                                modifier = Modifier
-                                                    .offset(x = 6.dp, y = 5.dp)
-                                                    .width(max(0.0, plotWidthDp - 10.0).dp),
                                             )
-                                            // Culmination text inside the gold
-                                            // segment, only when the segment is
-                                            // wide enough for the estimate plus
-                                            // padding (omission rule, §7.5).
-                                            val span = arc.phases?.culminationSpan
-                                            val culminationText = arc.culminationText
-                                            if (span != null && culminationText != null) {
-                                                val spanStartFraction = NightTimeline.fractionOf(
-                                                    span.start, timeline.axisStart, timeline.axisEnd,
-                                                )
-                                                val spanEndFraction = NightTimeline.fractionOf(
-                                                    span.end, timeline.axisStart, timeline.axisEnd,
-                                                )
-                                                val spanWidthDp =
-                                                    (spanEndFraction - spanStartFraction) * plotWidthDp
-                                                val textWidthDp = estimateTextWidthDp(
-                                                    culminationText, 10f,
-                                                )
-                                                if (spanWidthDp >= textWidthDp + 10.0) {
-                                                    val textX = spanStartFraction * plotWidthDp +
-                                                        (spanWidthDp - textWidthDp) / 2.0
-                                                    Text(
-                                                        text = culminationText,
-                                                        fontSize = 10.sp,
-                                                        maxLines = 1,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = onPrimaryColor,
-                                                        modifier = Modifier.offset(
-                                                            x = textX.dp, y = 6.dp,
-                                                        ),
-                                                    )
-                                                }
-                                            }
-                                            }
                                         }
                                     }
                                 }
@@ -733,10 +628,13 @@ fun NightTimelineCard(
                             // Window band rows (ui-design §7.4): the
                             // low-moonlight windows and the galactic-
                             // centre window as rows of their own, each
-                            // named inside its first span (0.8.8). Both
-                            // are absent without an astronomical night,
-                            // and a row with nothing to show is not
-                            // drawn at all.
+                            // named inside its first span (0.8.8). Since
+                            // 0.8.9 both are plain soft fills (ok-green /
+                            // gold) with no patterned frame — the row
+                            // name, not a line style, tells them apart.
+                            // Both are absent without an astronomical
+                            // night, and a row with nothing to show is
+                            // not drawn at all.
                             if (timeline.hasAstronomicalNight &&
                                 lowMoonlightWindows.isNotEmpty()
                             ) {
@@ -749,9 +647,9 @@ fun NightTimelineCard(
                                         )
                                     },
                                     timeline = timeline,
-                                    color = moonColor,
-                                    effect = PathEffect.dashPathEffect(floatArrayOf(8f, 5f)),
+                                    fillColor = okColor.copy(alpha = 0.22f),
                                     label = stringResource(R.string.timeline_low_moon_band),
+                                    labelColor = okColor,
                                     plotWidthDp = plotWidthDp,
                                 )
                             }
@@ -761,15 +659,27 @@ fun NightTimelineCard(
                                     WindowBandRow(
                                         intervals = listOf(interval),
                                         timeline = timeline,
-                                        color = sunColor,
-                                        effect = PathEffect.dashPathEffect(
-                                            floatArrayOf(2f, 4f, 9f, 4f),
-                                        ),
+                                        fillColor = sunColor.copy(alpha = 0.19f),
                                         label = stringResource(R.string.timeline_gc_visible),
+                                        labelColor = sunColor,
                                         plotWidthDp = plotWidthDp,
                                     )
                                 }
                             }
+                            // Whole-hour axis (ui-design §7.4, 0.8.9):
+                            // the panel's closing row — every whole
+                            // hour inside the axis at its true position
+                            // on the shared time scale (not an equal
+                            // division of the axis). This is the
+                            // panel's only axis labelling; the former
+                            // four-point row under the panel is gone.
+                            Spacer(modifier = Modifier.height(6.dp))
+                            HourAxisRow(
+                                timeline = timeline,
+                                zone = zone,
+                                textColor = axisTextColor,
+                                plotWidthDp = plotWidthDp,
+                            )
                         }
                         // Cursor (ui-design §7.5): the gold line runs
                         // the panel's full height with its knob at the
@@ -797,23 +707,47 @@ fun NightTimelineCard(
                                 )
                             }
                         }
-                        // Cursor bubble (ui-design §7.5): since 0.8.7 a
-                        // dark card surface with a gold border (the red
-                        // theme's accent is its brightest red, so the
-                        // border follows the theme) instead of the
-                        // sun-phase fill; the three lines are unchanged
-                        // and stay readable while dragging.
+                        // Cursor bubble (ui-design §7.5): a dark card
+                        // surface with a gold border (the red theme's
+                        // accent is its brightest red, so the border
+                        // follows the theme). Three lines since 0.8.9,
+                        // aligned with the comparison board: the time
+                        // with its solar segment (a snapped moment's
+                        // name takes the time's place, its own time
+                        // being the cursor's), the Moon altitude with
+                        // the phase illumination, and the moonlight
+                        // tier with the site's Bortle grade. The width
+                        // hugs the widest line (capped at the panel
+                        // width minus 16dp), and the bubble hangs over
+                        // the top of the lane area (BUBBLE_TOP_DP)
+                        // instead of covering the sun band's labels
+                        // and the moonrise note.
                         if (cursorActive && cursorInstant != null && bubbleTimeText != null) {
                             val fraction = NightTimeline.fractionOf(
                                 cursorInstant, timeline.axisStart, timeline.axisEnd,
                             )
-                            val bubbleWidth = 184.0
+                            val firstLine = buildString {
+                                append(bubbleSnapLabel ?: bubbleTimeText)
+                                if (bubbleSegmentText != null) {
+                                    append(" · ")
+                                    append(bubbleSegmentText)
+                                }
+                            }
+                            val bubbleLines = listOfNotNull(
+                                firstLine, bubbleMoonText, bubbleTierText,
+                            )
+                            val bubbleWidth = minOf(
+                                bubbleLines.maxOfOrNull { line ->
+                                    estimateTextWidthDp(line, 13f)
+                                } ?: 0.0,
+                                max(0.0, widthDp - 16.0),
+                            ) + 16.0
                             val bubbleLeft =
                                 (PLOT_INSET_DP.value.toDouble() + fraction * plotWidthDp - bubbleWidth / 2)
                                     .coerceIn(0.0, max(0.0, widthDp - bubbleWidth))
                             Column(
                                 modifier = Modifier
-                                    .offset(x = bubbleLeft.dp, y = 14.dp)
+                                    .offset(x = bubbleLeft.dp, y = BUBBLE_TOP_DP)
                                     .width(bubbleWidth.dp)
                                     .background(
                                         MaterialTheme.colorScheme.surface,
@@ -824,50 +758,35 @@ fun NightTimelineCard(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
-                                    text = bubbleTimeText,
+                                    text = firstLine,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
                                 )
                                 if (bubbleMoonText != null) {
                                     Text(
                                         text = bubbleMoonText,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
                                     )
                                 }
-                                if (bubbleSnapLabel != null) {
+                                if (bubbleTierText != null) {
                                     Text(
-                                        text = bubbleSnapLabel,
+                                        text = bubbleTierText,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
                                     )
                                 }
                             }
                         }
                     }
-                    // No legend row under the panel (0.8.8): each
-                    // window band row names itself inside its span, and
-                    // the sun / moon bands carry their own in-band
-                    // labels, so a separate legend would only repeat
-                    // them.
-                    // Axis time labels: start, thirds, end.
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(horizontal = PLOT_INSET_DP),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        listOf(0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0).forEach { fraction ->
-                            val instant = NightTimeline.instantAtFraction(
-                                fraction, timeline.axisStart, timeline.axisEnd,
-                            )
-                            Text(
-                                text = formatTime(instant, zone),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    // No legend row under the panel (0.8.8) and no
+                    // axis row either (0.8.9): each window band names
+                    // itself inside its span, and the whole-hour axis
+                    // closes the panel itself.
                     // Cursor track (ui-design §7.5, the phase-1 reserved
                     // slot): a thin rail under the axis with the cursor
                     // knob, visible while the cursor state is active.
@@ -994,6 +913,277 @@ fun NightTimelineCard(
 }
 
 /**
+ * One target lane of the layered panel (ui-design §7.5, 0.8.9): a
+ * compact 26dp container (card2 surface, 1dp border, 6dp corners)
+ * holding the target's real altitude curve. Altitude maps linearly
+ * onto the lane's vertical: the target's culmination altitude is the
+ * full scale, the curve's peak leaves a 2dp headroom and altitude 0
+ * sits on the lane's bottom edge. Only the ≥20° window is drawn —
+ * the curve enters and leaves at the 20° crossings interpolated
+ * between samples — with the area under the curve filled, the
+ * culmination span's under-curve area in the accent, and the curve
+ * stroked over both. The recommended frame (1.5dp, 5dp corners,
+ * inset 1.5dp from the lane's top and bottom) sits over the fills.
+ * The name rides at the lane's left end over the fill, with a soft
+ * dark shadow for legibility. Without samples the lane degrades to
+ * the name plus the frame — the retired flat segments never return.
+ */
+@Composable
+private fun ArcLane(
+    arc: TimelineArc,
+    timeline: TonightOverviewUseCase.Timeline,
+    accent: Color,
+) {
+    val laneShape = RoundedCornerShape(6.dp)
+    val containerColor = MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    val windowFill = MaterialTheme.colorScheme.secondaryContainer
+    val culminationFill = accent.copy(alpha = 0.33f)
+    val curveColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ARC_LANE_HEIGHT_DP)
+            .background(containerColor, laneShape)
+            .border(1.dp, borderColor, laneShape)
+            .clip(laneShape),
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            fun xOf(instant: Instant): Float =
+                NightTimeline.fractionOf(
+                    instant, timeline.axisStart, timeline.axisEnd,
+                ).toFloat() * size.width
+            val samples = arc.altitudeSamples
+            val peak = arc.phases?.culmination?.altitudeDeg
+                ?: samples.maxOfOrNull { it.altitudeDeg } ?: 0.0
+            if (samples.size >= 2 && peak > 0.0) {
+                val topPad = 2.dp.toPx()
+                val bottom = size.height
+                fun yOf(altitudeDeg: Double): Float =
+                    bottom - (altitudeDeg / peak).coerceIn(0.0, 1.0).toFloat() *
+                        (bottom - topPad)
+                // The window curve: sample points inside [window],
+                // extended to the exact 20° crossings on both sides,
+                // so the curve starts and ends at the threshold height
+                // instead of at the first / last sample above it.
+                fun windowCurvePoints(
+                    window: NightTimeline.Interval,
+                ): List<Offset> {
+                    val threshold = TimelineCursor.MIN_ALTITUDE_DEG
+                    val inside = samples.filter { sample ->
+                        !sample.instant.isBefore(window.start) &&
+                            (sample.instant.isBefore(window.end) ||
+                                (sample.instant == window.end &&
+                                    sample.altitudeDeg >= threshold))
+                    }
+                    if (inside.isEmpty()) return emptyList()
+                    val points = mutableListOf<Offset>()
+                    val first = inside.first()
+                    val firstIndex = samples.indexOfFirst {
+                        it.instant == first.instant
+                    }
+                    val before = samples.getOrNull(firstIndex - 1)
+                    if (before != null && before.altitudeDeg < threshold &&
+                        first.altitudeDeg >= threshold
+                    ) {
+                        val span = (first.altitudeDeg - before.altitudeDeg)
+                        val f = if (span > 0.0) {
+                            (threshold - before.altitudeDeg) / span
+                        } else {
+                            0.0
+                        }
+                        val crossing = before.instant.plus(
+                            Duration.ofMillis(
+                                (Duration.between(before.instant, first.instant)
+                                    .toMillis() * f).toLong(),
+                            ),
+                        )
+                        points += Offset(xOf(crossing), yOf(threshold))
+                    }
+                    inside.forEach { sample ->
+                        points += Offset(
+                            xOf(sample.instant), yOf(sample.altitudeDeg),
+                        )
+                    }
+                    val last = inside.last()
+                    val lastIndex = samples.indexOfFirst {
+                        it.instant == last.instant
+                    }
+                    val after = samples.getOrNull(lastIndex + 1)
+                    if (after != null && last.altitudeDeg >= threshold &&
+                        after.altitudeDeg < threshold
+                    ) {
+                        val span = (last.altitudeDeg - after.altitudeDeg)
+                        val f = if (span > 0.0) {
+                            (last.altitudeDeg - threshold) / span
+                        } else {
+                            0.0
+                        }
+                        val crossing = last.instant.plus(
+                            Duration.ofMillis(
+                                (Duration.between(last.instant, after.instant)
+                                    .toMillis() * f).toLong(),
+                            ),
+                        )
+                        points += Offset(xOf(crossing), yOf(threshold))
+                    }
+                    return points
+                }
+                // The sub-polyline of [points] between two x positions,
+                // with the y at both cut positions interpolated from
+                // the neighbouring vertices (the culmination fill
+                // follows the curve, cut to its span).
+                fun subCurvePoints(
+                    points: List<Offset>,
+                    x0: Float,
+                    x1: Float,
+                ): List<Offset> {
+                    if (points.size < 2) return emptyList()
+                    fun yAt(x: Float): Float {
+                        if (x <= points.first().x) return points.first().y
+                        if (x >= points.last().x) return points.last().y
+                        val upper = points.indexOfFirst { it.x >= x }
+                        val a = points[upper - 1]
+                        val b = points[upper]
+                        if (b.x <= a.x) return b.y
+                        return a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x)
+                    }
+                    val out = mutableListOf(Offset(x0, yAt(x0)))
+                    points.filter { it.x > x0 && it.x < x1 }
+                        .forEach { out += it }
+                    out += Offset(x1, yAt(x1))
+                    return out
+                }
+                fun fillUnder(points: List<Offset>, color: Color) {
+                    if (points.size < 2) return
+                    val path = Path().apply {
+                        moveTo(points.first().x, bottom)
+                        points.forEach { lineTo(it.x, it.y) }
+                        lineTo(points.last().x, bottom)
+                        close()
+                    }
+                    drawPath(path = path, color = color)
+                }
+                fun strokeOver(points: List<Offset>) {
+                    if (points.size < 2) return
+                    val path = Path().apply {
+                        moveTo(points.first().x, points.first().y)
+                        points.drop(1).forEach { lineTo(it.x, it.y) }
+                    }
+                    drawPath(
+                        path = path,
+                        color = curveColor,
+                        style = Stroke(width = 1.2.dp.toPx()),
+                    )
+                }
+                val windows = arc.phases?.window?.let { listOf(it) }
+                    ?: arc.intervals
+                for (window in windows) {
+                    val points = windowCurvePoints(window)
+                    fillUnder(points, windowFill)
+                    val span = arc.phases?.culminationSpan
+                    if (span != null && arc.phases?.window == window) {
+                        fillUnder(
+                            subCurvePoints(
+                                points, xOf(span.start), xOf(span.end),
+                            ),
+                            culminationFill,
+                        )
+                    }
+                    strokeOver(points)
+                }
+            }
+            // Recommended-window frame (ui-design §7.5): over the
+            // curve fills, in the comparison board's geometry — it
+            // draws whether or not samples exist.
+            arc.recommendedFrame?.let { frame ->
+                val left = xOf(frame.start)
+                val right = xOf(frame.end)
+                if (right - left >= 2f) {
+                    drawRoundRect(
+                        color = accent,
+                        topLeft = Offset(left, 1.5.dp.toPx()),
+                        size = Size(right - left, 23.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry
+                            .CornerRadius(5.dp.toPx()),
+                        style = Stroke(width = 1.5.dp.toPx()),
+                    )
+                }
+            }
+        }
+        Text(
+            text = arc.label,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = TextStyle(
+                fontSize = 11.sp,
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 3f,
+                ),
+            ),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 4.dp),
+        )
+    }
+}
+
+/**
+ * The whole-hour axis closing the layered panel (ui-design §7.4,
+ * 0.8.9): every whole hour inside the axis span, labelled at its true
+ * position on the panel's shared time scale — deliberately NOT an
+ * equal division of the axis, so a 17:35–08:47 axis labels 18:00,
+ * 21:00, 00:00, 03:00 and 06:00 where those instants actually fall.
+ * Labels are centred on their hour and clamped into the plot.
+ */
+@Composable
+private fun HourAxisRow(
+    timeline: TonightOverviewUseCase.Timeline,
+    zone: ZoneId,
+    textColor: Color,
+    plotWidthDp: Double,
+) {
+    val hours = remember(timeline.axisStart, timeline.axisEnd, zone) {
+        val out = mutableListOf<Pair<Instant, String>>()
+        var t = timeline.axisStart.atZone(zone).truncatedTo(ChronoUnit.HOURS)
+        if (t.toInstant().isBefore(timeline.axisStart)) t = t.plusHours(1)
+        while (!t.toInstant().isAfter(timeline.axisEnd)) {
+            out += t.toInstant() to formatTime(t.toInstant(), zone)
+            t = t.plusHours(1)
+        }
+        out
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(HOUR_AXIS_ROW_HEIGHT_DP),
+    ) {
+        for ((instant, label) in hours) {
+            val centerDp = NightTimeline.fractionOf(
+                instant, timeline.axisStart, timeline.axisEnd,
+            ) * plotWidthDp
+            val widthDp = estimateTextWidthDp(label, 9f)
+            val leftDp = (centerDp - widthDp / 2.0)
+                .coerceIn(0.0, max(0.0, plotWidthDp - widthDp))
+            Text(
+                text = label,
+                fontSize = 9.sp,
+                maxLines = 1,
+                color = textColor,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = leftDp.dp),
+            )
+        }
+    }
+}
+
+/**
  * Gradient colour of one solar band in the sun band strip (ui-design
  * §7.4, 0.8.8; values from the approved comparison board): daytime
  * amber through twilight blues to the astronomical night's deep blue;
@@ -1002,7 +1192,7 @@ fun NightTimelineCard(
 private fun sunBandColor(band: NightTimeline.SunBand, redLight: Boolean): Color =
     if (redLight) {
         when (band) {
-            NightTimeline.SunBand.DAY -> Color(0xFF8F2B21)
+            NightTimeline.SunBand.DAY -> Color(0xFF7A261C)
             NightTimeline.SunBand.CIVIL_TWILIGHT -> Color(0xFF701C13)
             NightTimeline.SunBand.NAUTICAL_TWILIGHT -> Color(0xFF57150E)
             NightTimeline.SunBand.ASTRONOMICAL_TWILIGHT -> Color(0xFF3F0F0A)
@@ -1010,7 +1200,10 @@ private fun sunBandColor(band: NightTimeline.SunBand, redLight: Boolean): Color 
         }
     } else {
         when (band) {
-            NightTimeline.SunBand.DAY -> Color(0xFF8A5A20)
+            // Desaturated deep amber since 0.8.9: the board's daytime
+            // ends glow faintly instead of reading as solid orange
+            // blocks at both ends of the strip.
+            NightTimeline.SunBand.DAY -> Color(0xFF6E4B22)
             NightTimeline.SunBand.CIVIL_TWILIGHT -> Color(0xFF3D4E7D)
             NightTimeline.SunBand.NAUTICAL_TWILIGHT -> Color(0xFF2B3C68)
             NightTimeline.SunBand.ASTRONOMICAL_TWILIGHT -> Color(0xFF1C2A52)
@@ -1020,16 +1213,20 @@ private fun sunBandColor(band: NightTimeline.SunBand, redLight: Boolean): Color 
 
 /**
  * The sun band row of the layered panel (ui-design §7.4, 0.8.8): one
- * strip filled with a multi-stop gradient whose stops sit at the band
- * segments' boundaries — daytime amber, twilight blues, the night's
- * deep blue, and back out at dawn (the comparison board's C drawing,
- * replacing the 0.8.7 single-hue alpha segments). Short labels ride
- * in the band: sunset and sunrise at their instants, dusk over the
- * evening twilight span, dawn over the morning one, and the night
- * label centred on the astronomical night. Placement follows the
- * shared priority rule ([placeLabels]): when two labels would
- * overlap, the lower rank is omitted — the night outranks dusk and
- * dawn, which outrank sunset and sunrise.
+ * strip filled with a multi-stop gradient driven by the band
+ * segments — daytime amber, twilight blues, the night's deep blue,
+ * and back out at dawn. Since 0.8.9 the stops are smoothed: each
+ * segment boundary carries a transition zone of about ±2.5% of the
+ * axis width (the previous band's colour holds until the zone, the
+ * next band's colour takes over after it) instead of a stop pinned
+ * at each segment's midpoint, and the daytime colour is a
+ * desaturated deep amber so the strip's ends no longer read as solid
+ * orange. Short labels ride in the band: sunset and sunrise at their
+ * instants, dusk over the evening twilight span, dawn over the
+ * morning one, and the night label centred on the astronomical
+ * night. Placement follows the shared priority rule ([placeLabels]):
+ * when two labels would overlap, the lower rank is omitted — the
+ * night outranks dusk and dawn, which outrank sunset and sunrise.
  */
 @Composable
 private fun SunBandRow(
@@ -1037,7 +1234,9 @@ private fun SunBandRow(
     redLight: Boolean,
     plotWidthDp: Double,
 ) {
-    val labelColor = MaterialTheme.colorScheme.onBackground
+    // The board's pale blue-grey label colour (#C9D4EE); the red
+    // theme takes its pale red equivalent.
+    val labelColor = if (redLight) Color(0xFFFFB4A3) else Color(0xFFC9D4EE)
     val segments = timeline.bandSegments
     fun fractionOf(instant: Instant): Double =
         NightTimeline.fractionOf(instant, timeline.axisStart, timeline.axisEnd)
@@ -1054,15 +1253,34 @@ private fun SunBandRow(
                     size = size,
                 )
             } else {
+                // Smoothed stops: fractions are kept non-decreasing;
+                // where two transition zones would overlap (a very
+                // short segment), the clamp collapses the zone to a
+                // hard stop at the shared fraction.
+                val transitionHalf = 0.025f
                 val stops = buildList {
-                    add(0f to sunBandColor(segments.first().band, redLight))
-                    for (segment in segments) {
-                        val mid = (
-                            (fractionOf(segment.start) + fractionOf(segment.end)) / 2.0
-                            ).toFloat()
-                        add(mid to sunBandColor(segment.band, redLight))
+                    var lastFraction = 0f
+                    var lastColor: Color? = null
+                    fun addStop(fraction: Float, color: Color) {
+                        val f = max(fraction.coerceIn(0f, 1f), lastFraction)
+                        if (f == lastFraction && color == lastColor) return
+                        add(f to color)
+                        lastFraction = f
+                        lastColor = color
                     }
-                    add(1f to sunBandColor(segments.last().band, redLight))
+                    addStop(0f, sunBandColor(segments.first().band, redLight))
+                    for (i in 0 until segments.size - 1) {
+                        val boundary = fractionOf(segments[i + 1].start).toFloat()
+                        addStop(
+                            boundary - transitionHalf,
+                            sunBandColor(segments[i].band, redLight),
+                        )
+                        addStop(
+                            boundary + transitionHalf,
+                            sunBandColor(segments[i + 1].band, redLight),
+                        )
+                    }
+                    addStop(1f, sunBandColor(segments.last().band, redLight))
                 }
                 drawRect(
                     brush = Brush.horizontalGradient(colorStops = stops.toTypedArray()),
@@ -1084,7 +1302,7 @@ private fun SunBandRow(
                     LabelCandidate(
                         text = text,
                         centerDp = centerFraction * plotWidthDp,
-                        widthDp = estimateTextWidthDp(text, 9f),
+                        widthDp = estimateTextWidthDp(text, 8.5f),
                         rank = rank,
                     ),
                 )
@@ -1138,7 +1356,7 @@ private fun SunBandRow(
         for ((label, leftDp) in placeLabels(candidates, plotWidthDp)) {
             Text(
                 text = label.text,
-                fontSize = 9.sp,
+                fontSize = 8.5.sp,
                 maxLines = 1,
                 color = labelColor,
                 modifier = Modifier
@@ -1151,7 +1369,8 @@ private fun SunBandRow(
 
 /**
  * The moon band row (ui-design §7.4, 0.8.7): the Moon-up spans derived
- * from the samples in the domain layer, on a surface-variant track.
+ * from the samples in the domain layer, on the card2 track (the
+ * surfaceVariant token — the same track as the window bands).
  * When the Moon rises inside the axis, the rise is labelled at the
  * span's start with the exact moment (passed in from the caller's
  * key-moment list, not the sample grid) whenever the label fits
@@ -1217,22 +1436,22 @@ private fun MoonBandRow(
 }
 
 /**
- * The marker row (ui-design §7.4, 0.8.8): the nine key moments as
- * ticks on their own row of the layered panel, the main marks
- * carrying a short text label under the tick (short name plus the
- * moment for the Sun and night marks; the galactic-centre mark is
- * name-only) — the comparison board's C drawing. Labels are centred
- * on their tick and placed by the shared priority rule
- * ([placeLabels]): a label that would overlap a higher-ranked
- * neighbour is omitted, never shrunk or shifted into it. The tap hot
- * zones live with the panel (see NightTimelineCard), spanning the
- * band rows, and are unaffected by the labels.
+ * The marker row (ui-design §7.4): the main marks' text labels on
+ * their own row of the layered panel (short name plus the moment for
+ * the Sun and night marks; the galactic-centre mark is name-only) —
+ * the comparison board's C drawing. Since 0.8.9 the row draws NO
+ * ticks: the labels alone carry the marks, in the dim tx3 colour.
+ * Labels are centred on their moment and placed by the shared
+ * priority rule ([placeLabels]): a label that would overlap a
+ * higher-ranked neighbour is omitted, never shrunk or shifted into
+ * it. The tap hot zones live with the panel (see NightTimelineCard),
+ * spanning the band rows, and are unaffected by the labels.
  */
 @Composable
 private fun MarkerRow(
     timeline: TonightOverviewUseCase.Timeline,
     marks: List<TimelineMark>,
-    tickColor: Color,
+    textColor: Color,
     plotWidthDp: Double,
 ) {
     Box(
@@ -1240,20 +1459,6 @@ private fun MarkerRow(
             .fillMaxWidth()
             .height(MARKER_ROW_HEIGHT_DP),
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            fun xOf(instant: Instant): Float =
-                NightTimeline.fractionOf(
-                    instant, timeline.axisStart, timeline.axisEnd,
-                ).toFloat() * size.width
-            for (mark in marks) {
-                drawLine(
-                    color = tickColor.copy(alpha = 0.6f),
-                    start = Offset(xOf(mark.instant), 2.dp.toPx()),
-                    end = Offset(xOf(mark.instant), 10.dp.toPx()),
-                    strokeWidth = 1.dp.toPx(),
-                )
-            }
-        }
         val candidates = marks.mapNotNull { mark ->
             mark.shortLabel?.let { label ->
                 LabelCandidate(
@@ -1271,8 +1476,10 @@ private fun MarkerRow(
                 text = label.text,
                 fontSize = 9.sp,
                 maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.offset(x = leftDp.dp, y = 13.dp),
+                color = textColor,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = leftDp.dp),
             )
         }
     }
@@ -1280,22 +1487,22 @@ private fun MarkerRow(
 
 /**
  * One window band row of the layered panel (ui-design §7.4): the
- * low-moonlight windows (dashed border) and the galactic-centre
- * window (dot-dash border) share this drawing — a filled span with a
- * patterned outline on a surface-variant track, so the two bands read
- * by line style, not hue alone, in both themes. Since 0.8.8 the row
- * also names itself: [label] sits inside the first window span at its
- * start, in the row's own colour, so the row reads without the old
- * legend row under the panel; a label wider than its span is omitted
- * rather than spilling over the track.
+ * low-moonlight windows and the galactic-centre window share this
+ * drawing — a soft filled span on the card2 track, with no outline
+ * frame since 0.8.9 (the pre-0.8.9 dashed / dot-dash frames are
+ * retired; the two bands are told apart by their in-row names and
+ * fills, in the red theme by name and brightness). The row names
+ * itself: [label] sits inside the first window span at its start, in
+ * [labelColor], so the row reads without a legend; a label wider
+ * than its span is omitted rather than spilling over the track.
  */
 @Composable
 private fun WindowBandRow(
     intervals: List<NightTimeline.Interval>,
     timeline: TonightOverviewUseCase.Timeline,
-    color: Color,
-    effect: PathEffect,
+    fillColor: Color,
     label: String,
+    labelColor: Color,
     plotWidthDp: Double,
 ) {
     Box(
@@ -1316,21 +1523,9 @@ private fun WindowBandRow(
                 val left = xOf(interval.start)
                 val right = xOf(interval.end)
                 drawRect(
-                    color = color.copy(alpha = 0.25f),
+                    color = fillColor,
                     topLeft = Offset(left, 0f),
                     size = Size(right - left, size.height),
-                )
-                val outline = Path().apply {
-                    moveTo(left, 0f)
-                    lineTo(right, 0f)
-                    lineTo(right, size.height)
-                    lineTo(left, size.height)
-                    close()
-                }
-                drawPath(
-                    path = outline,
-                    color = color.copy(alpha = 0.95f),
-                    style = Stroke(width = 1.2.dp.toPx(), pathEffect = effect),
                 )
             }
         }
@@ -1349,7 +1544,7 @@ private fun WindowBandRow(
                     text = label,
                     fontSize = 8.sp,
                     maxLines = 1,
-                    color = color,
+                    color = labelColor,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .offset(x = (startFraction * plotWidthDp + 4.0).dp),
