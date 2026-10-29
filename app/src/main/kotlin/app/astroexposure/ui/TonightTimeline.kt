@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -165,13 +166,17 @@ private val MOON_MARKER_GAP_DP = 2.dp
 
 /**
  * Vertical offset of the cursor bubble's top edge inside the panel
- * (ui-design §7.5): since 0.8.11 the bubble hangs over the track
- * band, so its top edge is the panel's top padding — the track
- * band's own top edge — derived from the panel metrics instead of
- * freezing a number. (Before 0.8.11 it hung at the top of the lane
- * area and covered the lanes' left ends.)
+ * (ui-design §7.5): since 0.8.13 the bubble hangs BELOW the track
+ * band — over the sun band, moon band and marker row — so the
+ * track band's curves stay visible around the cursor while
+ * dragging. The top edge is derived from the panel metrics (top
+ * padding + track band height + the gap under it) instead of
+ * freezing a number. (0.8.11–0.8.12 it hung over the track band
+ * itself and covered the curves; before 0.8.11 it hung at the top
+ * of the lane area and covered the lanes' left ends.)
  */
-private val BUBBLE_TOP_DP = PANEL_TOP_PADDING_DP
+private val BUBBLE_TOP_DP =
+    PANEL_TOP_PADDING_DP + TRACK_BAND_HEIGHT_DP + TRACK_SUN_GAP_DP
 
 /**
  * Rough text width estimate in dp for the in-lane labels: CJK glyphs
@@ -454,6 +459,18 @@ fun NightTimelineCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // Lane legend (ui-design §7.5, 0.8.13): one quiet line
+            // under the subtitle naming the lanes' two gold encodings
+            // — the recommended window's frame and the culmination
+            // span's tint. Only the cursor state has lanes, so only
+            // it carries the legend.
+            if (cursorActive) {
+                Text(
+                    text = stringResource(R.string.timeline_lane_legend),
+                    fontSize = 10.sp,
+                    color = axisTextColor,
+                )
+            }
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val widthDp = maxWidth.value
@@ -469,6 +486,21 @@ fun NightTimelineCard(
                     // clickables — the mark hot zones and the lanes —
                     // consume a tap first, so a tap that opens a
                     // detail never places the cursor).
+                    //
+                    // Overlay root (0.8.13): the panel box and, as its
+                    // following sibling, the cursor bubble — so the
+                    // bubble still draws above the panel while living
+                    // outside it. The cursor's vertical line is painted
+                    // by the panel itself (see the drawWithContent at
+                    // the end of its modifier chain), and its endpoints
+                    // must come from the panel's own laid-out height:
+                    // the pre-0.8.13 overlay was a fillMaxSize canvas
+                    // inside this wrap-content box, and under the
+                    // page scroll column's unbounded height constraint
+                    // that canvas collapsed to zero height — on device
+                    // only the knob at its fixed 5dp offset ever
+                    // showed, never the line.
+                    Box {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -569,6 +601,54 @@ fun NightTimelineCard(
                                         )
                                     },
                                 )
+                            }
+                            .drawWithContent {
+                                drawContent()
+                                // Cursor line (ui-design §7.5): the
+                                // panel paints it itself, after its
+                                // rows, across its own laid-out size —
+                                // the seam of panel background (4dp)
+                                // with the gold line (2dp) centred on
+                                // it and the knob at the top, so the
+                                // line stays readable over the gold
+                                // recommended frames, the pale arcs
+                                // and the bright sun-band segments.
+                                // Because the drawing surface IS the
+                                // panel, its height is the panel's
+                                // content-derived height and cannot
+                                // collapse the way the pre-0.8.13
+                                // fillMaxSize overlay canvas did under
+                                // the scroll column's unbounded height
+                                // constraint. The canvas takes no
+                                // input; only the bubble draws above
+                                // it (as the overlay root's sibling).
+                                val lineInstant = cursorInstant
+                                if (cursorActive && lineInstant != null) {
+                                    val insetPx = PLOT_INSET_DP.toPx()
+                                    val cursorX = insetPx +
+                                        NightTimeline.fractionOf(
+                                            lineInstant,
+                                            timeline.axisStart,
+                                            timeline.axisEnd,
+                                        ).toFloat() * (size.width - 2 * insetPx)
+                                    drawLine(
+                                        color = panelBackgroundColor,
+                                        start = Offset(cursorX, 0f),
+                                        end = Offset(cursorX, size.height),
+                                        strokeWidth = 4.dp.toPx(),
+                                    )
+                                    drawLine(
+                                        color = sunColor,
+                                        start = Offset(cursorX, 0f),
+                                        end = Offset(cursorX, size.height),
+                                        strokeWidth = 2.dp.toPx(),
+                                    )
+                                    drawCircle(
+                                        color = sunColor,
+                                        radius = 5.dp.toPx(),
+                                        center = Offset(cursorX, 5.dp.toPx()),
+                                    )
+                                }
                             },
                     ) {
                         Column(
@@ -761,47 +841,7 @@ fun NightTimelineCard(
                                 plotWidthDp = plotWidthDp,
                             )
                         }
-                        // Cursor (ui-design §7.5): the gold line runs
-                        // the panel's full height — track band, sun and
-                        // moon bands, marker row, lanes, window bands
-                        // and the hour axis (the canvas fills the whole
-                        // panel box) — with its knob at the top, drawn
-                        // only while the cursor state is active. Since
-                        // 0.8.12 the line rides on a slightly wider
-                        // seam of the panel's own background colour, so
-                        // it stays readable where it crosses the gold
-                        // recommended frames, the pale altitude arcs
-                        // and the bright sun-band segments. The canvas
-                        // takes no input; only the bubble draws above
-                        // it.
-                        if (cursorActive && cursorInstant != null) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                val insetPx = PLOT_INSET_DP.toPx()
-                                val cursorX = insetPx +
-                                    NightTimeline.fractionOf(
-                                        cursorInstant,
-                                        timeline.axisStart,
-                                        timeline.axisEnd,
-                                    ).toFloat() * (size.width - 2 * insetPx)
-                                drawLine(
-                                    color = panelBackgroundColor,
-                                    start = Offset(cursorX, 0f),
-                                    end = Offset(cursorX, size.height),
-                                    strokeWidth = 4.dp.toPx(),
-                                )
-                                drawLine(
-                                    color = sunColor,
-                                    start = Offset(cursorX, 0f),
-                                    end = Offset(cursorX, size.height),
-                                    strokeWidth = 2.dp.toPx(),
-                                )
-                                drawCircle(
-                                    color = sunColor,
-                                    radius = 5.dp.toPx(),
-                                    center = Offset(cursorX, 5.dp.toPx()),
-                                )
-                            }
-                        }
+                    }
                         // Cursor bubble (ui-design §7.5): a dark card
                         // surface with a gold border (the red theme's
                         // accent is its brightest red, so the border
@@ -813,10 +853,13 @@ fun NightTimelineCard(
                         // the phase illumination, and the moonlight
                         // tier with the site's Bortle grade. The width
                         // hugs the widest line (capped at the panel
-                        // width minus 16dp), and the bubble hangs over
-                        // the track band (BUBBLE_TOP_DP, 0.8.11)
-                        // instead of covering the lanes and their
-                        // target names.
+                        // width minus 16dp), and the bubble hangs
+                        // below the track band (BUBBLE_TOP_DP,
+                        // 0.8.13) — over the sun band, moon band and
+                        // marker row — instead of covering the track
+                        // band's curves or the lanes and their target
+                        // names. It draws as the overlay root's second
+                        // child, above the panel and its cursor line.
                         if (cursorActive && cursorInstant != null && bubbleTimeText != null) {
                             val fraction = NightTimeline.fractionOf(
                                 cursorInstant, timeline.axisStart, timeline.axisEnd,
@@ -1056,6 +1099,8 @@ fun NightTimelineCard(
  * panel's shared time scale — the Sun as a solid line in the accent
  * colour, the Moon as a dashed line in the Moon colour — over the
  * vertical domain of [NightTimeline.altitudeFraction] (−36°…+90°).
+ * Since 0.8.13 the curves break at the domain boundaries instead of
+ * clamping onto the band's edge (see [NightTimeline.trackCurveRuns]).
  * The 0° horizon is drawn to be FOUND (0.8.12): a solid line in the
  * secondary text tone across the band's full width, a faint dark
  * veil over everything below it so the boundary reads even where
@@ -1145,10 +1190,6 @@ private fun TrackBandRow(
             },
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            fun xOf(instant: Instant): Float =
-                NightTimeline.fractionOf(
-                    instant, timeline.axisStart, timeline.axisEnd,
-                ).toFloat() * size.width
             fun yOf(altitudeDeg: Double): Float =
                 (1.0 - NightTimeline.altitudeFraction(altitudeDeg)).toFloat() *
                     size.height
@@ -1168,38 +1209,63 @@ private fun TrackBandRow(
                 end = Offset(size.width, horizonY),
                 strokeWidth = 1.dp.toPx(),
             )
-            fun curve(samples: List<Offset>, color: Color, dashed: Boolean) {
-                if (samples.size < 2) return
-                val path = Path().apply {
-                    moveTo(samples.first().x, samples.first().y)
-                    samples.drop(1).forEach { lineTo(it.x, it.y) }
+            // The curves are drawn as in-domain runs (ui-design
+            // §7.4, 0.8.13): [NightTimeline.trackCurveRuns] splits
+            // the sampled polyline at the domain boundaries — a run
+            // ends at the interpolated boundary point, the
+            // out-of-domain part is not drawn, and re-entry resumes
+            // from its boundary point. (Clamping every sample through
+            // altitudeFraction, the pre-0.8.13 drawing, collapsed an
+            // out-of-domain stretch onto the band's edge as a fake
+            // flat line.) Each run is its own path, so the Moon's
+            // dash pattern restarts at a re-entry — acceptable, and
+            // unavoidable when one curve becomes several paths.
+            fun curve(
+                runs: List<List<Offset>>,
+                color: Color,
+                dashed: Boolean,
+            ) {
+                for (run in runs) {
+                    if (run.size < 2) continue
+                    val path = Path().apply {
+                        moveTo(run.first().x, run.first().y)
+                        run.drop(1).forEach { lineTo(it.x, it.y) }
+                    }
+                    drawPath(
+                        path = path,
+                        color = color,
+                        style = Stroke(
+                            width = 1.5.dp.toPx(),
+                            pathEffect = if (dashed) {
+                                PathEffect.dashPathEffect(
+                                    floatArrayOf(4.dp.toPx(), 3.dp.toPx()),
+                                )
+                            } else {
+                                null
+                            },
+                        ),
+                    )
                 }
-                drawPath(
-                    path = path,
-                    color = color,
-                    style = Stroke(
-                        width = 1.5.dp.toPx(),
-                        pathEffect = if (dashed) {
-                            PathEffect.dashPathEffect(
-                                floatArrayOf(4.dp.toPx(), 3.dp.toPx()),
-                            )
-                        } else {
-                            null
-                        },
-                    ),
-                )
             }
-            val samples = timeline.samples
-            curve(
-                samples.map { Offset(xOf(it.instant), yOf(it.sunAltitudeDeg)) },
-                sunColor,
-                dashed = false,
-            )
-            curve(
-                samples.map { Offset(xOf(it.instant), yOf(it.moonAltitudeDeg)) },
-                moonColor,
-                dashed = true,
-            )
+            fun runsOf(
+                altitudeOf: (NightTimeline.Sample) -> Double,
+            ): List<List<Offset>> =
+                NightTimeline.trackCurveRuns(
+                    timeline.samples.map { sample ->
+                        NightTimeline.fractionOf(
+                            sample.instant, timeline.axisStart, timeline.axisEnd,
+                        ) to altitudeOf(sample)
+                    },
+                ).map { run ->
+                    run.map { (xFraction, bandFraction) ->
+                        Offset(
+                            xFraction.toFloat() * size.width,
+                            (1.0 - bandFraction).toFloat() * size.height,
+                        )
+                    }
+                }
+            curve(runsOf { it.sunAltitudeDeg }, sunColor, dashed = false)
+            curve(runsOf { it.moonAltitudeDeg }, moonColor, dashed = true)
         }
         // The horizon's tick label (ui-design §7.4, 0.8.12): a small
         // "0°" sitting on the line at the right end, on a patch of
@@ -1314,7 +1380,12 @@ private fun ArcLane(
     val containerColor = MaterialTheme.colorScheme.surfaceVariant
     val borderColor = MaterialTheme.colorScheme.outlineVariant
     val windowFill = MaterialTheme.colorScheme.secondaryContainer
-    val culminationFill = accent.copy(alpha = 0.33f)
+    // The culmination span's tint (ui-design §7.5): since 0.8.13 at
+    // alpha 0.20, so it reads as a tint over the window fill rather
+    // than a solid block of its own (the accent is the theme's
+    // brightest red under the red-light theme, so the same alpha
+    // applies there unchanged).
+    val culminationFill = accent.copy(alpha = 0.20f)
     val curveColor = MaterialTheme.colorScheme.onSurfaceVariant
     Box(
         modifier = Modifier

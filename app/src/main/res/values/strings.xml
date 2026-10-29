@@ -87,6 +87,7 @@
     <string name="timeline_chart_description">时间轴图：日光带、月亮带、九类关键时刻刻度与目标泳道。点按刻度查看详情；横向拖动放置游标。</string>
     <string name="timeline_no_night">今晚无天文夜</string>
     <string name="timeline_moon_note">月亮 · 月相照明 %1$d%%</string>
+    <string name="timeline_lane_legend">金框＝推荐窗口 · 金色填充＝中天精华段</string>
     <string name="timeline_sun_sunset">日落</string>
     <string name="timeline_sun_sunrise">日出</string>
     <string name="timeline_sun_dusk">黄昏</string>
