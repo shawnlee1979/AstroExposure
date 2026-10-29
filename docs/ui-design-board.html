@@ -148,7 +148,7 @@
   .red .tlx .bandlab { color:#C04434; }
   .red .tlx .mark { background:#D64A3E; } .red .tlx .mark span { color:#C04434; }
   .red .tlx .axis { border-color:#471512; color:#8F2B21; }
-  /* 分层时间轴（0.8.7 起 App 现行版式；⑦⑧⑨ 于 0.8.8 按对照样张 C 案画法对齐、0.8.9 泳道改真实高度弧线＋整点时刻轴＋气泡三行、0.8.10 行高字号放大（注记标明）、0.8.11 ⑨ 补日月轨带） */
+  /* 分层时间轴（0.8.7 起 App 现行版式；⑦⑧⑨ 于 0.8.8 按对照样张 C 案画法对齐、0.8.9 泳道改真实高度弧线＋整点时刻轴＋气泡三行、0.8.10 行高字号放大（注记标明）、0.8.11 ⑨ 补日月轨带、0.8.13 ⑨ 气泡下移至轨带之下＋太阳曲线出界断开＋副标题下图例行、⑦⑧⑨ 中天填充 alpha 统一降至 0.20） */
   .tl2 { background:#070B18; border:1px solid #22304F; border-radius:10px; padding:9px 10px 7px; display:flex; flex-direction:column; gap:4px; position:relative; margin-bottom:10px; }
   .tl2 .trackband { height:44px; border-radius:4px; background:#131B31; position:relative; overflow:hidden; }
   .tl2 .trackband svg { position:absolute; inset:0; }
@@ -342,7 +342,7 @@
         <div class="tev"><span class="tt">05:36</span><span class="tn">天文夜结束</span><div class="td">收工；晨昏蒙影可拍地景空镜</div></div>
       </div>
     </div>
-    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式、0.8.9 按 C 案返工同步（泳道改真实高度弧线、标记行去刻度、窗口带改淡填充、面板内整点时刻轴、气泡改三行新组成）；0.8.10 各带行高与带内字号按真机可读性放大，样张以注记标明、未逐像素改绘。0.8.11 ⑨ 游标态补日月轨带（面板顶部：太阳金色实线、月亮蓝色虚线、地平线，气泡改锚轨带），⑦⑧ 静态轴无此行。</p>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式、0.8.9 按 C 案返工同步（泳道改真实高度弧线、标记行去刻度、窗口带改淡填充、面板内整点时刻轴、气泡改三行新组成）；0.8.10 各带行高与带内字号按真机可读性放大，样张以注记标明、未逐像素改绘。0.8.11 ⑨ 游标态补日月轨带（面板顶部：太阳金色实线、月亮蓝色虚线、地平线，气泡改锚轨带），⑦⑧ 静态轴无此行。0.8.13 ⑨ 再同步四项真机修复：游标竖线改由面板自身按实测高度绘制（样张线形不变、机制见规格 §7.5）、气泡下移至轨带之下、太阳曲线出纵轴域在带边界断开（不再贴底平走）、副标题下加泳道图例行；中天段填充 alpha ⑦⑧⑨ 统一由 0.33 降至 0.20。</p>
   </div>
   <div class="tabbar">
     <div class="tab on"><span class="ic">◎</span>今晚</div>
@@ -454,8 +454,8 @@
       <div class="marks">
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D55"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D55"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D33"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D33"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
       <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
@@ -497,8 +497,8 @@
       <div class="marks">
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#471512"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#FF7A4555"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#471512"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#FF7A4555"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#471512"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#FF7A4533"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#471512"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#FF7A4533"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
       <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
@@ -530,18 +530,19 @@
   <div class="statusbar"><span>21:47</span><span>今晚 · 游标态</span><span>5G ▰▰▰</span></div>
   <div class="content">
     <div class="card"><h3>时间轴</h3>
-    <div style="font-size:11px;color:#6EA8FE;margin-bottom:6px;">月亮 · 月相照明 42%</div>
+    <div style="font-size:11px;color:#6EA8FE;margin-bottom:2px;">月亮 · 月相照明 42%</div>
+    <div style="font-size:9px;color:#5D6C8C;margin-bottom:6px;">金框＝推荐窗口 · 金色填充＝中天精华段</div>
     <div class="tl2">
       <div class="cursor" style="left:44%"></div>
-      <div class="bubble" style="left:46%;top:12px">22:41 · 天文夜<small>月高 38° · 月相照明 42%</small><small>月光干扰 弱 · 光害 Bortle 4 级</small></div>
-      <div class="trackband"><svg viewBox="0 0 336 44" preserveAspectRatio="none"><rect x="0" y="31" width="336" height="13" fill="#000000" opacity="0.22"/><path d="M0,31 L336,31" stroke="#96A3BE" stroke-width="1"/><path d="M0,27 Q84,40 168,42 Q252,40 336,25" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,38 Q60,36 84,30 Q150,16 190,15 Q260,20 336,34" fill="none" stroke="#6EA8FE" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span style="position:absolute;right:3px;top:26px;font-size:7px;color:#96A3BE;background:#131B31;padding:0 1px;">0°</span></div>
+      <div class="bubble" style="left:46%;top:57px">22:41 · 天文夜<small>月高 38° · 月相照明 42%</small><small>月光干扰 弱 · 光害 Bortle 4 级</small></div>
+      <div class="trackband"><svg viewBox="0 0 336 44" preserveAspectRatio="none"><rect x="0" y="31" width="336" height="13" fill="#000000" opacity="0.22"/><path d="M0,31 L336,31" stroke="#96A3BE" stroke-width="1"/><path d="M0,27 Q26,37 44,44 M292,44 Q310,35 336,25" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,38 Q60,36 84,30 Q150,16 190,15 Q260,20 336,34" fill="none" stroke="#6EA8FE" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span style="position:absolute;right:3px;top:26px;font-size:7px;color:#96A3BE;background:#131B31;padding:0 1px;">0°</span></div>
       <div class="sunband"><span style="left:11%">黄昏</span><span style="left:49%">天文夜</span><span style="left:86%">黎明</span></div>
       <div class="moonband"><i style="left:0;width:39.6%"></i></div>
       <div class="marks">
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D55"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
-      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D55"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D33"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D33"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
       <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
@@ -563,7 +564,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.9 按 C 案返工、0.8.10 行高字号按真机可读性放大、0.8.11 补日月轨带、0.8.12 时钟跟随）<small>注记：行高字号放大同 ⑦ 注记。面板顶部为日月轨带（0.8.11 新增，仅游标态：太阳金色实线、月亮蓝色虚线，纵轴域 −36°…+90°；地平线 0.8.12 加强——tx2 实线＋线下暗罩面＋右端「0°」小字，为带内唯一文字）——轨带即游标的直接拖动面（点按定位、横拖跟随，不需长按；锁定后不生效），气泡改锚轨带区（卡面底＋金边框，三行：时刻 · 所处阶段／月高 · 月相照明／月光干扰档位 · 光害 Bortle 等级），不再压泳道；游标金线衬面板底色衬线、纵贯分层面板各行；0.8.12 起游标默认跟随当前时钟（进入今晚页自动落在「现在」、页内节拍对齐、手动拖动即停并钉住），时间条在游标时刻旁带「实时」小字（本样张为跟随态；跟随关时该位改为「现在」按钮）；目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间），目标名在泳道左端、泳道内不标中天文字，泳道点按为观察式（不吞面板拖动与长按抓取）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
+<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.9 按 C 案返工、0.8.10 行高字号按真机可读性放大、0.8.11 补日月轨带、0.8.12 时钟跟随、0.8.13 竖线／气泡／曲线修复）<small>注记：行高字号放大同 ⑦ 注记。面板顶部为日月轨带（0.8.11 新增，仅游标态：太阳金色实线、月亮蓝色虚线，纵轴域 −36°…+90°；地平线 0.8.12 加强——tx2 实线＋线下暗罩面＋右端「0°」小字，为带内唯一文字；曲线出纵轴域在带边界断开、0.8.13 改，太阳曲线入夜后整段离开带底、黎明前自交点续回，不再钳制贴底成平线）——轨带即游标的直接拖动面（点按定位、横拖跟随，不需长按；锁定后不生效），气泡自 0.8.13 起改锚轨带之下（覆日光带／月亮带／标记行；卡面底＋金边框，三行：时刻 · 所处阶段／月高 · 月相照明／月光干扰档位 · 光害 Bortle 等级），不压轨带曲线、也不压泳道；副标题下加一行小字图例（金框＝推荐窗口 · 金色填充＝中天精华段，0.8.13；中天填充 alpha 同步降至 0.20、读作染色）；游标金线衬面板底色衬线、纵贯分层面板各行——0.8.13 起由面板自身按其实测高度绘制（此前 fillMaxSize 覆层画布在滚动页无界高度约束下塌陷、真机自始只有顶端圆钮，机制更正见规格 §7.5）；0.8.12 起游标默认跟随当前时钟（进入今晚页自动落在「现在」、页内节拍对齐、手动拖动即停并钉住），时间条在游标时刻旁带「实时」小字（本样张为跟随态；跟随关时该位改为「现在」按钮）；目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间），目标名在泳道左端、泳道内不标中天文字，泳道点按为观察式（不吞面板拖动与长按抓取）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
 </div>
 
 <style>
