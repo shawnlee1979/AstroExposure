@@ -148,42 +148,43 @@
   .red .tlx .bandlab { color:#C04434; }
   .red .tlx .mark { background:#D64A3E; } .red .tlx .mark span { color:#C04434; }
   .red .tlx .axis { border-color:#471512; color:#8F2B21; }
-  /* 分层时间轴（0.8.7 起 App 现行版式；⑦⑧⑨ 于 0.8.8 按对照样张 C 案画法对齐） */
+  /* 分层时间轴（0.8.7 起 App 现行版式；⑦⑧⑨ 于 0.8.8 按对照样张 C 案画法对齐、0.8.9 泳道改真实高度弧线＋整点时刻轴＋气泡三行） */
   .tl2 { background:#070B18; border:1px solid #22304F; border-radius:10px; padding:9px 10px 7px; display:flex; flex-direction:column; gap:4px; position:relative; margin-bottom:10px; }
   .tl2 .sunband { height:16px; border-radius:4px; background:linear-gradient(90deg,#8A5A20 0%,#3D4E7D 10%,#101C42 24%,#101C42 76%,#3D4E7D 89%,#8A5A20 100%); position:relative; overflow:hidden; }
-  .tl2 .sunband span { position:absolute; top:50%; transform:translate(-50%,-50%); font-size:8px; color:#E9EEF8; white-space:nowrap; }
+  .tl2 .sunband span { position:absolute; top:50%; transform:translate(-50%,-50%); font-size:8px; color:#C9D4EE; white-space:nowrap; }
   .tl2 .moonband { height:12px; border-radius:3px; background:#131B31; position:relative; overflow:hidden; }
   .tl2 .moonband i { position:absolute; top:0; bottom:0; background:#5B84D6; }
   .tl2 .moonband span { position:absolute; top:50%; transform:translateY(-50%); font-size:8px; color:#9CC2FF; white-space:nowrap; }
-  .tl2 .marks { height:28px; position:relative; }
-  .tl2 .marks i { position:absolute; top:2px; width:1px; height:8px; background:#5D6C8C; }
-  .tl2 .marks span { position:absolute; top:13px; transform:translateX(-50%); font-size:8px; color:#96A3BE; white-space:nowrap; }
-  .tl2 .tllane { height:26px; border-radius:4px; background:#0A0F1E; position:relative; overflow:hidden; }
+  .tl2 .marks { height:14px; position:relative; }
+  
+  .tl2 .marks span { position:absolute; top:50%; transform:translate(-50%,-50%); font-size:8.5px; color:#5D6C8C; white-space:nowrap; }
+  .tl2 .tllane { height:26px; border-radius:6px; background:#131B31; border:1px solid #22304F; position:relative; overflow:hidden; }
   .tl2 .tllane .nm { position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:10px; color:#E9EEF8; white-space:nowrap; z-index:2; }
-  .tl2 .tllane .arc { position:absolute; top:0; bottom:0; }
-  .tl2 .tllane .rise { background:#2E4E8F; } .tl2 .tllane .culm { background:#8A6420; } .tl2 .tllane .set { background:#1D3465; }
-  .tl2 .tllane .ct { position:absolute; top:50%; transform:translate(-50%,-50%); font-size:8px; color:#F2C66D; white-space:nowrap; }
+  .tl2 .tllane svg { position:absolute; inset:0; }
+  
+  
   .tl2 .wband { height:10px; border-radius:3px; background:#131B31; position:relative; overflow:hidden; }
-  .tl2 .wband i { position:absolute; top:0; bottom:0; background:rgba(110,168,254,.25); }
-  .tl2 .wband .lm { border-top:1px dashed #6EA8FE; border-bottom:1px dashed #6EA8FE; }
-  .tl2 .wband .gc { border-top:1px dashed #F2C66D; border-bottom:1px dashed #F2C66D; background:rgba(242,198,109,.18); }
+  .tl2 .wband i { position:absolute; top:0; bottom:0; }
+  .tl2 .wband .lm { background:rgba(76,195,138,.22); }
+  .tl2 .wband .gc { background:rgba(242,198,109,.19); }
   .tl2 .wband span { position:absolute; left:6px; top:50%; transform:translateY(-50%); font-size:7px; white-space:nowrap; }
-  .tl2 .wband .rlm { color:#9CC2FF; } .tl2 .wband .rgc { color:#F2C66D; }
-  .tl2 .axis { display:flex; justify-content:space-between; font-size:9px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
-  .tl2 .bubble { position:absolute; top:-2px; background:#0C1120; border:1px solid #F2C66D; color:#F2C66D; border-radius:8px; padding:5px 8px; font-size:10px; font-variant-numeric:tabular-nums; line-height:1.5; z-index:5; }
+  .tl2 .wband .rlm { color:#4CC38A; } .tl2 .wband .rgc { color:#F2C66D; }
+  .tl2 .axis { position:relative; height:12px; font-size:9px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
+  .tl2 .axis span { position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; }
+  .tl2 .bubble { position:absolute; top:56px; background:#0C1120; border:1px solid #F2C66D; color:#F2C66D; border-radius:8px; padding:5px 8px; font-size:10px; font-variant-numeric:tabular-nums; line-height:1.5; z-index:5; }
   .tl2 .bubble small { display:block; color:#E9EEF8; font-size:9px; }
   .tl2 .cursor { position:absolute; top:4px; bottom:4px; width:1px; background:#F2C66D; z-index:4; }
   .red .tl2 { background:#0D0303; border-color:#57150E; }
   .red .tl2 .sunband { background:linear-gradient(90deg,#8F2B21 0%,#701C13 10%,#2B0806 24%,#2B0806 76%,#701C13 89%,#8F2B21 100%); }
   .red .tl2 .moonband { background:#1C0705; } .red .tl2 .moonband i { background:#B03A2B; }
   .red .tl2 .moonband span { color:#FF9D8A; }
-  .red .tl2 .marks i { background:#8F4A3D; } .red .tl2 .marks span { color:#C97A6B; }
-  .red .tl2 .tllane { background:#120404; }
-  .red .tl2 .tllane .rise { background:#57150E; } .red .tl2 .tllane .culm { background:#8F2B21; } .red .tl2 .tllane .set { background:#3F0F0A; }
-  .red .tl2 .tllane .ct { color:#FF9D8A; }
-  .red .tl2 .wband { background:#1C0705; } .red .tl2 .wband i { background:rgba(255,90,60,.22); }
-  .red .tl2 .wband .lm { border-color:#FF5A3C; } .red .tl2 .wband .gc { border-color:#FF9D8A; background:rgba(255,157,138,.15); }
-  .red .tl2 .wband .rlm { color:#FF9D8A; } .red .tl2 .wband .rgc { color:#FFB4A3; }
+  .red .tl2 .marks span { color:#C97A6B; }
+  .red .tl2 .tllane { background:#220707; border-color:#471512; }
+  
+  
+  .red .tl2 .wband { background:#1C0705; }
+  .red .tl2 .wband .lm { background:rgba(229,86,60,.22); } .red .tl2 .wband .gc { background:rgba(255,157,138,.19); }
+  .red .tl2 .wband .rlm { color:#E5563C; } .red .tl2 .wband .rgc { color:#FFB4A3; }
   .red .tl2 .axis { color:#8F4A3D; }
   .red .tl2 .bubble { background:#160505; border-color:#FF9D8A; color:#FF9D8A; } .red .tl2 .bubble small { color:#FFD9D2; }
   .red .tl2 .cursor { background:#FF9D8A; }
@@ -338,7 +339,7 @@
         <div class="tev"><span class="tt">05:36</span><span class="tn">天文夜结束</span><div class="td">收工；晨昏蒙影可拍地景空镜</div></div>
       </div>
     </div>
-    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式。</p>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式、0.8.9 按 C 案返工同步（泳道改真实高度弧线、标记行去刻度、窗口带改淡填充、面板内整点时刻轴、气泡改三行新组成）。</p>
   </div>
   <div class="tabbar">
     <div class="tab on"><span class="ic">◎</span>今晚</div>
@@ -448,14 +449,13 @@
       <div class="sunband"><span style="left:11%">黄昏</span><span style="left:49%">天文夜</span><span style="left:86%">黎明</span></div>
       <div class="moonband"><i style="left:0;width:39.6%"></i></div>
       <div class="marks">
-        <i style="left:6.6%"></i><i style="left:9.7%"></i><i style="left:12.7%"></i><i style="left:15.7%"></i><i style="left:30%"></i><i style="left:39.6%"></i><i style="left:83%"></i><i style="left:93.4%"></i>
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><span class="nm">M31 仙女座星系</span><i class="arc rise" style="left:20%;width:18%"></i><i class="arc culm" style="left:38%;width:16%"></i><i class="arc set" style="left:54%;width:22%"></i><span class="ct" style="left:46%">中天 23:12 · 68°</span></div>
-      <div class="tllane"><span class="nm">M45 昴星团</span><i class="arc rise" style="left:48%;width:20%"></i><i class="arc culm" style="left:68%;width:12%"></i><i class="arc set" style="left:80%;width:14%"></i><span class="ct" style="left:74%">中天 01:40 · 57°</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D55"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D55"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
-      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+      <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
     </div>
     <div class="card"><h3>今晚推荐</h3>
       <div class="rec"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
@@ -473,7 +473,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑦ 今晚页 · 时间轴（分层版式，0.8.7 起；0.8.8 按对照样张 C 案画法对齐）<small>地点卡：经纬度后 ✎ 示意可编辑，框内无提醒文案；光害一行到底并带数据版本。日期行可步进、点按开日历，非当晚带相对标注与「回到今晚」。时间轴为内凹面板分层：日光带多站渐变＋带内短标（黄昏 / 天文夜 / 黎明，重叠时按优先级省略低者）、月亮带在轨段、标记行刻度＋主要标记文字标注（日落 / 天文夜始 / 天文夜终 / 日出）、目标泳道保留高度弧线且目标名在泳道左端、中天段内段宽足够时仍标中天时刻、低月光与银心窗口带行内带行名；月相照明注在面板上方；点按标记或泳道出详情窗，热区 ≥40dp；游标态见 ⑨。</small></div>
+<div class="cap">⑦ 今晚页 · 时间轴（分层版式，0.8.7 起；0.8.8 按对照样张 C 案画法对齐）<small>地点卡：经纬度后 ✎ 示意可编辑，框内无提醒文案；光害一行到底并带数据版本。日期行可步进、点按开日历，非当晚带相对标注与「回到今晚」。时间轴为内凹面板分层：日光带多站渐变＋带内短标（黄昏 / 天文夜 / 黎明，重叠时按优先级省略低者）、月亮带在轨段、标记行只留主要标记文字标注（日落 / 天文夜始 / 天文夜终 / 日出，无刻度）、目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间）且目标名在泳道左端、泳道内不标中天文字（中天信息走气泡与详情窗）、低月光与银心窗口带淡填充＋行内行名、面板末行整点时刻轴（真实时刻比例）；月相照明注在面板上方；点按标记或泳道出详情窗，热区 ≥40dp；游标态见 ⑨。</small></div>
 </div>
 
 <!-- 8 今晚页时间轴（红光） -->
@@ -492,14 +492,13 @@
       <div class="sunband"><span style="left:11%">黄昏</span><span style="left:49%">天文夜</span><span style="left:86%">黎明</span></div>
       <div class="moonband"><i style="left:0;width:39.6%"></i></div>
       <div class="marks">
-        <i style="left:6.6%"></i><i style="left:9.7%"></i><i style="left:12.7%"></i><i style="left:15.7%"></i><i style="left:30%"></i><i style="left:39.6%"></i><i style="left:83%"></i><i style="left:93.4%"></i>
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><span class="nm">M31 仙女座星系</span><i class="arc rise" style="left:20%;width:18%"></i><i class="arc culm" style="left:38%;width:16%"></i><i class="arc set" style="left:54%;width:22%"></i><span class="ct" style="left:46%">中天 23:12 · 68°</span></div>
-      <div class="tllane"><span class="nm">M45 昴星团</span><i class="arc rise" style="left:48%;width:20%"></i><i class="arc culm" style="left:68%;width:12%"></i><i class="arc set" style="left:80%;width:14%"></i><span class="ct" style="left:74%">中天 01:40 · 57°</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#471512"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#FF7A4555"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#471512"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#FF7A4555"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#FF9D8A" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#D64A3E" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
-      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+      <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
     </div>
     <div class="card"><h3 style="color:#C04434;">今晚推荐</h3>
       <div class="rec" style="border-color:#471512;"><div><div class="name">M31 仙女座星系</div><div class="why">整夜高悬，月光干扰小</div></div><div class="time">21:00 后</div></div>
@@ -517,7 +516,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑧ 今晚页 · 时间轴（红光版）<small>与 ⑦ 同一分层布局整套红阶：底 #0A0202、卡面 #180404；状态色 info #FF9D8A / ok #E5563C / warn #FF7A45 / bad #FF4A3D。红光下不靠色相分信息：日光带渐变走红阶等值（日间最亮、天文夜最深），低月光窗口虚线边、银心窗口点划线边，泳道中天段为最亮红并带中天文字（亮度 + 线型 + 文字多重编码）。</small></div>
+<div class="cap">⑧ 今晚页 · 时间轴（红光版）<small>与 ⑦ 同一分层布局整套红阶：底 #0A0202、卡面 #180404；状态色 info #FF9D8A / ok #E5563C / warn #FF7A45 / bad #FF4A3D。红光下不靠色相分信息：日光带渐变走红阶等值（日间最亮、天文夜最深），低月光与银心窗口带为红阶淡填充＋行名（不用线型区分），泳道弧线中天段曲线下为最亮红填充、条内不标文字（亮度 + 行名 + 形态多重编码）。</small></div>
 </div>
 
 </div>
@@ -531,18 +530,17 @@
     <div style="font-size:11px;color:#6EA8FE;margin-bottom:6px;">月亮 · 月相照明 42%</div>
     <div class="tl2">
       <div class="cursor" style="left:44%"></div>
-      <div class="bubble" style="left:46%">22:41<small>月高 38° · 月相照明 42%</small><small>光害 Bortle 4 · 1.92 mcd/m²（图谱值）</small></div>
+      <div class="bubble" style="left:46%">22:41 · 天文夜<small>月高 38° · 月相照明 42%</small><small>月光干扰 弱 · 光害 Bortle 4 级</small></div>
       <div class="sunband"><span style="left:11%">黄昏</span><span style="left:49%">天文夜</span><span style="left:86%">黎明</span></div>
       <div class="moonband"><i style="left:0;width:39.6%"></i></div>
       <div class="marks">
-        <i style="left:6.6%"></i><i style="left:9.7%"></i><i style="left:12.7%"></i><i style="left:15.7%"></i><i style="left:30%"></i><i style="left:39.6%"></i><i style="left:83%"></i><i style="left:93.4%"></i>
         <span style="left:11%">日落 17:52</span><span style="left:24%">天文夜始 18:47</span><span style="left:76%">天文夜终 05:58</span><span style="left:90%">日出 06:52</span>
       </div>
-      <div class="tllane"><span class="nm">M31 仙女座星系</span><i class="arc rise" style="left:20%;width:18%"></i><i class="arc culm" style="left:38%;width:16%"></i><i class="arc set" style="left:54%;width:22%"></i><span class="ct" style="left:46%">中天 23:12 · 68°</span></div>
-      <div class="tllane"><span class="nm">M45 昴星团</span><i class="arc rise" style="left:48%;width:20%"></i><i class="arc culm" style="left:68%;width:12%"></i><i class="arc set" style="left:80%;width:14%"></i><span class="ct" style="left:74%">中天 01:40 · 57°</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M67,20 Q168,4 255,18 L255,26 L67,26 Z" fill="#22304F"/><path d="M128,7 Q155,3 181,8 L181,26 L128,26 Z" fill="#F2C66D55"/><rect x="135" y="1.5" width="42" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M67,20 Q168,4 255,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M161,22 Q238,5 316,16 L316,26 L161,26 Z" fill="#22304F"/><path d="M228,8 Q249,4 269,9 L269,26 L228,26 Z" fill="#F2C66D55"/><rect x="235" y="1.5" width="30" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M161,22 Q238,5 316,16" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm">M45 昴星团</span></div>
       <div class="wband"><i class="lm" style="left:39.6%;width:43.4%"></i><span class="rlm" style="left:calc(39.6% + 6px)">低月光窗口</span></div>
       <div class="wband"><i class="gc" style="left:6.6%;width:19.1%"></i><span class="rgc" style="left:calc(6.6% + 6px)">银心可见</span></div>
-      <div class="axis"><span>17:35</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>08:47</span></div>
+      <div class="axis"><span style="left:2.7%">18:00</span><span style="left:22.5%">21:00</span><span style="left:42.2%">00:00</span><span style="left:62%">03:00</span><span style="left:81.7%">06:00</span></div>
     </div>
     <div class="timebar">
       <div class="step">−1′</div>
@@ -560,7 +558,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.8 对齐 C 案画法）<small>游标金线纵贯分层面板各行 + 深色气泡（卡面底＋金边框：时刻、月高、月相照明、光害）；目标泳道在面板内分上升｜中天（金）｜下降三段，目标名在泳道左端、中天时刻在中天段内（段宽足够时）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
+<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.8 对齐 C 案画法）<small>游标金线纵贯分层面板各行 + 深色气泡（卡面底＋金边框，三行：时刻 · 所处阶段／月高 · 月相照明／月光干扰档位 · 光害 Bortle 等级）；目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间），目标名在泳道左端、泳道内不标中天文字；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
 </div>
 
 <style>
