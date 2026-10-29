@@ -355,6 +355,9 @@ fun TonightScreen(
             marks = overview.moments.map { moment ->
                 timelineMarkFor(moment, overview, zone)
             },
+            moonrise = overview.moments.firstOrNull { moment ->
+                moment.kind == TonightOverviewUseCase.MomentKind.MOONRISE
+            }?.instant,
             moonIllumination = overview.moonIllumination,
             lowMoonlightWindows = overview.lowMoonlightWindows,
             zone = zone,
