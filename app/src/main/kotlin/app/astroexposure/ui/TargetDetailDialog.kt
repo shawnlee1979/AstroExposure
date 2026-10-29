@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -261,7 +260,7 @@ private fun DetailWarningBar(text: String, severity: WarningSeverity) {
 @Composable
 private fun detailMetaLine(detail: TonightOverviewUseCase.TargetDetail): String {
     val obj = detail.obj
-    val english = LocalConfiguration.current.locales[0]?.language == "en"
+    val english = isEnglishUiLanguage()
     val parts = buildList {
         add(
             stringResource(

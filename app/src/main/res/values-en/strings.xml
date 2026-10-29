@@ -8,7 +8,7 @@
     <string name="tab_plans">Plans</string>
     <string name="tab_settings">Settings</string>
 
-    <string name="location_source_gps">Location source: GPS</string>
+    <string name="location_source_gps_unsaved">Location source: GPS fix (not saved)</string>
     <string name="location_source_gps_matched">Location source: GPS · matched to a favourite place</string>
     <string name="location_altitude">Altitude approx. %1$d m (GPS ellipsoidal height, coarse — reference only)</string>
     <string name="location_altitude_none">Altitude —</string>
