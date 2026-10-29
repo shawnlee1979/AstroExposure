@@ -10,6 +10,7 @@
 
     <string name="location_source_gps_unsaved">Location source: GPS fix (not saved)</string>
     <string name="location_source_gps_matched">Location source: GPS · matched to a favourite place</string>
+    <string name="location_source_manual_matched">Location source: manual coordinates · matched to a favourite place</string>
     <string name="location_altitude">Altitude approx. %1$d m (GPS ellipsoidal height, coarse — reference only)</string>
     <string name="location_altitude_none">Altitude —</string>
     <string name="location_save_favourite">Save as a favourite place</string>
@@ -18,6 +19,7 @@
     <string name="location_env_rise_note">· Moon rises at %1$s; brighter afterwards</string>
     <string name="location_env_total">Total sky %1$.2f mag/arcsec²</string>
     <string name="location_env_note">Figures are dusk estimates toward the galactic centre; they vary with direction and time.</string>
+    <string name="location_env_note_cursor">Figures are estimates for %1$s (cursor time) toward the galactic centre; they vary with direction and time.</string>
     <string name="tonight_overview_title">Tonight at a glance</string>
     <string name="tonight_overview_night">Astronomical night</string>
     <string name="tonight_overview_night_none">No astronomical night</string>
@@ -25,6 +27,7 @@
     <string name="tonight_overview_moon_alt_cursor">Moon altitude (cursor %1$s)</string>
     <string name="tonight_overview_moon_alt_value">%1$.0f°</string>
     <string name="tonight_overview_moon">Moonlight interference</string>
+    <string name="tonight_overview_moon_cursor">Moonlight interference (cursor %1$s)</string>
     <string name="tonight_overview_low_moon">Low-moonlight window</string>
     <string name="tonight_overview_low_moon_none">No low-moonlight window tonight</string>
     <string name="tonight_overview_window_separator">, </string>
