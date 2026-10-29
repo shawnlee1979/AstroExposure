@@ -86,13 +86,18 @@
     <string name="timeline_chart_description">Timeline: sun band, moon band, nine key-moment ticks and target lanes. Tap a tick for details; drag horizontally to place the cursor.</string>
     <string name="timeline_no_night">No astronomical night tonight</string>
     <string name="timeline_moon_note">Moon · phase illumination %1$d%%</string>
-    <string name="timeline_band_day">Daytime</string>
-    <string name="timeline_band_civil">Civil twilight</string>
-    <string name="timeline_band_nautical">Nautical twilight</string>
-    <string name="timeline_band_astronomical">Astronomical twilight</string>
-    <string name="timeline_band_night">Astronomical night</string>
+    <string name="timeline_sun_sunset">Sunset</string>
+    <string name="timeline_sun_sunrise">Sunrise</string>
+    <string name="timeline_sun_dusk">Dusk</string>
+    <string name="timeline_sun_dawn">Dawn</string>
+    <string name="timeline_sun_night">Night</string>
     <string name="timeline_moon_rise">Moon rises %1$s</string>
-    <string name="timeline_gc_band">Galactic centre window</string>
+    <string name="timeline_mark_sunset">Sunset %1$s</string>
+    <string name="timeline_mark_sunrise">Sunrise %1$s</string>
+    <string name="timeline_mark_night_start">Night begins %1$s</string>
+    <string name="timeline_mark_night_end">Night ends %1$s</string>
+    <string name="timeline_mark_gc">GC culmination</string>
+    <string name="timeline_gc_visible">GC visible</string>
     <string name="timeline_low_moon_band">Low-moonlight window</string>
     <string name="common_close">Close</string>
 
