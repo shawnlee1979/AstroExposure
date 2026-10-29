@@ -10,7 +10,7 @@ Everything runs on-device: no account, no cloud, no network required in the fiel
 
 ## Status
 
-**Implemented and in active iteration (current release: 0.8.7).** The full three-layer codebase (domain / data / app) lives in this repository, and pre-release APKs are published on the [Releases](https://github.com/shawnlee1979/AstroExposure/releases) page. The design document is in [docs/design.md](docs/design.md) (Chinese; the app itself is bilingual).
+**Implemented and in active iteration (current release: 0.8.8).** The full three-layer codebase (domain / data / app) lives in this repository, and pre-release APKs are published on the [Releases](https://github.com/shawnlee1979/AstroExposure/releases) page. The design document is in [docs/design.md](docs/design.md) (Chinese; the app itself is bilingual).
 
 ## Features
 
@@ -97,7 +97,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 项目状态
 
-**已实现并持续迭代（当前版本 0.8.7）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
+**已实现并持续迭代（当前版本 0.8.8）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
 
 ## 功能概览
 
