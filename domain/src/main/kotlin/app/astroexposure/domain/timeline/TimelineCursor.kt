@@ -38,24 +38,29 @@ object TimelineCursor {
     /** Placement state of the cursor for one night (ui-design §7.5 gesture state machine). */
     enum class CursorPlacement { NO_CURSOR, PLACED_UNLOCKED, PLACED_LOCKED }
 
-    /** The four ways the axis and the time bar can act on the cursor (ui-design §7.5). */
-    enum class CursorGesture { TAP, DRAG, LONG_PRESS_DRAG, STEP }
+    /** The ways the axis, the track band and the time bar can act on the cursor (ui-design §7.5). */
+    enum class CursorGesture { TAP, DRAG, LONG_PRESS_DRAG, TRACK_DRAG, STEP }
 
     /**
      * Whether [gesture] may move the cursor in [placement] state
      * (ui-design §7.5, 0.5.2 anti-mistouch rule). With no cursor, a tap
      * or a drag (plain or after a hold) places it — the first placement
-     * is unguarded. Once placed, plain taps and direct drags no longer
-     * move it: repositioning requires a long-press drag. Locked, even
-     * that is refused. The time bar's ±1′ / 10′ steps are deliberate
-     * actions and stay available in both placed states, but with no
-     * cursor there is nothing to step. Restoring a retained position
-     * after "whole night" is not a move and is not governed here.
+     * is unguarded. Once placed, plain taps and direct drags on the
+     * panel no longer move it: repositioning requires a long-press
+     * drag — except on the Sun/Moon track band (0.8.11), the dedicated
+     * drag surface that appears with the cursor state, where a direct
+     * drag is a deliberate scrub and moves a placed, unlocked cursor.
+     * Locked, even that is refused. The time bar's ±1′ / 10′ steps are
+     * deliberate actions and stay available in both placed states, but
+     * with no cursor there is nothing to step. Restoring a retained
+     * position after "whole night" is not a move and is not governed
+     * here.
      */
     fun mayMoveCursor(placement: CursorPlacement, gesture: CursorGesture): Boolean =
         when (placement) {
             CursorPlacement.NO_CURSOR -> gesture != CursorGesture.STEP
             CursorPlacement.PLACED_UNLOCKED -> gesture == CursorGesture.LONG_PRESS_DRAG ||
+                gesture == CursorGesture.TRACK_DRAG ||
                 gesture == CursorGesture.STEP
             CursorPlacement.PLACED_LOCKED -> gesture == CursorGesture.STEP
         }
