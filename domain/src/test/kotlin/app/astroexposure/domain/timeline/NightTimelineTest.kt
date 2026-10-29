@@ -2,6 +2,7 @@ package app.astroexposure.domain.timeline
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,6 +77,19 @@ class NightTimelineTest {
         val partial = NightTimeline.clampToAxis(start.minusSeconds(600), start.plusSeconds(600), start, axisEnd)
         assertEquals(NightTimeline.Interval(start, start.plusSeconds(600)), partial)
         assertNull(NightTimeline.clampToAxis(axisEnd.plusSeconds(60), axisEnd.plusSeconds(120), start, axisEnd))
+    }
+
+    @Test
+    fun isWithinAxisIncludesEndpointsAndRejectsOutside() {
+        val axisEnd = start.plusSeconds(3600)
+        assertTrue(NightTimeline.isWithinAxis(start.plusSeconds(1800), start, axisEnd))
+        assertTrue(NightTimeline.isWithinAxis(start, start, axisEnd))
+        assertTrue(NightTimeline.isWithinAxis(axisEnd, start, axisEnd))
+        // An instant before the axis (e.g. an afternoon moonrise on an
+        // axis that starts an hour before sunset) is NOT on the axis:
+        // presenting it would pin its label to the left edge.
+        assertFalse(NightTimeline.isWithinAxis(start.minusSeconds(1), start, axisEnd))
+        assertFalse(NightTimeline.isWithinAxis(axisEnd.plusSeconds(1), start, axisEnd))
     }
 
     @Test
