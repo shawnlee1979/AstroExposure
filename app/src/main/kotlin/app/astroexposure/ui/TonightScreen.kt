@@ -22,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -48,6 +47,7 @@ import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.timeline.TonightDateWindow
+import app.astroexposure.support.SkyContext
 import app.astroexposure.support.TimeHealthCheck
 import app.astroexposure.usecase.TonightOverviewUseCase
 import java.time.Duration
@@ -87,8 +87,9 @@ fun TonightScreen(
     locationSourceText: String,
     timeHealth: TimeHealthCheck.Result,
     redLight: Boolean,
-    onRedLightChange: (Boolean) -> Unit,
     onUseGps: () -> Unit,
+    /** True while the current site's coordinates came from a GPS fix: the card marks them with a sync dot (ui-design §7.2). */
+    showGpsSyncDot: Boolean,
     manualBortle: Int?,
     onManualBortleChange: (Int?) -> Unit,
     onManualLocation: (Double, Double) -> Unit,
@@ -278,11 +279,11 @@ fun TonightScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Status line: time-health dot + red-light switch.
+        // Status line: the time-health marker alone — the red-light
+        // switch moved to the title bar (ui-design §7.2, 0.8.6).
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             // Health reads by glyph AND colour (ui-design §2 triple
             // encoding): a filled disc when healthy, a warning triangle
@@ -296,10 +297,6 @@ fun TonightScreen(
                     app.astroexposure.ui.theme.LocalStateColors.current.bad
                 },
             )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = stringResource(R.string.red_light), style = MaterialTheme.typography.labelSmall)
-                Switch(checked = redLight, onCheckedChange = onRedLightChange)
-            }
         }
 
         // Time-health warnings, stated plainly (design §2.2).
@@ -320,6 +317,14 @@ fun TonightScreen(
             gpsAltitudeMeters = gpsAltitudeMeters,
             canSaveFavourite = canSaveFavourite,
             onSaveFavourite = onSaveFavourite,
+            showGpsSyncDot = showGpsSyncDot,
+            // The environment section follows a settled cursor
+            // (ui-design §7.2): while the cursor evaluation matches
+            // the placed cursor, the card reads the cursor's own
+            // galactic-centre sky sample; anything else (no cursor,
+            // evaluation in flight) keeps the dusk snapshot.
+            cursorSky = if (evalMatchesCursor) cursorEval?.skyTowardGalacticCenter else null,
+            cursorSkyInstant = if (evalMatchesCursor) retainedCursor else null,
         )
 
         // §7.6: when the displayed zone is not the device zone, name it.
@@ -701,9 +706,10 @@ private fun timelineMarkFor(
  * above the timeline, every one read from data the overview or the
  * cursor evaluation already computed — astronomical night span, Moon
  * altitude at the cursor (labelled with the cursor time; the same
- * value the timeline bubble's second line shows), the whole-night
- * moonlight tier and the low-moonlight windows. Without a cursor the
- * Moon-altitude cell honestly shows "—".
+ * value the timeline bubble's second line shows), the moonlight tier
+ * (the cursor's own tier while a cursor is placed, the whole-night
+ * dusk tier without one) and the low-moonlight windows. Without a
+ * cursor the Moon-altitude cell honestly shows "—".
  */
 @Composable
 private fun TonightOverviewBlock(
@@ -747,9 +753,19 @@ private fun TonightOverviewBlock(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
-                    OverviewCellLabel(stringResource(R.string.tonight_overview_moon))
+                    OverviewCellLabel(
+                        if (cursorEvaluation != null && cursorInstant != null) {
+                            stringResource(
+                                R.string.tonight_overview_moon_cursor,
+                                formatTime(cursorInstant, zone),
+                            )
+                        } else {
+                            stringResource(R.string.tonight_overview_moon)
+                        },
+                    )
                     Text(
-                        text = overview.moonInterferenceAtDusk?.let {
+                        text = (cursorEvaluation?.moonInterference
+                            ?: overview.moonInterferenceAtDusk)?.let {
                             stringResource(moonInterferenceNameRes(it))
                         } ?: "—",
                     )
@@ -806,7 +822,11 @@ private fun OverviewCellLabel(text: String) {
  * one in the app. The environment section below it carries the
  * moonlight contribution and the total sky (the page's only copy of
  * those figures), the scope footnote directly under the total, the
- * full-moon degradation line and the baseline source note. A GPS or
+ * full-moon degradation line and the baseline source note. While a
+ * cursor is placed, the moonlight and total-sky figures follow it
+ * ([cursorSky], the cursor evaluation's own galactic-centre sample at
+ * [cursorSkyInstant]); the light-pollution row does not follow — it
+ * is a property of the site. A GPS or
  * manual site shows the altitude line (a fix altitude, or "—" when
  * there is none), and so does a selected favourite whose record
  * carries a GPS altitude source; a GPS or manual site that is not yet
@@ -828,6 +848,9 @@ private fun LocationCard(
     gpsAltitudeMeters: Double?,
     canSaveFavourite: Boolean,
     onSaveFavourite: (String) -> Unit,
+    showGpsSyncDot: Boolean,
+    cursorSky: SkyContext?,
+    cursorSkyInstant: Instant?,
 ) {
     var editing by remember { mutableStateOf(false) }
     var latText by remember { mutableStateOf("") }
@@ -844,10 +867,12 @@ private fun LocationCard(
                 Text(text = locationLabel, style = MaterialTheme.typography.titleSmall)
             }
             // The source line itself is the GPS affordance
-            // (ui-design §7.2): a full 48dp-tall touch target that
-            // re-fixes or switches the site to GPS.
+            // (ui-design §7.2): a full-width, 48dp-tall touch target
+            // that re-fixes or switches the site to GPS — the whole
+            // row answers the tap, not just the text's own width.
             Box(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .heightIn(min = 48.dp)
                     .clickable { onUseGps() },
                 contentAlignment = Alignment.CenterStart,
@@ -864,24 +889,38 @@ private fun LocationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // The edit entry is a full 48dp-tall touch target
-                    // (ui-design §2), not just the text line's height.
-                    Box(
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .clickable {
-                                latText = formatCoordinateValue(latitudeDeg)
-                                lonText = formatCoordinateValue(longitudeDeg)
-                                editError = false
-                                editing = true
-                            },
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        Text(
-                            text = "${formatCoordinateValue(latitudeDeg)}°  ${formatCoordinateValue(longitudeDeg)}°  ✎",
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // GPS sync dot (ui-design §7.2): ahead of the
+                        // coordinate figures while the site's
+                        // coordinates came from a GPS fix — the state
+                        // "ok" colour, which the red-light theme maps
+                        // into its red scale like every state colour.
+                        if (showGpsSyncDot) {
+                            Text(
+                                text = "●",
+                                color = app.astroexposure.ui.theme.LocalStateColors.current.ok,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                        // The edit entry is a full 48dp-tall touch target
+                        // (ui-design §2), not just the text line's height.
+                        Box(
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .clickable {
+                                    latText = formatCoordinateValue(latitudeDeg)
+                                    lonText = formatCoordinateValue(longitudeDeg)
+                                    editError = false
+                                    editing = true
+                                },
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            Text(
+                                text = "${formatCoordinateValue(latitudeDeg)}°  ${formatCoordinateValue(longitudeDeg)}°  ✎",
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
                     }
                 }
             } else {
@@ -1016,25 +1055,34 @@ private fun LocationCard(
                 }
             }
             // Moonlight contribution and total sky, moved here from
-            // the former standalone sky card (ui-design §7.2): same
-            // dusk sample toward the galactic centre, same figures.
-            // When that sample caught the Moon below the horizon, the
-            // moonlight line names the moonrise it will brighten
-            // after (the use case decides; see Result.moonriseWithinNight).
-            // The total is the section's conclusion value and carries
-            // the accent colour; the scope footnote sits directly
-            // under it, then the full-moon degradation line.
-            val sky = overview.skyAtDusk
+            // the former standalone sky card (ui-design §7.2): one
+            // sample toward the galactic centre — the cursor's own
+            // sample while a cursor is placed, the dusk snapshot
+            // otherwise; the figures are whichever sample is on
+            // display, never a blend. The moonrise note belongs to
+            // the dusk display only: it explains a dusk zero the
+            // cursor display never shows (there the contribution is
+            // the cursor instant's real figure). The total is the
+            // section's conclusion value and carries the accent
+            // colour; the scope footnote sits directly under it and
+            // names the displayed sample's instant, then the
+            // full-moon degradation line — judged, like the figures,
+            // from the displayed sample.
+            val sky = cursorSky ?: overview.skyAtDusk
             if (sky == null) {
                 Text(text = stringResource(R.string.tonight_sky_source_none))
             } else {
                 Text(
                     text = stringResource(R.string.location_env_moonlight, sky.moonlightMcdPerM2) +
-                        (overview.moonriseWithinNight?.let { rise ->
-                            " " + stringResource(
-                                R.string.location_env_rise_note,
-                                formatTime(rise, zone),
-                            )
+                        (if (cursorSky == null) {
+                            overview.moonriseWithinNight?.let { rise ->
+                                " " + stringResource(
+                                    R.string.location_env_rise_note,
+                                    formatTime(rise, zone),
+                                )
+                            }
+                        } else {
+                            null
                         } ?: ""),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -1044,15 +1092,22 @@ private fun LocationCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = stringResource(R.string.location_env_note),
+                    text = if (cursorSky != null && cursorSkyInstant != null) {
+                        stringResource(
+                            R.string.location_env_note_cursor,
+                            formatTime(cursorSkyInstant, zone),
+                        )
+                    } else {
+                        stringResource(R.string.location_env_note)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (overview.moonDegraded) {
+                if (sky.totalSky.moonDegraded) {
                     Text(
                         text = stringResource(
                             R.string.tonight_moon_degraded,
-                            percentRounded(overview.moonIllumination),
+                            percentRounded(sky.moonIllumination),
                         ),
                         color = MaterialTheme.colorScheme.error,
                     )

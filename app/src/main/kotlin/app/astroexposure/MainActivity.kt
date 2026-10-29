@@ -7,11 +7,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -24,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -60,6 +64,7 @@ import app.astroexposure.ui.SettingsScreen
 import app.astroexposure.ui.TonightScreen
 import app.astroexposure.ui.theme.AstroTheme
 import app.astroexposure.usecase.TonightOverviewUseCase
+import app.astroexposure.usecase.recognisedFavourite
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -224,63 +229,108 @@ private fun AstroApp(container: AppContainer) {
     // the built-in sample fallback; with any real site (an older GPS
     // fix, a manual entry, a favourite) a failed request silently
     // keeps the site already in hand.
+    //
+    // Automatic requests (tab entry, the periodic refresh) are
+    // guarded twice over (ui-design §7.2): they are only STARTED
+    // while the site is a GPS or sample site, and a fix that lands
+    // after the user has meanwhile switched to a manual or favourite
+    // site is dropped, never applied — an explicitly chosen site is
+    // not overridden by a background refresh. An explicit request
+    // (the source-line tap) is exempt: its result always applies,
+    // which is what makes the tap a way back to GPS from any site.
+    val currentSite by rememberUpdatedState(site)
     var gpsInFlight by remember { mutableStateOf(false) }
+    var gpsRequestExplicit by remember { mutableStateOf(false) }
     val onGpsResult: (LocatedSite?) -> Unit = { fix ->
         gpsInFlight = false
         if (fix != null) {
-            site = fix
-            gpsTime = fix.gpsTime
-            gpsFailed = false
-            manualBortle = null
-        } else if (site.source == LocationSource.SAMPLE) {
+            val source = currentSite.source
+            if (
+                gpsRequestExplicit ||
+                source == LocationSource.GPS || source == LocationSource.SAMPLE
+            ) {
+                site = fix
+                gpsTime = fix.gpsTime
+                gpsFailed = false
+                manualBortle = null
+            }
+        } else if (currentSite.source == LocationSource.SAMPLE) {
             gpsFailed = true
         }
     }
-    val requestGpsFix: () -> Unit = {
+    val requestGpsFix: (Boolean) -> Unit = { explicit ->
         if (!gpsInFlight) {
             gpsInFlight = true
+            gpsRequestExplicit = explicit
             container.locationProvider.requestSingle(
                 ZoneId.systemDefault(),
                 callback = onGpsResult,
             )
+        } else if (explicit) {
+            // A fix is already on its way; the user's tap claims its
+            // result for whichever site is on screen when it lands.
+            gpsRequestExplicit = true
         }
     }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            requestGpsFix()
-        } else if (site.source == LocationSource.SAMPLE) {
+            requestGpsFix(gpsRequestExplicit)
+        } else if (currentSite.source == LocationSource.SAMPLE) {
             gpsFailed = true
         }
     }
+    /** Explicit entry point: the source-line tap (and the entry auto-locate's permission flow). */
     val useGps: () -> Unit = {
         if (container.locationProvider.hasPermission()) {
-            requestGpsFix()
+            requestGpsFix(true)
         } else {
+            gpsRequestExplicit = true
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+    /** Automatic entry point: same permission flow, but the result stays guarded. */
+    val autoGps: () -> Unit = {
+        if (container.locationProvider.hasPermission()) {
+            requestGpsFix(false)
+        } else {
+            gpsRequestExplicit = false
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
     // Entering the Tonight tab requests a fresh GPS fix (ui-design
     // §7.2), once per entry; a last-known fix may already be in place
-    // as an interim. While the tab stays up, the fix is silently
-    // refreshed every GPS_REFRESH_INTERVAL_MS so it cannot go stale
-    // on screen; leaving the tab stops the loop and re-arms the next
-    // entry.
+    // as an interim. The entry auto-locate — like the refresh below —
+    // only applies to GPS and sample sites: a favourite or manual
+    // site the user explicitly chose (for instance on the Settings
+    // tab) is not overridden by coming back to this tab. While the
+    // tab stays up, the fix is silently refreshed every
+    // GPS_REFRESH_INTERVAL_MS so it cannot go stale on screen;
+    // leaving the tab stops the loop and re-arms the next entry.
     var autoLocated by remember { mutableStateOf(false) }
     LaunchedEffect(tab) {
         if (tab == Tab.TONIGHT) {
             if (!autoLocated) {
                 autoLocated = true
-                useGps()
+                val source = currentSite.source
+                if (source == LocationSource.GPS || source == LocationSource.SAMPLE) {
+                    autoGps()
+                }
             }
             while (true) {
                 delay(GPS_REFRESH_INTERVAL_MS)
                 // No prompting from the loop: a refresh that would
-                // need the permission dialog simply does not happen.
-                if (container.locationProvider.hasPermission()) {
-                    requestGpsFix()
+                // need the permission dialog simply does not happen,
+                // and a manual or favourite site is never refreshed
+                // over at all.
+                val source = currentSite.source
+                if (
+                    (source == LocationSource.GPS || source == LocationSource.SAMPLE) &&
+                    container.locationProvider.hasPermission()
+                ) {
+                    requestGpsFix(false)
                 }
             }
         }
@@ -355,7 +405,26 @@ private fun AstroApp(container: AppContainer) {
     AstroTheme(redLight = redLight) {
         Scaffold(
             topBar = {
-                TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+                TopAppBar(
+                    title = { Text(stringResource(R.string.app_name)) },
+                    actions = {
+                        // The red-light switch lives in the title bar
+                        // (ui-design §7.2): reachable from every tab
+                        // without taking a row of page space. The
+                        // Settings tab keeps its own switch and the
+                        // auto-red-light option beside it.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.red_light),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Switch(
+                                checked = redLight,
+                                onCheckedChange = { redLight = it },
+                            )
+                        }
+                    },
+                )
             },
             bottomBar = {
                 NavigationBar {
@@ -389,25 +458,25 @@ private fun AstroApp(container: AppContainer) {
             when (tab) {
                 Tab.TONIGHT -> overview?.let { result ->
                     // Favourite recognition (ui-design §7.2): a GPS fix
-                    // within the match radius of a saved place is "at
-                    // that place" — the card shows its name and says the
-                    // match happened; the coordinates stay the fix's
-                    // own, nothing is snapped.
-                    val favouriteMatch = if (site.source == LocationSource.GPS) {
-                        FavouriteMatch.nearestWithinRadius(
-                            location.latitude.value,
-                            location.longitude.value,
-                            places.map { place ->
-                                FavouriteMatch.Candidate(
-                                    name = place.name,
-                                    latitudeDeg = place.location.latitude.value,
-                                    longitudeDeg = place.location.longitude.value,
-                                )
-                            },
-                        )
-                    } else {
-                        null
-                    }
+                    // or a manual entry within the match radius of a
+                    // saved place is "at that place" — the card shows
+                    // its name and says the match happened; the
+                    // coordinates stay the site's own, nothing is
+                    // snapped. (Manual sites joined the chain in
+                    // 0.8.6 so a place saved from a manual entry is
+                    // recognised like any GPS-saved one.)
+                    val favouriteMatch = recognisedFavourite(
+                        site.source,
+                        location.latitude.value,
+                        location.longitude.value,
+                        places.map { place ->
+                            FavouriteMatch.Candidate(
+                                name = place.name,
+                                latitudeDeg = place.location.latitude.value,
+                                longitudeDeg = place.location.longitude.value,
+                            )
+                        },
+                    )
                     TonightScreen(
                         overview = result,
                         date = tonightDate,
@@ -419,7 +488,12 @@ private fun AstroApp(container: AppContainer) {
                         locationLabel = location.label ?: favouriteMatch?.name,
                         locationSourceText = stringResource(
                             when {
-                                favouriteMatch != null -> R.string.location_source_gps_matched
+                                favouriteMatch != null &&
+                                    site.source == LocationSource.GPS ->
+                                    R.string.location_source_gps_matched
+                                favouriteMatch != null &&
+                                    site.source == LocationSource.MANUAL ->
+                                    R.string.location_source_manual_matched
                                 site.source == LocationSource.GPS -> R.string.location_source_gps_unsaved
                                 site.source == LocationSource.MANUAL -> R.string.location_source_manual
                                 site.source == LocationSource.FAVOURITE -> R.string.location_source_favourite
@@ -432,8 +506,8 @@ private fun AstroApp(container: AppContainer) {
                         },
                         timeHealth = timeHealth,
                         redLight = redLight,
-                        onRedLightChange = { redLight = it },
                         onUseGps = useGps,
+                        showGpsSyncDot = site.source == LocationSource.GPS,
                         manualBortle = manualBortle,
                         onManualBortleChange = { manualBortle = it },
                         onManualLocation = { lat, lon ->
@@ -467,8 +541,9 @@ private fun AstroApp(container: AppContainer) {
                         } else {
                             null
                         },
-                        canSaveFavourite = site.source == LocationSource.MANUAL ||
-                            (site.source == LocationSource.GPS && favouriteMatch == null),
+                        canSaveFavourite = favouriteMatch == null &&
+                            (site.source == LocationSource.MANUAL ||
+                                site.source == LocationSource.GPS),
                         onSaveFavourite = { name ->
                             // The same store the Settings tab manages:
                             // one place repository, no second path.

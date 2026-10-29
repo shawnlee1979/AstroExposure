@@ -10,6 +10,7 @@
 
     <string name="location_source_gps_unsaved">位置来源：GPS 定位（未保存）</string>
     <string name="location_source_gps_matched">位置来源：GPS 定位 · 已匹配收藏地点</string>
+    <string name="location_source_manual_matched">位置来源：手动经纬度 · 已匹配收藏地点</string>
     <string name="location_altitude">海拔约 %1$d m（GPS 椭球高，精度粗，仅供参考）</string>
     <string name="location_altitude_none">海拔 —</string>
     <string name="location_save_favourite">保存为收藏地点</string>
@@ -18,6 +19,7 @@
     <string name="location_env_rise_note">· 月亮 %1$s 升起后增强</string>
     <string name="location_env_total">总天光 %1$.2f mag/arcsec²</string>
     <string name="location_env_note">数值为黄昏时、朝向银心方向的估算，随方向与时间变化。</string>
+    <string name="location_env_note_cursor">数值为 %1$s（游标时刻）、朝向银心方向的估算，随方向与时间变化。</string>
     <string name="tonight_overview_title">今晚概览</string>
     <string name="tonight_overview_night">天文夜</string>
     <string name="tonight_overview_night_none">无天文夜</string>
@@ -25,6 +27,7 @@
     <string name="tonight_overview_moon_alt_cursor">月高（游标 %1$s）</string>
     <string name="tonight_overview_moon_alt_value">%1$.0f°</string>
     <string name="tonight_overview_moon">月光干扰</string>
+    <string name="tonight_overview_moon_cursor">月光干扰（游标 %1$s）</string>
     <string name="tonight_overview_low_moon">低月光窗口</string>
     <string name="tonight_overview_low_moon_none">今晚无低月光窗口</string>
     <string name="tonight_overview_window_separator">，</string>
