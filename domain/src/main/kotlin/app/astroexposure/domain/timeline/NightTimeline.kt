@@ -1,6 +1,8 @@
 package app.astroexposure.domain.timeline
 
 import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * Pure layout mathematics for the Tonight timeline (ui-design §7.4): the
@@ -172,6 +174,72 @@ object NightTimeline {
     fun instantAtFraction(fraction: Double, axisStart: Instant, axisEnd: Instant): Instant {
         val total = axisEnd.epochSecond - axisStart.epochSecond
         return axisStart.plusSeconds((fraction.coerceIn(0.0, 1.0) * total).toLong())
+    }
+
+    /** Candidate steps, in hours, for the whole-hour axis (ui-design §7.4). */
+    private val HOUR_AXIS_STEP_CANDIDATES = listOf(1, 2, 3, 6)
+
+    /**
+     * Most step cells the whole-hour axis spans (ui-design §7.4): the
+     * axis is a sparse reference scale in the comparison board's
+     * density (its 15.2-hour axis carries five labels at a 3-hour
+     * step), not an hourly ruler, so a step must also keep the axis
+     * within about this many cells however wide the panel is.
+     */
+    private const val HOUR_AXIS_MAX_CELLS = 6.0
+
+    /**
+     * The whole-hour axis's step, in hours (ui-design §7.4, 0.8.10):
+     * the smallest candidate in {1, 2, 3, 6} that satisfies BOTH
+     * rules — adjacent labels clear each other (one step spans at
+     * least the caller's [labelWidthDp] estimate plus [gapDp]) and
+     * the density cap [HOUR_AXIS_MAX_CELLS] holds (axis hours divided
+     * by the step). On a roughly 15-hour axis at phone widths the
+     * non-overlap rule alone would already allow 2h; the density cap
+     * is what makes it 3h, matching the board. When no candidate
+     * clears the labels (an extreme axis on a narrow plot) the
+     * coarsest step is returned and the caller's overlap-omission
+     * backstop decides what survives.
+     */
+    fun hourAxisStepHours(
+        axisStart: Instant,
+        axisEnd: Instant,
+        plotWidthDp: Double,
+        labelWidthDp: Double,
+        gapDp: Double = 4.0,
+    ): Int {
+        val axisSeconds = (axisEnd.epochSecond - axisStart.epochSecond).toDouble()
+        if (axisSeconds <= 0.0 || plotWidthDp <= 0.0) return HOUR_AXIS_STEP_CANDIDATES.last()
+        val axisHours = axisSeconds / 3600.0
+        val dpPerHour = plotWidthDp / axisHours
+        return HOUR_AXIS_STEP_CANDIDATES.firstOrNull { step ->
+            step * dpPerHour >= labelWidthDp + gapDp &&
+                axisHours / step <= HOUR_AXIS_MAX_CELLS
+        } ?: HOUR_AXIS_STEP_CANDIDATES.last()
+    }
+
+    /**
+     * The whole hours the axis labels (ui-design §7.4): every local
+     * whole hour inside the axis whose hour-of-day is a multiple of
+     * [stepHours], in axis order. [hourAxisStepHours] picks the step;
+     * the caller formats and places the labels and applies its
+     * overlap-omission backstop.
+     */
+    fun hourAxisLabels(
+        axisStart: Instant,
+        axisEnd: Instant,
+        zone: ZoneId,
+        stepHours: Int,
+    ): List<Instant> {
+        require(stepHours > 0) { "hour axis step must be positive, was $stepHours" }
+        val out = mutableListOf<Instant>()
+        var t = axisStart.atZone(zone).truncatedTo(ChronoUnit.HOURS)
+        if (t.toInstant().isBefore(axisStart)) t = t.plusHours(1)
+        while (!t.toInstant().isAfter(axisEnd)) {
+            if (t.hour % stepHours == 0) out += t.toInstant()
+            t = t.plusHours(1)
+        }
+        return out
     }
 
 }
