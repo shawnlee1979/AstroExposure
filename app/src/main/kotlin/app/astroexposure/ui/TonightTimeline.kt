@@ -68,7 +68,6 @@ import app.astroexposure.usecase.TonightOverviewUseCase
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -128,21 +127,41 @@ data class TimelineArc(
 private val ARC_LANE_HEIGHT_DP = 26.dp
 
 /**
- * Layered-panel row metrics (ui-design §7.4, 0.8.7; visual values
- * from the approved comparison board): the rows are inset by
- * [PLOT_INSET_DP] on both sides of the panel, and every row — bands,
- * marker row, lanes, hour axis — shares the plot area between the
- * insets, so a single fraction-to-x mapping serves the whole panel.
+ * Layered-panel row metrics (ui-design §7.4, 0.8.7; layout from the
+ * approved comparison board): the rows are inset by [PLOT_INSET_DP]
+ * on both sides of the panel, and every row — bands, marker row,
+ * lanes, hour axis — shares the plot area between the insets, so a
+ * single fraction-to-x mapping serves the whole panel. The board's
+ * proportions are the layout reference, but since 0.8.10 the
+ * physical row heights and in-row font sizes follow real-device
+ * readability instead: the board-scale rows (16/12/14/10/12dp with
+ * 8.5–9sp text) were illegible on a real phone, so the band rows are
+ * enlarged (24/18/22/16/18dp, 10–11sp text). The lanes keep the
+ * board's compact 26dp (see [ARC_LANE_HEIGHT_DP]).
  */
 private val PLOT_INSET_DP = 8.dp
-private val SUN_BAND_HEIGHT_DP = 16.dp
-private val MOON_BAND_HEIGHT_DP = 12.dp
-private val MARKER_ROW_HEIGHT_DP = 14.dp
-private val WINDOW_BAND_HEIGHT_DP = 10.dp
-private val HOUR_AXIS_ROW_HEIGHT_DP = 12.dp
+private val SUN_BAND_HEIGHT_DP = 24.dp
+private val MOON_BAND_HEIGHT_DP = 18.dp
+private val MARKER_ROW_HEIGHT_DP = 22.dp
+private val WINDOW_BAND_HEIGHT_DP = 16.dp
+private val HOUR_AXIS_ROW_HEIGHT_DP = 18.dp
 
-/** Vertical offset of the cursor bubble's top edge inside the panel (ui-design §7.5, 0.8.9). */
-private val BUBBLE_TOP_DP = 55.dp
+/** Panel inner padding and the band-section row gaps (ui-design §7.4). */
+private val PANEL_TOP_PADDING_DP = 6.dp
+private val PANEL_BOTTOM_PADDING_DP = 4.dp
+private val SUN_MOON_GAP_DP = 5.dp
+private val MOON_MARKER_GAP_DP = 2.dp
+
+/**
+ * Vertical offset of the cursor bubble's top edge inside the panel
+ * (ui-design §7.5): derived from the row metrics above — panel top
+ * padding + sun band + gap + moon band + gap + marker row — so the
+ * bubble always hangs exactly at the top of the lane area and the
+ * derivation moves with the constants instead of freezing a number.
+ */
+private val BUBBLE_TOP_DP = PANEL_TOP_PADDING_DP + SUN_BAND_HEIGHT_DP +
+    SUN_MOON_GAP_DP + MOON_BAND_HEIGHT_DP + MOON_MARKER_GAP_DP +
+    MARKER_ROW_HEIGHT_DP
 
 /**
  * Rough text width estimate in dp for the in-lane labels: CJK glyphs
@@ -518,8 +537,8 @@ fun NightTimelineCard(
                             modifier = Modifier.padding(
                                 start = PLOT_INSET_DP,
                                 end = PLOT_INSET_DP,
-                                top = 6.dp,
-                                bottom = 4.dp,
+                                top = PANEL_TOP_PADDING_DP,
+                                bottom = PANEL_BOTTOM_PADDING_DP,
                             ),
                         ) {
                             // Sun band, moon band and marker row, with
@@ -537,7 +556,7 @@ fun NightTimelineCard(
                                         redLight = redLight,
                                         plotWidthDp = plotWidthDp,
                                     )
-                                    Spacer(modifier = Modifier.height(5.dp))
+                                    Spacer(modifier = Modifier.height(SUN_MOON_GAP_DP))
                                     MoonBandRow(
                                         timeline = timeline,
                                         moonrise = moonrise,
@@ -545,7 +564,7 @@ fun NightTimelineCard(
                                         moonColor = moonColor,
                                         plotWidthDp = plotWidthDp,
                                     )
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Spacer(modifier = Modifier.height(MOON_MARKER_GAP_DP))
                                     MarkerRow(
                                         timeline = timeline,
                                         marks = marks,
@@ -666,10 +685,11 @@ fun NightTimelineCard(
                                     )
                                 }
                             }
-                            // Whole-hour axis (ui-design §7.4, 0.8.9):
-                            // the panel's closing row — every whole
-                            // hour inside the axis at its true position
-                            // on the shared time scale (not an equal
+                            // Whole-hour axis (ui-design §7.4, 0.8.9;
+                            // sparse stepping since 0.8.10): the
+                            // panel's closing row — whole hours at the
+                            // picked step, each at its true position on
+                            // the shared time scale (not an equal
                             // division of the axis). This is the
                             // panel's only axis labelling; the former
                             // four-point row under the panel is gone.
@@ -1135,11 +1155,17 @@ private fun ArcLane(
 
 /**
  * The whole-hour axis closing the layered panel (ui-design §7.4,
- * 0.8.9): every whole hour inside the axis span, labelled at its true
- * position on the panel's shared time scale — deliberately NOT an
- * equal division of the axis, so a 17:35–08:47 axis labels 18:00,
- * 21:00, 00:00, 03:00 and 06:00 where those instants actually fall.
- * Labels are centred on their hour and clamped into the plot.
+ * 0.8.9; sparse stepping since 0.8.10): whole hours at a step picked
+ * by [NightTimeline.hourAxisStepHours] — the smallest of 1/2/3/6h
+ * whose labels clear each other AND keep the board's sparse density
+ * — labelled at their true positions on the panel's shared time
+ * scale, deliberately NOT an equal division of the axis: a
+ * 17:35–08:47 axis takes the 3h step and labels 18:00, 21:00, 00:00,
+ * 03:00 and 06:00 where those instants actually fall. (The 0.8.9
+ * version enumerated every hour and the labels ran into each other
+ * on real phones.) All labels share one "HH:mm" shape, so a single
+ * width estimate serves both the step choice and placement;
+ * [placeLabels] remains as the overlap backstop.
  */
 @Composable
 private fun HourAxisRow(
@@ -1148,31 +1174,34 @@ private fun HourAxisRow(
     textColor: Color,
     plotWidthDp: Double,
 ) {
-    val hours = remember(timeline.axisStart, timeline.axisEnd, zone) {
-        val out = mutableListOf<Pair<Instant, String>>()
-        var t = timeline.axisStart.atZone(zone).truncatedTo(ChronoUnit.HOURS)
-        if (t.toInstant().isBefore(timeline.axisStart)) t = t.plusHours(1)
-        while (!t.toInstant().isAfter(timeline.axisEnd)) {
-            out += t.toInstant() to formatTime(t.toInstant(), zone)
-            t = t.plusHours(1)
-        }
-        out
+    val labelWidthDp = estimateTextWidthDp("00:00", 10.5f)
+    val stepHours = NightTimeline.hourAxisStepHours(
+        timeline.axisStart, timeline.axisEnd, plotWidthDp, labelWidthDp,
+    )
+    val hours = remember(timeline.axisStart, timeline.axisEnd, zone, stepHours) {
+        NightTimeline.hourAxisLabels(
+            timeline.axisStart, timeline.axisEnd, zone, stepHours,
+        )
+    }
+    val candidates = hours.map { instant ->
+        LabelCandidate(
+            text = formatTime(instant, zone),
+            centerDp = NightTimeline.fractionOf(
+                instant, timeline.axisStart, timeline.axisEnd,
+            ) * plotWidthDp,
+            widthDp = labelWidthDp,
+            rank = 0,
+        )
     }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(HOUR_AXIS_ROW_HEIGHT_DP),
     ) {
-        for ((instant, label) in hours) {
-            val centerDp = NightTimeline.fractionOf(
-                instant, timeline.axisStart, timeline.axisEnd,
-            ) * plotWidthDp
-            val widthDp = estimateTextWidthDp(label, 9f)
-            val leftDp = (centerDp - widthDp / 2.0)
-                .coerceIn(0.0, max(0.0, plotWidthDp - widthDp))
+        for ((label, leftDp) in placeLabels(candidates, plotWidthDp)) {
             Text(
-                text = label,
-                fontSize = 9.sp,
+                text = label.text,
+                fontSize = 10.5.sp,
                 maxLines = 1,
                 color = textColor,
                 modifier = Modifier
@@ -1302,7 +1331,7 @@ private fun SunBandRow(
                     LabelCandidate(
                         text = text,
                         centerDp = centerFraction * plotWidthDp,
-                        widthDp = estimateTextWidthDp(text, 8.5f),
+                        widthDp = estimateTextWidthDp(text, 11f),
                         rank = rank,
                     ),
                 )
@@ -1356,7 +1385,7 @@ private fun SunBandRow(
         for ((label, leftDp) in placeLabels(candidates, plotWidthDp)) {
             Text(
                 text = label.text,
-                fontSize = 8.5.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 color = labelColor,
                 modifier = Modifier
@@ -1416,14 +1445,14 @@ private fun MoonBandRow(
             val text = stringResource(
                 R.string.timeline_moon_rise, formatTime(moonrise, zone),
             )
-            val textWidthDp = estimateTextWidthDp(text, 9f)
+            val textWidthDp = estimateTextWidthDp(text, 10.5f)
             val textX = NightTimeline.fractionOf(
                 moonrise, timeline.axisStart, timeline.axisEnd,
             ) * plotWidthDp + 4.0
             if (textX + textWidthDp <= plotWidthDp - 2.0) {
                 Text(
                     text = text,
-                    fontSize = 9.sp,
+                    fontSize = 10.5.sp,
                     maxLines = 1,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -1466,7 +1495,7 @@ private fun MarkerRow(
                     centerDp = NightTimeline.fractionOf(
                         mark.instant, timeline.axisStart, timeline.axisEnd,
                     ) * plotWidthDp,
-                    widthDp = estimateTextWidthDp(label, 9f),
+                    widthDp = estimateTextWidthDp(label, 10.5f),
                     rank = mark.labelRank,
                 )
             }
@@ -1474,7 +1503,7 @@ private fun MarkerRow(
         for ((label, leftDp) in placeLabels(candidates, plotWidthDp)) {
             Text(
                 text = label.text,
-                fontSize = 9.sp,
+                fontSize = 10.5.sp,
                 maxLines = 1,
                 color = textColor,
                 modifier = Modifier
@@ -1492,9 +1521,12 @@ private fun MarkerRow(
  * frame since 0.8.9 (the pre-0.8.9 dashed / dot-dash frames are
  * retired; the two bands are told apart by their in-row names and
  * fills, in the red theme by name and brightness). The row names
- * itself: [label] sits inside the first window span at its start, in
- * [labelColor], so the row reads without a legend; a label wider
- * than its span is omitted rather than spilling over the track.
+ * itself: [label] starts at the first window span's start, in
+ * [labelColor], so the row reads without a legend. Since 0.8.10 the
+ * name may run past its (possibly narrow) window onto the row's own
+ * track — a one-hour low-moonlight window still names its row; the
+ * name is omitted only when it would leave the plot's right edge or
+ * run into a second window span.
  */
 @Composable
 private fun WindowBandRow(
@@ -1534,20 +1566,28 @@ private fun WindowBandRow(
             val startFraction = NightTimeline.fractionOf(
                 first.start, timeline.axisStart, timeline.axisEnd,
             )
-            val endFraction = NightTimeline.fractionOf(
-                first.end, timeline.axisStart, timeline.axisEnd,
-            )
-            val spanWidthDp = (endFraction - startFraction) * plotWidthDp
-            val labelWidthDp = estimateTextWidthDp(label, 8f)
-            if (labelWidthDp + 8.0 <= spanWidthDp) {
+            val labelLeftDp = startFraction * plotWidthDp + 4.0
+            val labelWidthDp = estimateTextWidthDp(label, 10f)
+            val labelRightDp = labelLeftDp + labelWidthDp
+            // The name may overflow its window onto the track
+            // (0.8.10); it is omitted only when it would leave the
+            // plot or run into the NEXT window span.
+            val secondStartDp = intervals.getOrNull(1)?.let { second ->
+                NightTimeline.fractionOf(
+                    second.start, timeline.axisStart, timeline.axisEnd,
+                ) * plotWidthDp
+            }
+            val fits = labelRightDp <= plotWidthDp &&
+                (secondStartDp == null || labelRightDp <= secondStartDp)
+            if (fits) {
                 Text(
                     text = label,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     maxLines = 1,
                     color = labelColor,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .offset(x = (startFraction * plotWidthDp + 4.0).dp),
+                        .offset(x = labelLeftDp.dp),
                 )
             }
         }
