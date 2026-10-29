@@ -57,7 +57,7 @@ class TonightOverviewUseCase(
     data class RecommendedObject(val obj: DeepSkyObject, val pass: TargetPass)
 
     /**
-     * Everything the static four-layer timeline draws (ui-design §7.4):
+     * Everything the layered timeline draws (ui-design §7.4):
      * the axis span, the 5-minute Sun/Moon altitude samples, the solar
      * band segmentation and Moon-up spans derived from those samples in
      * the domain layer, and the galactic-centre window clamped to the
@@ -70,7 +70,7 @@ class TonightOverviewUseCase(
         val bandSegments: List<NightTimeline.BandSegment>,
         val moonAboveIntervals: List<NightTimeline.Interval>,
         val galacticCenterInterval: NightTimeline.Interval?,
-        /** False on nights with no astronomical night: the axis then shows curves only. */
+        /** False on nights with no astronomical night: the window band rows are then absent. */
         val hasAstronomicalNight: Boolean,
     )
 
