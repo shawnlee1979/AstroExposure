@@ -444,6 +444,19 @@ fun TonightScreen(
                 // the long-press drag below.
             },
             onCursorDrag = { dragged -> placeCursor(dragged) },
+            onTrackDrag = { dragged ->
+                // The track band's direct drag (ui-design §7.5,
+                // 0.8.11): the one surface where a placed, unlocked
+                // cursor follows the finger without a hold; the lock
+                // still refuses it (see the gesture state machine).
+                if (
+                    TimelineCursor.mayMoveCursor(
+                        cursorPlacement, TimelineCursor.CursorGesture.TRACK_DRAG,
+                    )
+                ) {
+                    placeCursor(dragged)
+                }
+            },
             cursorLocked = cursorLocked,
             onCursorLongPressDrag = { dragged ->
                 if (

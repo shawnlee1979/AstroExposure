@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.PointerId
@@ -56,6 +57,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Shadow
@@ -146,22 +148,30 @@ private val MARKER_ROW_HEIGHT_DP = 22.dp
 private val WINDOW_BAND_HEIGHT_DP = 16.dp
 private val HOUR_AXIS_ROW_HEIGHT_DP = 18.dp
 
+/**
+ * Height of the Sun/Moon track band (ui-design §7.4, 0.8.11): the
+ * cursor state's top row, tall enough to read the two altitude
+ * curves against the horizon and to serve as the cursor's drag
+ * surface. Present only while the cursor state is active.
+ */
+private val TRACK_BAND_HEIGHT_DP = 64.dp
+
 /** Panel inner padding and the band-section row gaps (ui-design §7.4). */
 private val PANEL_TOP_PADDING_DP = 6.dp
 private val PANEL_BOTTOM_PADDING_DP = 4.dp
+private val TRACK_SUN_GAP_DP = 5.dp
 private val SUN_MOON_GAP_DP = 5.dp
 private val MOON_MARKER_GAP_DP = 2.dp
 
 /**
  * Vertical offset of the cursor bubble's top edge inside the panel
- * (ui-design §7.5): derived from the row metrics above — panel top
- * padding + sun band + gap + moon band + gap + marker row — so the
- * bubble always hangs exactly at the top of the lane area and the
- * derivation moves with the constants instead of freezing a number.
+ * (ui-design §7.5): since 0.8.11 the bubble hangs over the track
+ * band, so its top edge is the panel's top padding — the track
+ * band's own top edge — derived from the panel metrics instead of
+ * freezing a number. (Before 0.8.11 it hung at the top of the lane
+ * area and covered the lanes' left ends.)
  */
-private val BUBBLE_TOP_DP = PANEL_TOP_PADDING_DP + SUN_BAND_HEIGHT_DP +
-    SUN_MOON_GAP_DP + MOON_BAND_HEIGHT_DP + MOON_MARKER_GAP_DP +
-    MARKER_ROW_HEIGHT_DP
+private val BUBBLE_TOP_DP = PANEL_TOP_PADDING_DP
 
 /**
  * Rough text width estimate in dp for the in-lane labels: CJK glyphs
@@ -330,17 +340,24 @@ private suspend fun PointerInputScope.detectCursorLongPressDrag(
  * tap detector sees it, so a tap that opens a mark detail does NOT
  * place the cursor; a tap anywhere else places it. A drag anywhere
  * takes over the cursor — the drag consumes its moves, which also
- * cancels any hot-zone press in progress.
+ * cancels any hot-zone press in progress. The lane tap overlays are
+ * the opposite arrangement (0.8.11): they only OBSERVE a press and
+ * never consume it, so panel drags and the long-press grab work
+ * starting on a lane; the overlay fires its tap only when the press
+ * ends as a short, un-consumed, in-slop tap.
  *
  * Anti-mistouch (ui-design §7.5, 0.5.2): the plain tap and drag paths
  * above place the cursor only while none exists — the drag detector
  * snapshots that at gesture start, so the gesture that first places
  * the cursor keeps following the finger, while any later plain drag
  * is inert. Once the cursor is placed, repositioning goes through the
- * long-press drag detector (hold ~300ms to grab, then drag); while
- * [cursorLocked] is set, no axis gesture moves the cursor at all and
- * only the time bar's step buttons (deliberate actions) still apply.
- * The pure state machine behind this lives in
+ * long-press drag detector (hold ~300ms to grab, then drag) — or,
+ * since 0.8.11, through a direct drag on the Sun/Moon track band at
+ * the panel's top, the one deliberate scrub surface (its own callback,
+ * [onTrackDrag], permissioned as TRACK_DRAG in the state machine).
+ * While [cursorLocked] is set, no axis gesture moves the cursor at
+ * all and only the time bar's step buttons (deliberate actions) still
+ * apply. The pure state machine behind this lives in
  * [TimelineCursor.mayMoveCursor] and is unit-tested there.
  */
 @Composable
@@ -365,6 +382,8 @@ fun NightTimelineCard(
     arcs: List<TimelineArc> = emptyList(),
     onCursorTap: (Instant) -> Unit = {},
     onCursorDrag: (Instant) -> Unit = {},
+    /** Direct tap/drag on the Sun/Moon track band (ui-design §7.5, 0.8.11). */
+    onTrackDrag: (Instant) -> Unit = {},
     onCursorStep: (Long) -> Unit = {},
     onExitCursor: () -> Unit = {},
     onArcTap: (Int) -> Unit = {},
@@ -541,6 +560,28 @@ fun NightTimelineCard(
                                 bottom = PANEL_BOTTOM_PADDING_DP,
                             ),
                         ) {
+                            // Sun/Moon track band (ui-design §7.4,
+                            // 0.8.11): the cursor state's top row —
+                            // the sampled Sun and Moon altitude curves
+                            // over the shared time scale, and the
+                            // cursor's direct drag surface (see
+                            // TrackBandRow). Absent without the cursor
+                            // state, so the default panel is unchanged.
+                            if (cursorActive) {
+                                TrackBandRow(
+                                    timeline = timeline,
+                                    sunColor = sunColor,
+                                    moonColor = moonColor,
+                                    horizonColor = borderColor,
+                                    enabled = { !cursorLockedState.value },
+                                    onDragTo = { xPx, widthPx ->
+                                        onTrackDrag(
+                                            cursorInstantAt(xPx, widthPx, timeline),
+                                        )
+                                    },
+                                )
+                                Spacer(modifier = Modifier.height(TRACK_SUN_GAP_DP))
+                            }
                             // Sun band, moon band and marker row, with
                             // the marks' transparent tap hot zones
                             // overlaid on this section: 40dp wide and
@@ -603,13 +644,19 @@ fun NightTimelineCard(
                             // fills. The lane carries the target name at
                             // its left end and NO culmination text —
                             // culmination figures live in the bubble and
-                            // the detail dialog. Tap targets follow the
-                            // marker rows' transparent-overlay pattern:
-                            // invisible boxes over the visual lanes,
+                            // the detail dialog. Tap targets are
+                            // transparent overlays over the visual lanes,
                             // 31dp tall (visual lane plus its share of
                             // the row gap), so the visual rhythm stays
-                            // compact while taps still land. Tapping a
-                            // lane opens its target's detail dialog.
+                            // compact while taps still land. Since
+                            // 0.8.11 the overlays only OBSERVE the press
+                            // (ArcTapOverlay): a consuming clickable here
+                            // ate the panel's drag and long-press
+                            // gestures whole — in the cursor state the
+                            // lanes cover most of the panel, so the
+                            // cursor could no longer be dragged at all.
+                            // Tapping a lane opens its target's detail
+                            // dialog.
                             if (cursorActive && arcs.isNotEmpty()) {
                                 Box(modifier = Modifier.padding(top = 5.dp)) {
                                     Column(
@@ -625,20 +672,14 @@ fun NightTimelineCard(
                                     }
                                     Column {
                                         arcs.forEachIndexed { index, arc ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(
-                                                        if (index < arcs.lastIndex) {
-                                                            31.dp
-                                                        } else {
-                                                            ARC_LANE_HEIGHT_DP
-                                                        },
-                                                    )
-                                                    .clickable { onArcTap(index) }
-                                                    .semantics {
-                                                        contentDescription = arc.label
-                                                    },
+                                            ArcTapOverlay(
+                                                label = arc.label,
+                                                height = if (index < arcs.lastIndex) {
+                                                    31.dp
+                                                } else {
+                                                    ARC_LANE_HEIGHT_DP
+                                                },
+                                                onTap = { onArcTap(index) },
                                             )
                                         }
                                     }
@@ -739,9 +780,9 @@ fun NightTimelineCard(
                         // tier with the site's Bortle grade. The width
                         // hugs the widest line (capped at the panel
                         // width minus 16dp), and the bubble hangs over
-                        // the top of the lane area (BUBBLE_TOP_DP)
-                        // instead of covering the sun band's labels
-                        // and the moonrise note.
+                        // the track band (BUBBLE_TOP_DP, 0.8.11)
+                        // instead of covering the lanes and their
+                        // target names.
                         if (cursorActive && cursorInstant != null && bubbleTimeText != null) {
                             val fraction = NightTimeline.fractionOf(
                                 cursorInstant, timeline.axisStart, timeline.axisEnd,
@@ -930,6 +971,212 @@ fun NightTimelineCard(
             onDismiss = { selectedMark = null },
         )
     }
+}
+
+/**
+ * The Sun/Moon track band (ui-design §7.4, 0.8.11): the cursor
+ * state's top row. Both bodies' real altitude curves ride on the
+ * panel's shared time scale — the Sun as a solid line in the accent
+ * colour, the Moon as a dashed line in the Moon colour — over the
+ * vertical domain of [NightTimeline.altitudeFraction] (−36°…+90°),
+ * with a thin horizon line at 0°. Identity is carried by colour AND
+ * line style: in the red theme both hues collapse into the red
+ * scale and the solid/dashed distinction is what remains. The band
+ * carries no text labels.
+ *
+ * The band is also the cursor's direct drag surface: a tap
+ * positions the cursor and a horizontal drag scrubs it — no hold
+ * needed. The detector mirrors the panel drag's direction rule:
+ * nothing is consumed or reported until the first slop-crossing
+ * move proves horizontal (a vertically dominant press is left to
+ * the page scroll); horizontal moves are then consumed and
+ * reported; a press released undecided counts as a tap on its down
+ * position. A press that another handler consumed mid-flight is
+ * abandoned. While [enabled] is false at press time (cursor
+ * locked) the press is ignored entirely and nothing is consumed.
+ * Positions are the band's own coordinates — the band spans
+ * exactly the plot width between the panel insets.
+ */
+@Composable
+private fun TrackBandRow(
+    timeline: TonightOverviewUseCase.Timeline,
+    sunColor: Color,
+    moonColor: Color,
+    horizonColor: Color,
+    enabled: () -> Boolean,
+    onDragTo: (xPx: Float, widthPx: Float) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(TRACK_BAND_HEIGHT_DP)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(4.dp),
+            )
+            .pointerInput(timeline.axisStart, timeline.axisEnd) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!enabled()) return@awaitEachGesture
+                    val pointerId: PointerId = down.id
+                    var totalDx = 0f
+                    var totalDy = 0f
+                    var horizontal: Boolean? = null
+                    var spoiled = false
+                    var change = currentEvent.changes
+                        .firstOrNull { it.id == pointerId }
+                    while (change != null && !change.changedToUp()) {
+                        val event = awaitPointerEvent()
+                        change = event.changes
+                            .firstOrNull { it.id == pointerId } ?: break
+                        if (change.changedToUp()) break
+                        if (change.isConsumed) {
+                            spoiled = true
+                            break
+                        }
+                        val delta = change.positionChange()
+                        totalDx += delta.x
+                        totalDy += delta.y
+                        if (horizontal == null &&
+                            (kotlin.math.abs(totalDx) > viewConfiguration.touchSlop ||
+                                kotlin.math.abs(totalDy) > viewConfiguration.touchSlop)
+                        ) {
+                            horizontal =
+                                kotlin.math.abs(totalDx) >= kotlin.math.abs(totalDy)
+                            if (horizontal == true) {
+                                change.consume()
+                                onDragTo(change.position.x, size.width.toFloat())
+                            }
+                        } else if (horizontal == true) {
+                            change.consume()
+                            onDragTo(change.position.x, size.width.toFloat())
+                        }
+                    }
+                    // Released undecided and never taken over by
+                    // another handler: a tap — it positions the
+                    // cursor at the down position.
+                    if (change != null && change.changedToUp() &&
+                        horizontal == null && !spoiled
+                    ) {
+                        onDragTo(down.position.x, size.width.toFloat())
+                    }
+                }
+            },
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            fun xOf(instant: Instant): Float =
+                NightTimeline.fractionOf(
+                    instant, timeline.axisStart, timeline.axisEnd,
+                ).toFloat() * size.width
+            fun yOf(altitudeDeg: Double): Float =
+                (1.0 - NightTimeline.altitudeFraction(altitudeDeg)).toFloat() *
+                    size.height
+            val horizonY = yOf(0.0)
+            drawLine(
+                color = horizonColor.copy(alpha = 0.6f),
+                start = Offset(0f, horizonY),
+                end = Offset(size.width, horizonY),
+                strokeWidth = 1.dp.toPx(),
+            )
+            fun curve(samples: List<Offset>, color: Color, dashed: Boolean) {
+                if (samples.size < 2) return
+                val path = Path().apply {
+                    moveTo(samples.first().x, samples.first().y)
+                    samples.drop(1).forEach { lineTo(it.x, it.y) }
+                }
+                drawPath(
+                    path = path,
+                    color = color,
+                    style = Stroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = if (dashed) {
+                            PathEffect.dashPathEffect(
+                                floatArrayOf(4.dp.toPx(), 3.dp.toPx()),
+                            )
+                        } else {
+                            null
+                        },
+                    ),
+                )
+            }
+            val samples = timeline.samples
+            curve(
+                samples.map { Offset(xOf(it.instant), yOf(it.sunAltitudeDeg)) },
+                sunColor,
+                dashed = false,
+            )
+            curve(
+                samples.map { Offset(xOf(it.instant), yOf(it.moonAltitudeDeg)) },
+                moonColor,
+                dashed = true,
+            )
+        }
+    }
+}
+
+/**
+ * One lane's transparent tap overlay (ui-design §7.5): covers the
+ * visual lane (plus its share of the row gap) and turns a tap into
+ * [onTap] — WITHOUT consuming anything. A consuming clickable in
+ * this spot (the pre-0.8.11 arrangement) swallowed the panel's drag
+ * and long-press gestures whole: in the cursor state the lanes
+ * cover most of the panel, so the cursor could no longer be dragged
+ * anywhere. This overlay only observes: the tap fires when the
+ * press ends as a genuine tap — released within
+ * [TimelineCursor.LONG_PRESS_REPOSITION_MS] (a longer hold belongs
+ * to the long-press grab), never moved beyond the touch slop, and
+ * no change consumed by another handler (a panel drag that takes
+ * over consumes its moves). Accessibility keeps the old clickable's
+ * contract through semantics: the target name as the description,
+ * the button role and an explicit click action.
+ */
+@Composable
+private fun ArcTapOverlay(
+    label: String,
+    height: Dp,
+    onTap: () -> Unit,
+) {
+    val latestOnTap = rememberUpdatedState(onTap)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+                onClick {
+                    latestOnTap.value()
+                    true
+                }
+            }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var spoiled = down.isConsumed
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes
+                            .firstOrNull { it.id == down.id } ?: break
+                        if (change.isConsumed) spoiled = true
+                        if ((change.position - down.position)
+                                .getDistance() > viewConfiguration.touchSlop
+                        ) {
+                            spoiled = true
+                        }
+                        if (change.changedToUp()) {
+                            if (!spoiled &&
+                                change.uptimeMillis - down.uptimeMillis <
+                                TimelineCursor.LONG_PRESS_REPOSITION_MS
+                            ) {
+                                latestOnTap.value()
+                            }
+                            break
+                        }
+                        if (!change.pressed) break
+                    }
+                }
+            },
+    )
 }
 
 /**
