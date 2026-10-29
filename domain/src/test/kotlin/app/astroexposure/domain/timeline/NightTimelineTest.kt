@@ -79,32 +79,6 @@ class NightTimelineTest {
     }
 
     @Test
-    fun axisMinFollowsTheDeepestSampleWithMargin() {
-        // Deepest sample -12° -> margin and 5° step give -20°.
-        val shallow = listOf(sample(0, -12.0, -3.0), sample(5, -5.0, -8.0))
-        assertEquals(-20.0, NightTimeline.axisMinAltitudeDeg(shallow), 1e-9)
-        // A Moon well below the horizon (routine at mid latitudes: the
-        // Moon can reach about -60° to -78°) is drawn in full, not
-        // clipped at the former fixed -20° floor.
-        val deep = listOf(sample(0, -30.0, -78.0), sample(5, -20.0, -40.0))
-        assertEquals(-85.0, NightTimeline.axisMinAltitudeDeg(deep), 1e-9)
-    }
-
-    @Test
-    fun axisMinClampsAtMinusNinetyAndKeepsTheHorizonReadable() {
-        // Nothing can be sampled below -90° in practice, but the clamp
-        // is pinned so the axis can never pass the floor.
-        val extreme = listOf(sample(0, -95.0, -92.0))
-        assertEquals(-90.0, NightTimeline.axisMinAltitudeDeg(extreme), 1e-9)
-        // Polar-day style series that never set: the lower bound still
-        // reaches below 0° so the horizon line stays inside the chart.
-        val polarDay = listOf(sample(0, 8.0, 12.0), sample(5, 4.0, 20.0))
-        assertEquals(-5.0, NightTimeline.axisMinAltitudeDeg(polarDay), 1e-9)
-        // No samples: the documented fallback.
-        assertEquals(-20.0, NightTimeline.axisMinAltitudeDeg(emptyList()), 1e-9)
-    }
-
-    @Test
     fun fractionOfClampsOutsideTheAxis() {
         val axisEnd = start.plusSeconds(3600)
         assertEquals(0.5, NightTimeline.fractionOf(start.plusSeconds(1800), start, axisEnd), 1e-9)

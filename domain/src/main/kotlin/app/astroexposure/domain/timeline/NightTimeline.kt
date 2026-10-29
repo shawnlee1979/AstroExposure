@@ -164,32 +164,4 @@ object NightTimeline {
         return axisStart.plusSeconds((fraction.coerceIn(0.0, 1.0) * total).toLong())
     }
 
-    /** Margin below the deepest sample on the altitude axis (layout spacing, empirical). */
-    const val AXIS_MIN_MARGIN_DEG = 5.0
-
-    /** The axis never extends below the geometric nadir direction. */
-    const val AXIS_MIN_FLOOR_DEG = -90.0
-
-    /** Fallback lower bound when there are no samples at all. */
-    const val AXIS_MIN_DEFAULT_DEG = -20.0
-
-    /** The axis always reaches at least this far below the horizon, so the 0° line stays readable. */
-    const val AXIS_MIN_SHALLOWEST_DEG = -5.0
-
-    /**
-     * Lower bound of the altitude axis (ui-design §7.4): derived from
-     * the sampled Sun/Moon series itself, not a fixed value — the
-     * deepest sample minus [AXIS_MIN_MARGIN_DEG], rounded down to a
-     * whole 5° step, clamped to [[AXIS_MIN_FLOOR_DEG],
-     * [AXIS_MIN_SHALLOWEST_DEG]] so the axis never goes below −90° and
-     * the horizon (0°) reference always stays inside the chart even on
-     * polar-day series whose samples never dip below the horizon.
-     */
-    fun axisMinAltitudeDeg(samples: List<Sample>): Double {
-        if (samples.isEmpty()) return AXIS_MIN_DEFAULT_DEG
-        val deepest = samples.minOf { minOf(it.sunAltitudeDeg, it.moonAltitudeDeg) }
-        val withMargin = deepest - AXIS_MIN_MARGIN_DEG
-        val stepped = kotlin.math.floor(withMargin / 5.0) * 5.0
-        return stepped.coerceIn(AXIS_MIN_FLOOR_DEG, AXIS_MIN_SHALLOWEST_DEG)
-    }
 }
