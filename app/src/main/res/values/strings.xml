@@ -9,6 +9,7 @@
     <string name="tab_settings">设置</string>
 
     <string name="location_source_gps_unsaved">位置来源：GPS 定位（未保存）</string>
+    <string name="location_gps_synced">GPS 已同步</string>
     <string name="location_source_gps_matched">位置来源：GPS 定位 · 已匹配收藏地点</string>
     <string name="location_source_manual_matched">位置来源：手动经纬度 · 已匹配收藏地点</string>
     <string name="location_altitude">海拔约 %1$d m（GPS 椭球高，精度粗，仅供参考）</string>

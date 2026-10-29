@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -281,7 +283,7 @@ private fun AstroApp(container: AppContainer) {
             gpsFailed = true
         }
     }
-    /** Explicit entry point: the source-line tap (and the entry auto-locate's permission flow). */
+    /** Explicit entry point: the source-line tap only. The entry auto-locate and the refresh loop go through [autoGps], whose results stay guarded. */
     val useGps: () -> Unit = {
         if (container.locationProvider.hasPermission()) {
             requestGpsFix(true)
@@ -413,14 +415,18 @@ private fun AstroApp(container: AppContainer) {
                         // without taking a row of page space. The
                         // Settings tab keeps its own switch and the
                         // auto-red-light option beside it.
+                        val redLightDescription = stringResource(R.string.red_light)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(R.string.red_light),
+                                text = redLightDescription,
                                 style = MaterialTheme.typography.labelSmall,
                             )
                             Switch(
                                 checked = redLight,
                                 onCheckedChange = { redLight = it },
+                                modifier = Modifier.semantics {
+                                    contentDescription = redLightDescription
+                                },
                             )
                         }
                     },
