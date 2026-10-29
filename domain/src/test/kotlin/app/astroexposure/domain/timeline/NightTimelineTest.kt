@@ -198,4 +198,25 @@ class NightTimelineTest {
             NightTimeline.hourAxisStepHours(axisStart, axisEnd, 100.0, axisLabelWidthDp),
         )
     }
+
+    // --- Track band vertical mapping (0.8.11) -----------------------------------
+
+    @Test
+    fun altitudeFractionMapsTheTrackDomainLinearly() {
+        // Domain −36°…+90° (ui-design §7.4): the ends map to 0 and 1,
+        // the horizon sits at 36/126, and the mid-domain is linear.
+        assertEquals(0.0, NightTimeline.altitudeFraction(-36.0), 1e-9)
+        assertEquals(1.0, NightTimeline.altitudeFraction(90.0), 1e-9)
+        assertEquals(36.0 / 126.0, NightTimeline.altitudeFraction(0.0), 1e-9)
+        assertEquals(0.5, NightTimeline.altitudeFraction(27.0), 1e-9)
+        assertEquals(
+            2.0 / 3.0, NightTimeline.altitudeFraction(48.0), 1e-9,
+        )
+    }
+
+    @Test
+    fun altitudeFractionClampsOutsideTheTrackDomain() {
+        assertEquals(0.0, NightTimeline.altitudeFraction(-90.0), 1e-9)
+        assertEquals(1.0, NightTimeline.altitudeFraction(120.0), 1e-9)
+    }
 }

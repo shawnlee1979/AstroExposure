@@ -242,4 +242,24 @@ object NightTimeline {
         return out
     }
 
+    /** Lowest altitude of the cursor track band's vertical domain (ui-design §7.4). */
+    const val TRACK_MIN_ALTITUDE_DEG = -36.0
+
+    /** Highest altitude of the cursor track band's vertical domain (ui-design §7.4). */
+    const val TRACK_MAX_ALTITUDE_DEG = 90.0
+
+    /**
+     * Where an altitude falls in the cursor track band's vertical
+     * domain (ui-design §7.4, 0.8.11): 0 at [TRACK_MIN_ALTITUDE_DEG],
+     * 1 at [TRACK_MAX_ALTITUDE_DEG], clamped outside. The domain runs
+     * from twice the astronomical-twilight depth (the Sun's lowest
+     * point of a night is bounded by −18° at its deepest) to the
+     * zenith, so both sampled curves live inside it and the 0°
+     * horizon sits at 36/126 of the height. Pure mapping — the UI
+     * only turns the fraction into a y position.
+     */
+    fun altitudeFraction(altitudeDeg: Double): Double =
+        ((altitudeDeg - TRACK_MIN_ALTITUDE_DEG) /
+            (TRACK_MAX_ALTITUDE_DEG - TRACK_MIN_ALTITUDE_DEG)).coerceIn(0.0, 1.0)
+
 }

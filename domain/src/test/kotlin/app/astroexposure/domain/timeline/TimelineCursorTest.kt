@@ -312,15 +312,19 @@ class TimelineCursorTest {
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TRACK_DRAG))
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
     }
 
     @Test
-    fun gestureStateMachinePlacedUnlockedNeedsLongPressDrag() {
+    fun gestureStateMachinePlacedUnlockedNeedsLongPressDragOrTrackDrag() {
         val p = TimelineCursor.CursorPlacement.PLACED_UNLOCKED
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        // The track band (0.8.11) is the one deliberate direct-drag
+        // surface: it moves a placed, unlocked cursor without a hold.
+        assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TRACK_DRAG))
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
     }
 
@@ -330,6 +334,7 @@ class TimelineCursorTest {
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TAP))
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.DRAG))
         assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.LONG_PRESS_DRAG))
+        assertFalse(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.TRACK_DRAG))
         assertTrue(TimelineCursor.mayMoveCursor(p, TimelineCursor.CursorGesture.STEP))
     }
 
