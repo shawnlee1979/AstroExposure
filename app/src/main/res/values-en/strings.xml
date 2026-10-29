@@ -15,12 +15,14 @@
     <string name="location_altitude">Altitude approx. %1$d m (GPS ellipsoidal height, coarse — reference only)</string>
     <string name="location_altitude_none">Altitude —</string>
     <string name="location_save_favourite">Save as a favourite place</string>
-    <string name="location_env_title">Environment</string>
     <string name="location_env_moonlight">Moonlight contribution %1$.2f mcd/m²</string>
     <string name="location_env_rise_note">· Moon rises at %1$s; brighter afterwards</string>
     <string name="location_env_total">Total sky %1$.2f mag/arcsec²</string>
-    <string name="location_env_note">Figures are dusk estimates toward the galactic centre; they vary with direction and time.</string>
-    <string name="location_env_note_cursor">Figures are estimates for %1$s (cursor time) toward the galactic centre; they vary with direction and time.</string>
+    <string name="location_env_note_merged_dusk">At dusk · toward the galactic centre · baseline %1$s</string>
+    <string name="location_env_note_merged_cursor">%1$s · toward the galactic centre · baseline %2$s</string>
+    <string name="tonight_sky_baseline_atlas">Falchi atlas</string>
+    <string name="tonight_sky_baseline_manual">manual Bortle</string>
+    <string name="tonight_sky_baseline_none">no data</string>
     <string name="tonight_overview_title">Tonight at a glance</string>
     <string name="tonight_overview_night">Astronomical night</string>
     <string name="tonight_overview_night_none">No astronomical night</string>
@@ -44,8 +46,6 @@
     <string name="time_health_clock_skew">Warning: GPS time and system time differ by %1$d s (&gt;60 s) — make sure network time sync is on; all ephemeris work in this app uses the device clock.</string>
 
 
-    <string name="tonight_sky_source_atlas">Baseline source: light-pollution atlas estimate</string>
-    <string name="tonight_sky_source_manual">Baseline source: manual Bortle override</string>
     <string name="tonight_sky_source_none">The atlas has no data at these coordinates — pick a manual Bortle class as the fallback</string>
     <string name="tonight_moon_degraded">Strong moonlight tonight (illumination %1$d%%): deep-sky / Milky Way conditions are poor — sub-exposures are squeezed by sky brightness and total time is heavily discounted. The Moon itself or moonlit landscapes are better targets tonight.</string>
     <string name="tonight_events_title">Events within ±3 days</string>
@@ -72,6 +72,7 @@
     <string name="location_edit_confirm">Confirm</string>
     <string name="location_edit_cancel">Cancel</string>
     <string name="location_edit_invalid">Coordinates out of range</string>
+    <string name="location_edit_hint">Tap to edit coordinates</string>
     <string name="location_light_row">Light pollution · Bortle %1$d</string>
     <string name="location_light_no_data">Light pollution · no grid data</string>
     <string name="location_light_manual">Manual Bortle %1$d</string>
@@ -114,6 +115,8 @@
     <string name="cursor_show_whole_night">Whole night ✕</string>
     <string name="cursor_lock">Lock</string>
     <string name="cursor_locked">Locked</string>
+    <string name="cursor_now">Now</string>
+    <string name="cursor_following">Live</string>
 
     <string name="cursor_interference_none">none</string>
     <string name="cursor_interference_weak">weak</string>

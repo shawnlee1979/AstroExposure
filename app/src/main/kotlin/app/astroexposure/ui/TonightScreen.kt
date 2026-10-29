@@ -26,10 +26,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +41,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astroexposure.R
 import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.DeepSkyObjectType
@@ -65,6 +71,9 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+/** Cadence of the cursor's clock-follow tick (ui-design §7.5, 0.8.12): at most 30 seconds. */
+private const val FOLLOW_TICK_MS = 20_000L
 
 /**
  * Tonight overview (ui-design §4.1 and §7): location card (positioning,
@@ -149,6 +158,19 @@ fun TonightScreen(
         cursorLocked -> TimelineCursor.CursorPlacement.PLACED_LOCKED
         else -> TimelineCursor.CursorPlacement.PLACED_UNLOCKED
     }
+    // Clock-follow state (ui-design §7.5, 0.8.12): ONE instance per
+    // Tonight-page visit — deliberately not keyed by date, so leaving
+    // the tab (which disposes this screen) re-initialises follow to
+    // on, while a "whole night" exit disables it for the rest of the
+    // visit, across date switches too. Every transition goes through
+    // the domain state machine (TimelineCursor.CursorFollowState).
+    var followState by remember { mutableStateOf(TimelineCursor.CursorFollowState()) }
+    // The wall-clock minute the follow UI reasons about: refreshed by
+    // the tick and on resume, so the time bar's "Now" offer tracks
+    // the clock even while follow is off.
+    var nowMinute by remember {
+        mutableStateOf(TimelineCursor.truncatedToMinute(Instant.now()))
+    }
 
     // Placement shared by tap and drag: minute precision, axis clamp,
     // snapping to a key moment within the §7.5 window with one haptic
@@ -172,6 +194,70 @@ fun TonightScreen(
         lastSnappedMoment = snapped
         retainedCursor = snapped?.let { momentMinutes[it] } ?: clamped
         cursorActive = true
+    }
+
+    // A manual placement (ui-design §7.5, 0.8.12): the user takes the
+    // cursor over and follow stops — every gesture callback routes
+    // through here instead of calling placeCursor directly.
+    fun placeCursorManually(raw: Instant) {
+        followState = followState.afterManualMove()
+        placeCursor(raw)
+    }
+
+    // Latest-value handles for the follow machinery: the tick loop
+    // and the resume observer outlive any single composition, so they
+    // must read the CURRENT state, never a captured first value.
+    val followStateNow by rememberUpdatedState(followState)
+    val cursorLockedNow by rememberUpdatedState(cursorLocked)
+    val retainedCursorNow by rememberUpdatedState(retainedCursor)
+    val overviewNow by rememberUpdatedState(overview)
+
+    // One clock-follow alignment (ui-design §7.5, 0.8.12): the pure
+    // decision lives in the domain (TimelineCursor.followTickAction);
+    // this only applies it. A follow placement is exact — no snapping
+    // to key moments, no haptic — so the cursor's minute always
+    // equals the wall-clock minute.
+    fun alignCursorToNow() {
+        val now = TimelineCursor.truncatedToMinute(Instant.now())
+        nowMinute = now
+        val timeline = overviewNow.timeline
+        if (
+            TimelineCursor.followTickAction(
+                followStateNow, cursorLockedNow, retainedCursorNow, now,
+                timeline.axisStart, timeline.axisEnd,
+            ) == TimelineCursor.FollowTickAction.PLACE_AT_NOW
+        ) {
+            retainedCursor = now
+            cursorActive = true
+            lastSnappedMoment = null
+        }
+    }
+
+    // The follow tick (ui-design §7.5, 0.8.12): aligns on entry,
+    // then at the FOLLOW_TICK_MS cadence while this page is composed
+    // (leaving the tab disposes the screen and stops the loop).
+    LaunchedEffect(Unit) {
+        while (true) {
+            alignCursorToNow()
+            delay(FOLLOW_TICK_MS)
+        }
+    }
+    // Returning to the foreground aligns at once instead of waiting
+    // out the tick.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) alignCursorToNow()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    // A data recompute (GPS refresh, site or date change) can move
+    // the axis: re-align at once so a following cursor lands on the
+    // current minute of the NEW axis. A manually held cursor is never
+    // touched by this — the decision is the domain's.
+    LaunchedEffect(overview.timeline.axisStart, overview.timeline.axisEnd) {
+        alignCursorToNow()
     }
 
     // The evaluation follows the settled cursor position (short
@@ -425,25 +511,47 @@ fun TonightScreen(
             } else {
                 emptyList()
             },
+            followLive = cursorActive && followState.driving,
+            jumpToNowVisible = cursorActive && TimelineCursor.jumpToNowOffered(
+                followState, retainedCursor, nowMinute,
+                overview.timeline.axisStart, overview.timeline.axisEnd,
+            ),
+            onJumpToNow = {
+                // The time bar's "Now" button (ui-design §7.5,
+                // 0.8.12): a deliberate jump to the current minute
+                // that re-opens follow — one of only two ways back
+                // (the other is re-entering the page). Exact minute,
+                // no snapping, like every follow placement.
+                followState = followState.afterJumpToNow()
+                val now = TimelineCursor.truncatedToMinute(Instant.now())
+                nowMinute = now
+                retainedCursor = TimelineCursor.clampToAxis(
+                    now, overview.timeline.axisStart, overview.timeline.axisEnd,
+                )
+                lastSnappedMoment = null
+                cursorActive = true
+            },
             onCursorTap = { tapped ->
                 if (!cursorActive && retainedCursor != null) {
                     // After "whole night", the next tap restores the
                     // retained cursor position (ui-design §7.5) — a
                     // restore, not a new placement, so the lock does
-                    // not block it.
+                    // not block it. The restore is still the user's
+                    // own placement: follow stays off (0.8.12).
+                    followState = followState.afterManualMove()
                     cursorActive = true
                 } else if (
                     TimelineCursor.mayMoveCursor(
                         cursorPlacement, TimelineCursor.CursorGesture.TAP,
                     )
                 ) {
-                    placeCursor(tapped)
+                    placeCursorManually(tapped)
                 }
                 // A placed cursor is never moved by a plain tap
                 // (anti-mistouch, ui-design §7.5): repositioning takes
                 // the long-press drag below.
             },
-            onCursorDrag = { dragged -> placeCursor(dragged) },
+            onCursorDrag = { dragged -> placeCursorManually(dragged) },
             onTrackDrag = { dragged ->
                 // The track band's direct drag (ui-design §7.5,
                 // 0.8.11): the one surface where a placed, unlocked
@@ -454,7 +562,7 @@ fun TonightScreen(
                         cursorPlacement, TimelineCursor.CursorGesture.TRACK_DRAG,
                     )
                 ) {
-                    placeCursor(dragged)
+                    placeCursorManually(dragged)
                 }
             },
             cursorLocked = cursorLocked,
@@ -464,7 +572,7 @@ fun TonightScreen(
                         cursorPlacement, TimelineCursor.CursorGesture.LONG_PRESS_DRAG,
                     )
                 ) {
-                    placeCursor(dragged)
+                    placeCursorManually(dragged)
                 }
             },
             onCursorGrab = {
@@ -475,6 +583,9 @@ fun TonightScreen(
             onToggleCursorLock = { cursorLocked = !cursorLocked },
             onCursorStep = { deltaMinutes ->
                 retainedCursor?.let { current ->
+                    // A step is a manual move like any other
+                    // (ui-design §7.5, 0.8.12): follow stops.
+                    followState = followState.afterManualMove()
                     retainedCursor = TimelineCursor.clampToAxis(
                         TimelineCursor.truncatedToMinute(
                             current.plus(Duration.ofMinutes(deltaMinutes)),
@@ -487,6 +598,10 @@ fun TonightScreen(
             },
             onExitCursor = {
                 cursorActive = false
+                // "Whole night" also disables follow for the rest of
+                // this visit (ui-design §7.5, 0.8.12): the tick must
+                // not resurrect the cursor the user just dismissed.
+                followState = followState.afterWholeNightExit()
             },
             onArcTap = { index ->
                 // Tapping a lane opens its target's detail dialog
@@ -905,21 +1020,23 @@ private fun OverviewCellLabel(text: String) {
  * Location card (ui-design §7.2): positioning, light pollution and the
  * dusk environment in one card. The source line is the location
  * affordance — tapping it re-fixes or switches to GPS; coordinates
- * are shown as numbers with an edit affordance and are edited in
- * place. The light-pollution row shows only the Bortle estimate, or —
- * where the grid has no data — the manual Bortle selector, the only
- * one in the app. The environment section below it carries the
- * moonlight contribution and the total sky (the page's only copy of
- * those figures), the scope footnote directly under the total, the
- * full-moon degradation line and the baseline source note. While a
- * cursor is placed, the moonlight and total-sky figures follow it
- * ([cursorSky], the cursor evaluation's own galactic-centre sample at
- * [cursorSkyInstant]); the light-pollution row does not follow — it
- * is a property of the site. A GPS or
- * manual site shows the altitude line (a fix altitude, or "—" when
- * there is none), and so does a selected favourite whose record
- * carries a GPS altitude source; a GPS or manual site that is not yet
- * a favourite also gets the button that saves it as one.
+ * are shown as numbers — tapping them is the edit entry — and are
+ * edited in place. The light-pollution row shows only the Bortle
+ * estimate, or — where the grid has no data — the manual Bortle
+ * selector, the only one in the app. The environment rows below it
+ * (no heading since 0.8.12) carry the moonlight contribution and the
+ * total sky (the page's only copy of those figures), one merged
+ * footnote directly under the total (sample instant, galactic-centre
+ * direction, baseline source) and the full-moon degradation line.
+ * While a cursor is placed, the moonlight and total-sky figures
+ * follow it ([cursorSky], the cursor evaluation's own
+ * galactic-centre sample at [cursorSkyInstant]); the
+ * light-pollution row does not follow — it is a property of the
+ * site. A GPS or manual site shows the altitude line (a fix
+ * altitude, or "—" when there is none), and so does a selected
+ * favourite whose record carries a GPS altitude source; a GPS or
+ * manual site that is not yet a favourite also gets the button that
+ * saves it as one, riding in the coordinate row (0.8.12).
  */
 @Composable
 private fun LocationCard(
@@ -976,10 +1093,12 @@ private fun LocationCard(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(
-                        modifier = Modifier.semantics(mergeDescendants = true) {},
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .semantics(mergeDescendants = true) {},
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // GPS sync dot (ui-design §7.2): ahead of the
@@ -1005,21 +1124,59 @@ private fun LocationCard(
                         }
                         // The edit entry is a full 48dp-tall touch target
                         // (ui-design §2), not just the text line's height.
+                        // The figures themselves are the entry — no
+                        // pencil glyph (removed in 0.8.12); the hint
+                        // lives in the semantics instead, so a screen
+                        // reader still hears that the row edits the
+                        // coordinates (the row merges descendants).
+                        val editCoordinatesHint =
+                            stringResource(R.string.location_edit_hint)
                         Box(
                             modifier = Modifier
+                                .weight(1f, fill = false)
                                 .heightIn(min = 48.dp)
                                 .clickable {
                                     latText = formatCoordinateValue(latitudeDeg)
                                     lonText = formatCoordinateValue(longitudeDeg)
                                     editError = false
                                     editing = true
+                                }
+                                .semantics {
+                                    contentDescription = editCoordinatesHint
                                 },
                             contentAlignment = Alignment.CenterStart,
                         ) {
                             Text(
-                                text = "${formatCoordinateValue(latitudeDeg)}°  ${formatCoordinateValue(longitudeDeg)}°  ✎",
+                                text = "${formatCoordinateValue(latitudeDeg)}°  ${formatCoordinateValue(longitudeDeg)}°",
                                 fontFamily = FontFamily.Monospace,
                                 style = MaterialTheme.typography.titleMedium,
+                                // The row shares its width with the
+                                // save-as-favourite button (0.8.12): on
+                                // a narrow screen the coordinates give
+                                // way first, never the button's label.
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    // Saving the current site as a favourite (ui-design
+                    // §7.2): offered while the site is an unsaved GPS fix
+                    // or a manual-coordinate entry; once saved, the
+                    // favourite match takes over the name line and this
+                    // button disappears. Since 0.8.12 the button rides
+                    // in this coordinate row, right after the figures,
+                    // instead of taking a row of its own under the card.
+                    if (canSaveFavourite) {
+                        OutlinedButton(
+                            onClick = {
+                                favouriteName = ""
+                                savingFavourite = true
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.location_save_favourite),
+                                maxLines = 1,
                             )
                         }
                     }
@@ -1079,21 +1236,6 @@ private fun LocationCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // Saving the current site as a favourite (ui-design
-            // §7.2): offered while the site is an unsaved GPS fix or a
-            // manual-coordinate entry; once saved, the favourite match
-            // takes over the name line and this button disappears.
-            if (canSaveFavourite) {
-                OutlinedButton(
-                    onClick = {
-                        favouriteName = ""
-                        savingFavourite = true
-                    },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(R.string.location_save_favourite))
-                }
-            }
             if (savingFavourite) {
                 AlertDialog(
                     onDismissRequest = { savingFavourite = false },
@@ -1123,20 +1265,16 @@ private fun LocationCard(
                 )
             }
 
-            // Environment section (ui-design §7.2): light pollution,
-            // moonlight contribution and total sky under one heading —
-            // the page's only copy of the sky figures.
-            Text(
-                text = stringResource(R.string.location_env_title),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Environment rows (ui-design §7.2): light pollution,
+            // moonlight contribution and total sky — the page's only
+            // copy of the sky figures. No heading row since 0.8.12:
+            // the rows speak for themselves and the card stays short.
             val info = overview.lightPollutionInfo
             if (info?.artificialMcdPerM2 != null) {
                 // Only the Bortle estimate (ui-design §7.2): the
                 // brightness figure and the data version stay with the
-                // dataset; the baseline source note at the section's
-                // end still names where the value comes from.
+                // dataset; the merged footnote under the total still
+                // names where the baseline comes from.
                 Text(
                     text = stringResource(
                         R.string.location_light_row,
@@ -1165,9 +1303,9 @@ private fun LocationCard(
             // cursor display never shows (there the contribution is
             // the cursor instant's real figure). The total is the
             // section's conclusion value and carries the accent
-            // colour; the scope footnote sits directly under it and
-            // names the displayed sample's instant, then the
-            // full-moon degradation line — judged, like the figures,
+            // colour; the merged footnote sits directly under it and
+            // names the displayed sample's instant, and the full-moon
+            // degradation line follows — judged, like the figures,
             // from the displayed sample.
             val sky = cursorSky ?: overview.skyAtDusk
             if (sky == null) {
@@ -1192,14 +1330,31 @@ private fun LocationCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                // One merged footnote (ui-design §7.2, 0.8.12): the
+                // displayed sample's instant, the galactic-centre
+                // direction and the baseline source in a single short
+                // line — it was a scope sentence plus a separate
+                // source line before. The full-moon degradation line
+                // after it stays its own warning, unmerged.
+                val baselineText = stringResource(
+                    when (sky.totalSky.baselineSource) {
+                        BaselineSource.ATLAS -> R.string.tonight_sky_baseline_atlas
+                        BaselineSource.MANUAL_BORTLE -> R.string.tonight_sky_baseline_manual
+                        BaselineSource.NONE -> R.string.tonight_sky_baseline_none
+                    },
+                )
                 Text(
                     text = if (cursorSky != null && cursorSkyInstant != null) {
                         stringResource(
-                            R.string.location_env_note_cursor,
+                            R.string.location_env_note_merged_cursor,
                             formatTime(cursorSkyInstant, zone),
+                            baselineText,
                         )
                     } else {
-                        stringResource(R.string.location_env_note)
+                        stringResource(
+                            R.string.location_env_note_merged_dusk,
+                            baselineText,
+                        )
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1213,17 +1368,6 @@ private fun LocationCard(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                Text(
-                    text = stringResource(
-                        when (sky.totalSky.baselineSource) {
-                            BaselineSource.ATLAS -> R.string.tonight_sky_source_atlas
-                            BaselineSource.MANUAL_BORTLE -> R.string.tonight_sky_source_manual
-                            BaselineSource.NONE -> R.string.tonight_sky_source_none
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
