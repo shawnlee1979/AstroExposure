@@ -144,6 +144,16 @@ object NightTimeline {
         return if (e.isAfter(s)) Interval(s, e) else null
     }
 
+    /**
+     * Whether [instant] falls on the axis, endpoints included — the
+     * point-wise companion of [clampToAxis]: a caller that presents an
+     * instant AS a position on the axis (a band label anchored at the
+     * instant) checks this first, instead of letting [fractionOf]
+     * silently clamp an off-axis instant onto an edge.
+     */
+    fun isWithinAxis(instant: Instant, axisStart: Instant, axisEnd: Instant): Boolean =
+        !instant.isBefore(axisStart) && !instant.isAfter(axisEnd)
+
     /** Fraction of [instant] along the axis; values outside clamp to the edges. */
     fun fractionOf(instant: Instant, axisStart: Instant, axisEnd: Instant): Double {
         val total = axisEnd.epochSecond - axisStart.epochSecond
