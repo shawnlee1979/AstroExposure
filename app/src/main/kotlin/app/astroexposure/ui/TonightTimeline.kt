@@ -359,6 +359,13 @@ private suspend fun PointerInputScope.detectCursorLongPressDrag(
  * all and only the time bar's step buttons (deliberate actions) still
  * apply. The pure state machine behind this lives in
  * [TimelineCursor.mayMoveCursor] and is unit-tested there.
+ *
+ * Clock follow (ui-design §7.5, 0.8.12) is orchestrated by the screen
+ * (it owns the clock); this card only presents its two time-bar
+ * surfaces: the quiet live marker beside the cursor time while
+ * [followLive], and the "Now" button while [jumpToNowVisible] — the
+ * button's offer and the tick's decision are domain rules
+ * ([TimelineCursor.jumpToNowOffered], [TimelineCursor.followTickAction]).
  */
 @Composable
 fun NightTimelineCard(
@@ -391,6 +398,11 @@ fun NightTimelineCard(
     onCursorLongPressDrag: (Instant) -> Unit = {},
     onCursorGrab: () -> Unit = {},
     onToggleCursorLock: () -> Unit = {},
+    /** Clock follow is driving the cursor (ui-design §7.5, 0.8.12): the time bar marks the cursor time as live. */
+    followLive: Boolean = false,
+    /** Offer the time bar's "Now" button (ui-design §7.5, 0.8.12); the offer itself is decided in the domain. */
+    jumpToNowVisible: Boolean = false,
+    onJumpToNow: () -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
     val chartDescription = stringResource(R.string.timeline_chart_description)
@@ -404,6 +416,13 @@ fun NightTimelineCard(
     val sunColor = if (redLight) Color(0xFFFF7A45) else Color(0xFFF2C66D)
     val moonColor = if (redLight) Color(0xFFFF9D8A) else Color(0xFF6EA8FE)
     val borderColor = MaterialTheme.colorScheme.outlineVariant
+    // The panel's own background: the cursor line's contrast seam
+    // (ui-design §7.5, 0.8.12) and the colour the panel box paints.
+    val panelBackgroundColor = MaterialTheme.colorScheme.background
+    // Secondary text tone (design tx2): the track band's horizon line
+    // and its 0° tick label (ui-design §7.4, 0.8.12) — the theme maps
+    // this role into the red scale under the red-light theme.
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     // Dim text of the marker row and the hour axis (design token tx3
     // #5D6C8C; the red theme's muted red equivalent).
     val axisTextColor = if (redLight) Color(0xFFC05348) else Color(0xFF5D6C8C)
@@ -454,7 +473,7 @@ fun NightTimelineCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                MaterialTheme.colorScheme.background,
+                                panelBackgroundColor,
                                 RoundedCornerShape(10.dp),
                             )
                             .semantics {
@@ -572,7 +591,7 @@ fun NightTimelineCard(
                                     timeline = timeline,
                                     sunColor = sunColor,
                                     moonColor = moonColor,
-                                    horizonColor = borderColor,
+                                    horizonColor = secondaryTextColor,
                                     enabled = { !cursorLockedState.value },
                                     onDragTo = { xPx, widthPx ->
                                         onTrackDrag(
@@ -743,9 +762,18 @@ fun NightTimelineCard(
                             )
                         }
                         // Cursor (ui-design §7.5): the gold line runs
-                        // the panel's full height with its knob at the
-                        // top, drawn only while the cursor state is
-                        // active.
+                        // the panel's full height — track band, sun and
+                        // moon bands, marker row, lanes, window bands
+                        // and the hour axis (the canvas fills the whole
+                        // panel box) — with its knob at the top, drawn
+                        // only while the cursor state is active. Since
+                        // 0.8.12 the line rides on a slightly wider
+                        // seam of the panel's own background colour, so
+                        // it stays readable where it crosses the gold
+                        // recommended frames, the pale altitude arcs
+                        // and the bright sun-band segments. The canvas
+                        // takes no input; only the bubble draws above
+                        // it.
                         if (cursorActive && cursorInstant != null) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val insetPx = PLOT_INSET_DP.toPx()
@@ -755,6 +783,12 @@ fun NightTimelineCard(
                                         timeline.axisStart,
                                         timeline.axisEnd,
                                     ).toFloat() * (size.width - 2 * insetPx)
+                                drawLine(
+                                    color = panelBackgroundColor,
+                                    start = Offset(cursorX, 0f),
+                                    end = Offset(cursorX, size.height),
+                                    strokeWidth = 4.dp.toPx(),
+                                )
                                 drawLine(
                                     color = sunColor,
                                     start = Offset(cursorX, 0f),
@@ -877,8 +911,10 @@ fun NightTimelineCard(
                     }
                     // Time bar (ui-design §7.5): −1′ / +1′ minute steps
                     // (long press repeats in 10-minute steps), the
-                    // cursor time, the lock toggle and the whole-night
-                    // exit.
+                    // cursor time (with the quiet live marker while
+                    // clock follow drives it, 0.8.12), the "Now" button
+                    // while follow is off (0.8.12), the lock toggle and
+                    // the whole-night exit.
                     if (cursorActive && bubbleTimeText != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -901,12 +937,53 @@ fun NightTimelineCard(
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
+                            if (followLive) {
+                                // The follow marker (ui-design §7.5,
+                                // 0.8.12): a quiet word beside the
+                                // cursor time — the cursor is riding
+                                // the wall clock. Text, not colour
+                                // alone; the theme's muted on-surface
+                                // tone in both themes.
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.cursor_following),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
                             Spacer(modifier = Modifier.width(6.dp))
                             CursorStepButton(
                                 label = stringResource(R.string.cursor_step_forward),
                                 borderColor = borderColor,
                                 onStep = { minutes -> onCursorStep(minutes) },
                             )
+                            if (jumpToNowVisible) {
+                                // The "Now" button (ui-design §7.5,
+                                // 0.8.12): offered only while follow is
+                                // off and the current minute is inside
+                                // the axis and differs from the cursor's
+                                // (the domain decides); pressing jumps
+                                // the cursor to now and re-opens
+                                // follow. Styled like the lock toggle —
+                                // a deliberate time-bar action.
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .height(48.dp)
+                                        .border(
+                                            1.dp, borderColor, RoundedCornerShape(12.dp),
+                                        )
+                                        .clickable { onJumpToNow() }
+                                        .padding(horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.cursor_now),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.width(6.dp))
                             // Lock toggle (ui-design §7.5, 0.5.2): while
                             // locked no axis gesture moves the cursor;
@@ -978,11 +1055,15 @@ fun NightTimelineCard(
  * state's top row. Both bodies' real altitude curves ride on the
  * panel's shared time scale — the Sun as a solid line in the accent
  * colour, the Moon as a dashed line in the Moon colour — over the
- * vertical domain of [NightTimeline.altitudeFraction] (−36°…+90°),
- * with a thin horizon line at 0°. Identity is carried by colour AND
- * line style: in the red theme both hues collapse into the red
- * scale and the solid/dashed distinction is what remains. The band
- * carries no text labels.
+ * vertical domain of [NightTimeline.altitudeFraction] (−36°…+90°).
+ * The 0° horizon is drawn to be FOUND (0.8.12): a solid line in the
+ * secondary text tone across the band's full width, a faint dark
+ * veil over everything below it so the boundary reads even where
+ * the curves cross it, and a small "0°" tick label sitting on the
+ * line at the right end — the band's only text. Identity is carried
+ * by colour AND line style: in the red theme both hues collapse
+ * into the red scale and the solid/dashed distinction is what
+ * remains.
  *
  * The band is also the cursor's direct drag surface: a tap
  * positions the cursor and a horizontal drag scrubs it — no hold
@@ -1072,8 +1153,17 @@ private fun TrackBandRow(
                 (1.0 - NightTimeline.altitudeFraction(altitudeDeg)).toFloat() *
                     size.height
             val horizonY = yOf(0.0)
+            // Below-horizon veil (ui-design §7.4, 0.8.12): a faint
+            // dark wash over everything under the horizon, laid down
+            // before the curves, so the sky / below-horizon boundary
+            // reads even where a curve rides along it.
+            drawRect(
+                color = Color.Black.copy(alpha = 0.22f),
+                topLeft = Offset(0f, horizonY),
+                size = Size(size.width, size.height - horizonY),
+            )
             drawLine(
-                color = horizonColor.copy(alpha = 0.6f),
+                color = horizonColor,
                 start = Offset(0f, horizonY),
                 end = Offset(size.width, horizonY),
                 strokeWidth = 1.dp.toPx(),
@@ -1111,6 +1201,25 @@ private fun TrackBandRow(
                 dashed = true,
             )
         }
+        // The horizon's tick label (ui-design §7.4, 0.8.12): a small
+        // "0°" sitting on the line at the right end, on a patch of
+        // the band's own surface so the line does not strike through
+        // the glyphs. The band's only text.
+        Text(
+            text = "0°",
+            color = horizonColor,
+            fontSize = 10.sp,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 3.dp)
+                .offset(
+                    y = TRACK_BAND_HEIGHT_DP *
+                        (1f - NightTimeline.altitudeFraction(0.0).toFloat()) -
+                        6.dp,
+                )
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 2.dp),
+        )
     }
 }
 
