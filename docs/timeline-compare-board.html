@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>时间轴对照样张 — 现行 / 样张版式 / 混合版</title>
+<style>
+  :root{
+    --bg:#05070D; --card:#0C1120; --card2:#131B31; --border:#22304F;
+    --tx:#E9EEF8; --tx2:#96A3BE; --tx3:#5D6C8C;
+    --gold:#F2C66D; --info:#6EA8FE; --ok:#4CC38A; --warn:#F5A524; --bad:#E5484D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#02040A; color:var(--tx); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:28px 18px 40px;}
+  h1{font-size:19px; font-weight:600; margin-bottom:6px;}
+  .sub{color:var(--tx2); font-size:13px; line-height:1.8; max-width:1180px;}
+  .sub b{color:var(--tx);}
+  .row{display:flex; gap:22px; flex-wrap:wrap; margin-top:22px; align-items:flex-start;}
+  .col{width:372px;}
+  .col h2{font-size:15px; margin-bottom:4px;}
+  .col h2 .tag{display:inline-block; background:var(--gold); color:#131313; border-radius:6px; font-size:12px; font-weight:700; padding:1px 8px; margin-right:8px; vertical-align:1px;}
+  .col .cap{color:var(--tx2); font-size:12.5px; line-height:1.75; margin-bottom:10px; min-height:66px;}
+  .col .cap b{color:var(--tx);}
+  .phone{background:var(--bg); border:1px solid var(--border); border-radius:18px; padding:12px 10px 10px;}
+  .ptitle{font-size:12px; color:var(--tx3); margin:2px 2px 8px;}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;}
+
+  /* ---------- shared pieces ---------- */
+  .markers{height:14px; margin:2px 8px 0; position:relative; font-size:9px; color:var(--tx3);}
+  .markers b{position:absolute; font-weight:400; transform:translateX(-50%); white-space:nowrap;}
+  .axis{display:flex; justify-content:space-between; font-size:9px; color:var(--tx3); font-family:ui-monospace,Menlo,monospace; margin:4px 2px 0;}
+
+  /* ---------- A: current app ---------- */
+  .chartA{position:relative; background:#070B18; border-radius:8px; height:158px; overflow:hidden;}
+  .chartA .sunarc{position:absolute; left:0; right:0; top:0; height:104px;}
+  .chartA .band{position:absolute; left:0; right:0; height:11px;}
+  .chartA .sunbandA{bottom:33px; background:linear-gradient(90deg,#8A5A20 0%, #3D4E7D 10%, #101C42 24%, #101C42 76%, #3D4E7D 89%, #8A5A20 100%);}
+  .chartA .moonbandA{bottom:22px; background:#131B31;}
+  .chartA .moonbandA i{position:absolute; top:0; bottom:0; left:24%; right:8%; background:#6EA8FE40;}
+  .chartA .lowbandA{bottom:11px; background:#131B31;}
+  .chartA .lowbandA i{position:absolute; top:0; bottom:0; left:30%; right:34%; background:#4CC38A38;}
+  .chartA .gcbandA{bottom:0; height:11px; background:#131B31;}
+  .chartA .gcbandA i{position:absolute; top:0; bottom:0; left:38%; right:20%; border-top:1.5px dashed #F2C66D88;}
+  .chartA .blab{position:absolute; font-size:8px; color:var(--tx3); left:4px;}
+  .cursorline{position:absolute; top:0; bottom:0; width:2px; background:var(--gold); z-index:5;}
+  .cursordot{position:absolute; width:9px; height:9px; border-radius:50%; background:var(--gold); transform:translate(-50%,0); z-index:5;}
+  .bubbleA{position:absolute; z-index:6; background:#3D4E7D; border-radius:12px; padding:4px 8px; font-family:ui-monospace,Menlo,monospace; font-size:9.5px; line-height:1.55; color:#E9EEF8; white-space:nowrap;}
+  .laneA{height:26px; margin-top:6px; background:var(--card2); border:1px solid var(--border); border-radius:6px; position:relative; overflow:hidden;}
+  .laneA svg{position:absolute; inset:0;}
+  .laneA .nm{position:absolute; left:7px; top:50%; transform:translateY(-50%); font-size:10.5px; color:var(--tx); z-index:2; text-shadow:0 1px 3px #000;}
+
+  /* ---------- B / C: layered board layout ---------- */
+  .tl{position:relative; background:#070B18; border-radius:10px; overflow:hidden; padding:6px 0 4px;}
+  .sunband{height:16px; margin:0 8px; border-radius:4px; background:linear-gradient(90deg,#8A5A20 0%, #3D4E7D 10%, #101C42 24%, #101C42 76%, #3D4E7D 89%, #8A5A20 100%); position:relative;}
+  .sunband span{position:absolute; top:2.5px; font-size:8.5px; color:#C9D4EE; white-space:nowrap;}
+  .moonband{height:12px; margin:5px 8px 0; border-radius:4px; background:#131B31; position:relative;}
+  .moonband i{position:absolute; top:0; bottom:0; left:24%; right:8%; background:#6EA8FE40; border-radius:4px;}
+  .moonband span{position:absolute; top:1px; font-size:8.5px; color:var(--tx2);}
+  .lane{height:26px; margin:5px 8px 0; background:var(--card2); border:1px solid var(--border); border-radius:6px; position:relative; overflow:hidden;}
+  .lane .seg{position:absolute; top:0; bottom:0; background:#22304F;}
+  .lane .culm{position:absolute; top:0; bottom:0; background:#F2C66D55;}
+  .lane .rec{position:absolute; top:0; bottom:0; border:1.5px solid var(--gold); border-radius:6px;}
+  .lane .nm{position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:10.5px; color:var(--tx); white-space:nowrap; z-index:2;}
+  .lane .culmlab{position:absolute; top:50%; transform:translate(-50%,-50%); font-size:9px; color:var(--gold); white-space:nowrap; z-index:2;}
+  .lane svg{position:absolute; inset:0; z-index:1;}
+  .lowmoon{height:10px; margin:6px 8px 2px; border-radius:3px; background:#131B31; position:relative;}
+  .lowmoon i{position:absolute; top:0; bottom:0; left:30%; right:34%; background:#4CC38A38; border-radius:3px;}
+  .lowmoon span{position:absolute; top:-0.5px; font-size:8px; color:var(--ok);}
+  .bubbleB{position:absolute; z-index:6; background:var(--card2); border:1px solid var(--gold); border-radius:8px; padding:4px 8px; font-family:ui-monospace,Menlo,monospace; font-size:9.5px; line-height:1.55; color:var(--tx); white-space:nowrap;}
+
+  /* ---------- decision table ---------- */
+  .decide{max-width:1180px; margin-top:30px; background:#0A0E1C; border:1px solid var(--border); border-radius:14px; padding:16px 18px;}
+  .decide h3{font-size:14px; color:var(--gold); margin-bottom:8px;}
+  .decide table{width:100%; border-collapse:collapse; font-size:12.5px; line-height:1.7;}
+  .decide th,.decide td{border-top:1px solid var(--border); padding:7px 8px; text-align:left; vertical-align:top; color:var(--tx2);}
+  .decide th{color:var(--tx); border-top:none; font-weight:600;}
+  .decide td b{color:var(--tx);}
+</style>
+</head>
+<body>
+<h1>时间轴对照样张</h1>
+<p class="sub">三栏同一组示意数据：日落 17:52、天文夜 18:47–05:58、日出 06:53，月亮 20:36 升起；目标 IC 342（拱极、整夜可拍）、M 31（23:20 中天）、M 45（01:35 中天）；游标同在 23:20，气泡文字三栏一致。<b>只比时间轴本体</b>，其余页面内容未画。解说全部在手机框外，框内只有产品呈现。</p>
+
+<div class="row">
+
+  <!-- ================= A ================= -->
+  <div class="col">
+    <h2><span class="tag">A</span>现行 App 版式</h2>
+    <p class="cap">一张 150dp 复合图：日/月/低月光/银心四条带<b>压在图底部各约 11dp</b>，上方是日月高度曲线；泳道在图外，画<b>真实高度弧线</b>。气泡随太阳阶段变色。信息全，但挤。</p>
+    <div class="phone">
+      <div class="ptitle">今晚 · 时间轴（现行）</div>
+      <div class="chartA">
+        <svg class="sunarc" viewBox="0 0 352 104" preserveAspectRatio="none">
+          <path d="M0,18 Q88,96 176,100 Q264,96 352,14" fill="none" stroke="#F5A524" stroke-width="1.5" opacity="0.75"/>
+          <path d="M84,104 Q150,30 236,26 Q300,30 352,84" fill="none" stroke="#6EA8FE" stroke-width="1.5" opacity="0.8"/>
+        </svg>
+        <span class="blab" style="bottom:36px;">日光</span>
+        <div class="band sunbandA"></div>
+        <span class="blab" style="bottom:25px;">月亮</span>
+        <div class="band moonbandA"><i></i></div>
+        <span class="blab" style="bottom:14px;">低月光</span>
+        <div class="band lowbandA"><i></i></div>
+        <div class="band gcbandA"><i></i></div>
+        <div class="cursorline" style="left:47%;"></div>
+        <div class="cursordot" style="left:47%; top:2px;"></div>
+        <div class="bubbleA mono" style="left:20%; top:8px;">23:20 · 天文夜<br>月高 32° · 月相照明 94%<br>月光干扰 中 · 光害 Bortle 6</div>
+      </div>
+      <div class="markers"><b style="left:12%;">日落 17:52</b><b style="left:24%;">天文夜始 18:47</b><b style="left:47%;">银心过中天</b><b style="left:80%;">天文夜终 05:58</b></div>
+      <div class="laneA">
+        <svg viewBox="0 0 352 26" preserveAspectRatio="none">
+          <path d="M10,8 Q176,2 342,9 L342,26 L10,26 Z" fill="#22304F"/>
+          <path d="M120,5 Q176,2 232,5 L232,26 L120,26 Z" fill="#F2C66D55"/>
+          <rect x="128" y="1.5" width="96" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+          <path d="M10,8 Q176,2 342,9" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+        </svg>
+        <span class="nm">IC 342</span>
+      </div>
+      <div class="laneA">
+        <svg viewBox="0 0 352 26" preserveAspectRatio="none">
+          <path d="M60,24 Q160,4 176,3 Q240,6 320,22 L320,26 L60,26 Z" fill="#22304F"/>
+          <path d="M140,8 Q176,3 214,8 L214,26 L140,26 Z" fill="#F2C66D55"/>
+          <rect x="146" y="1.5" width="62" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+          <path d="M60,24 Q160,4 176,3 Q240,6 320,22" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+        </svg>
+        <span class="nm">M 31</span>
+      </div>
+      <div class="laneA">
+        <svg viewBox="0 0 352 26" preserveAspectRatio="none">
+          <path d="M120,24 Q220,6 258,4 Q310,8 344,20 L344,26 L120,26 Z" fill="#22304F"/>
+          <path d="M226,7 Q258,4 292,8 L292,26 L226,26 Z" fill="#F2C66D55"/>
+          <rect x="232" y="1.5" width="54" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+          <path d="M120,24 Q220,6 258,4 Q310,8 344,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+        </svg>
+        <span class="nm">M 45</span>
+      </div>
+      <div class="axis mono"><span>17:00</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>07:00</span></div>
+    </div>
+  </div>
+
+  <!-- ================= B ================= -->
+  <div class="col">
+    <h2><span class="tag">B</span>样张版式（平带泳道）</h2>
+    <p class="cap">首页样张里的做法：<b>分层成行</b>——日光带自己一条、带内写阶段名；各带缩进留缝；泳道是<b>平段</b>：蓝段可拍窗口、金段中天前后、金框推荐区间、中天时刻直接标在金段里。气泡深色金边。最干净，但<b>丢高度走势</b>。</p>
+    <div class="phone">
+      <div class="ptitle">今晚 · 时间轴（样张版式）</div>
+      <div class="tl">
+        <div class="sunband"><span style="left:2%;">日落</span><span style="left:14%;">黄昏</span><span style="left:36%;">天文夜</span><span style="left:82%;">黎明</span></div>
+        <div class="moonband"><i></i><span style="left:25%;">月亮 20:36 升起</span></div>
+        <div class="markers"><b style="left:12%;">日落 17:52</b><b style="left:24%;">天文夜始 18:47</b><b style="left:47%;">银心过中天</b><b style="left:80%;">天文夜终 05:58</b></div>
+        <div class="lane">
+          <div class="seg" style="left:12%; right:6%;"></div>
+          <div class="culm" style="left:36%; right:34%;"></div>
+          <div class="rec" style="left:38%; right:36%;"></div>
+          <span class="nm">IC 342</span><span class="culmlab" style="left:51%;">中天 00:40 · 78°</span>
+        </div>
+        <div class="lane">
+          <div class="seg" style="left:17%; right:14%;"></div>
+          <div class="culm" style="left:38%; right:40%;"></div>
+          <div class="rec" style="left:40%; right:42%;"></div>
+          <span class="nm">M 31</span><span class="culmlab" style="left:51%;">中天 23:20 · 68°</span>
+        </div>
+        <div class="lane">
+          <div class="seg" style="left:32%; right:4%;"></div>
+          <div class="culm" style="left:64%; right:16%;"></div>
+          <div class="rec" style="left:66%; right:18%;"></div>
+          <span class="nm">M 45</span><span class="culmlab" style="left:74%;">中天 01:35 · 62°</span>
+        </div>
+        <div class="lowmoon"><i></i><span style="left:31%;">低月光窗口</span></div>
+        <div class="cursorline" style="left:47%;"></div>
+        <div class="bubbleB mono" style="left:16%; top:38px;">23:20 · 天文夜<br>月高 32° · 月相照明 94%<br>月光干扰 中 · 光害 Bortle 6</div>
+      </div>
+      <div class="axis mono"><span>17:00</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>07:00</span></div>
+    </div>
+  </div>
+
+  <!-- ================= C ================= -->
+  <div class="col">
+    <h2><span class="tag">C</span>混合版（分层＋弧线泳道）</h2>
+    <p class="cap">版式照 B 分层，气泡照 B 深色金边；<b>泳道保留 A 的高度弧线</b>：曲线下填可拍段、中天前后金色填充、金框推荐区间。信息量与 A 相同，拥挤感按 B 的版式消掉。改动量最大（图层拆分＋泳道沿用现有绘制）。</p>
+    <div class="phone">
+      <div class="ptitle">今晚 · 时间轴（混合版）</div>
+      <div class="tl">
+        <div class="sunband"><span style="left:2%;">日落</span><span style="left:14%;">黄昏</span><span style="left:36%;">天文夜</span><span style="left:82%;">黎明</span></div>
+        <div class="moonband"><i></i><span style="left:25%;">月亮 20:36 升起</span></div>
+        <div class="markers"><b style="left:12%;">日落 17:52</b><b style="left:24%;">天文夜始 18:47</b><b style="left:47%;">银心过中天</b><b style="left:80%;">天文夜终 05:58</b></div>
+        <div class="lane">
+          <svg viewBox="0 0 336 26" preserveAspectRatio="none">
+            <path d="M6,8 Q168,2 330,9 L330,26 L6,26 Z" fill="#22304F"/>
+            <path d="M112,5 Q168,2 224,5 L224,26 L112,26 Z" fill="#F2C66D55"/>
+            <rect x="120" y="1.5" width="96" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+            <path d="M6,8 Q168,2 330,9" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+          </svg>
+          <span class="nm">IC 342</span>
+        </div>
+        <div class="lane">
+          <svg viewBox="0 0 336 26" preserveAspectRatio="none">
+            <path d="M52,24 Q152,4 168,3 Q232,6 308,22 L308,26 L52,26 Z" fill="#22304F"/>
+            <path d="M132,8 Q168,3 206,8 L206,26 L132,26 Z" fill="#F2C66D55"/>
+            <rect x="138" y="1.5" width="62" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+            <path d="M52,24 Q152,4 168,3 Q232,6 308,22" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+          </svg>
+          <span class="nm">M 31</span>
+        </div>
+        <div class="lane">
+          <svg viewBox="0 0 336 26" preserveAspectRatio="none">
+            <path d="M112,24 Q212,6 250,4 Q300,8 330,20 L330,26 L112,26 Z" fill="#22304F"/>
+            <path d="M218,7 Q250,4 284,8 L284,26 L218,26 Z" fill="#F2C66D55"/>
+            <rect x="224" y="1.5" width="54" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/>
+            <path d="M112,24 Q212,6 250,4 Q300,8 330,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/>
+          </svg>
+          <span class="nm">M 45</span>
+        </div>
+        <div class="lowmoon"><i></i><span style="left:31%;">低月光窗口</span></div>
+        <div class="cursorline" style="left:47%;"></div>
+        <div class="bubbleB mono" style="left:16%; top:38px;">23:20 · 天文夜<br>月高 32° · 月相照明 94%<br>月光干扰 中 · 光害 Bortle 6</div>
+      </div>
+      <div class="axis mono"><span>17:00</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span><span>07:00</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="decide">
+  <h3>决策点对照</h3>
+  <table>
+    <tr><th style="width:130px;">决策点</th><th>A 现行</th><th>B 样张版式</th><th>C 混合版</th></tr>
+    <tr><td><b>日/月等带的版式</b></td><td>四条带压在 150dp 图底部，各约 11dp，靠颜色区分，无带内文字</td><td>各占一行（日光 16、月亮 12、低月光 10），缩进留缝，日光带内写阶段名</td><td>同 B</td></tr>
+    <tr><td><b>泳道画什么</b></td><td>真实高度弧线＋填充＋金框，信息量最大，线与块叠加显闹</td><td>平段三件套，中天时刻直接标在条里，最易扫读；无高度走势</td><td>弧线沿用 A，分层版式消拥挤；中天时刻靠气泡/详情窗，不标条内</td></tr>
+    <tr><td><b>气泡</b></td><td>随太阳阶段变色的底</td><td>深色底＋金边框，与结论金口径一致</td><td>同 B</td></tr>
+    <tr><td><b>不动的部分</b></td><td colspan="3">三案都不动：游标拖动与吸附、标记点按（40dp 热区）、泳道点按开详情窗、全部数值口径与红光主题。B/C 是纯视觉重排，A 的全部数据与交互原样保留。</td></tr>
+  </table>
+</div>
+</body>
+</html>
