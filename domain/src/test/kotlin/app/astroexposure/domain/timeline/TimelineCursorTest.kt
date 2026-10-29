@@ -623,6 +623,132 @@ class TimelineCursorTest {
         )
     }
 
+    // --- Clock follow (0.8.12) ---------------------------------------------------
+
+    // The displayed axis for the follow tests: BASE .. BASE+600 minutes.
+    private val axisStart: Instant get() = BASE
+    private val axisEnd: Instant get() = t(600)
+
+    @Test
+    fun followPlacesAtNowOnEntryWhenNowInsideAxis() {
+        assertEquals(
+            TimelineCursor.FollowTickAction.PLACE_AT_NOW,
+            TimelineCursor.followTickAction(
+                TimelineCursor.CursorFollowState(), false, null, t(120), axisStart, axisEnd,
+            ),
+        )
+    }
+
+    @Test
+    fun followAdvancesPlacedCursorToTheCurrentMinute() {
+        assertEquals(
+            TimelineCursor.FollowTickAction.PLACE_AT_NOW,
+            TimelineCursor.followTickAction(
+                TimelineCursor.CursorFollowState(), false, t(100), t(120), axisStart, axisEnd,
+            ),
+        )
+    }
+
+    @Test
+    fun followKeepsAnAlreadyAlignedCursor() {
+        // "Now" with stray seconds still truncates to the cursor's own minute.
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(
+                TimelineCursor.CursorFollowState(), false, t(120),
+                t(120).plusSeconds(45), axisStart, axisEnd,
+            ),
+        )
+    }
+
+    @Test
+    fun followNeverPlacesWhenNowOutsideAxis() {
+        val follow = TimelineCursor.CursorFollowState()
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(follow, false, null, t(-1), axisStart, axisEnd),
+        )
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(follow, false, null, t(601), axisStart, axisEnd),
+        )
+        // The axis bounds themselves are inside.
+        assertEquals(
+            TimelineCursor.FollowTickAction.PLACE_AT_NOW,
+            TimelineCursor.followTickAction(follow, false, null, t(0), axisStart, axisEnd),
+        )
+        assertEquals(
+            TimelineCursor.FollowTickAction.PLACE_AT_NOW,
+            TimelineCursor.followTickAction(follow, false, null, t(600), axisStart, axisEnd),
+        )
+    }
+
+    @Test
+    fun followYieldsToTheLock() {
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(
+                TimelineCursor.CursorFollowState(), true, null, t(120), axisStart, axisEnd,
+            ),
+        )
+    }
+
+    @Test
+    fun followStopsAfterManualMoveAndWholeNightExit() {
+        val manual = TimelineCursor.CursorFollowState().afterManualMove()
+        assertFalse(manual.driving)
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(manual, false, t(100), t(120), axisStart, axisEnd),
+        )
+        val exited = TimelineCursor.CursorFollowState().afterWholeNightExit()
+        assertFalse(exited.driving)
+        assertTrue(exited.visitDisabled)
+        assertEquals(
+            TimelineCursor.FollowTickAction.KEEP,
+            TimelineCursor.followTickAction(exited, false, null, t(120), axisStart, axisEnd),
+        )
+    }
+
+    @Test
+    fun followReopensOnlyThroughJumpToNow() {
+        val held = TimelineCursor.CursorFollowState()
+            .afterWholeNightExit()
+            .afterManualMove()
+        val reopened = held.afterJumpToNow()
+        assertTrue(reopened.driving)
+        assertEquals(TimelineCursor.CursorFollowState(), reopened)
+        assertEquals(
+            TimelineCursor.FollowTickAction.PLACE_AT_NOW,
+            TimelineCursor.followTickAction(reopened, false, t(100), t(120), axisStart, axisEnd),
+        )
+    }
+
+    @Test
+    fun jumpToNowOfferedExactlyWhenFollowIsOffAndNowDiffers() {
+        val off = TimelineCursor.CursorFollowState().afterManualMove()
+        assertTrue(
+            TimelineCursor.jumpToNowOffered(off, t(100), t(120), axisStart, axisEnd),
+        )
+        // Follow driving: no offer (the tick is already keeping up).
+        assertFalse(
+            TimelineCursor.jumpToNowOffered(
+                TimelineCursor.CursorFollowState(), t(100), t(120), axisStart, axisEnd,
+            ),
+        )
+        // No cursor placed: nothing to offer from (the time bar is absent).
+        assertFalse(
+            TimelineCursor.jumpToNowOffered(off, null, t(120), axisStart, axisEnd),
+        )
+        // Now outside the axis, or already the cursor's minute: no offer.
+        assertFalse(
+            TimelineCursor.jumpToNowOffered(off, t(100), t(601), axisStart, axisEnd),
+        )
+        assertFalse(
+            TimelineCursor.jumpToNowOffered(off, t(120), t(120), axisStart, axisEnd),
+        )
+    }
+
     private companion object {
         val BASE: Instant = Instant.parse("2026-10-27T22:00:00Z")
     }

@@ -251,12 +251,16 @@ object NightTimeline {
     /**
      * Where an altitude falls in the cursor track band's vertical
      * domain (ui-design §7.4, 0.8.11): 0 at [TRACK_MIN_ALTITUDE_DEG],
-     * 1 at [TRACK_MAX_ALTITUDE_DEG], clamped outside. The domain runs
-     * from twice the astronomical-twilight depth (the Sun's lowest
-     * point of a night is bounded by −18° at its deepest) to the
-     * zenith, so both sampled curves live inside it and the 0°
-     * horizon sits at 36/126 of the height. Pure mapping — the UI
-     * only turns the fraction into a y position.
+     * 1 at [TRACK_MAX_ALTITUDE_DEG], clamped outside. The lower bound
+     * is twice the astronomical-twilight depth — a fixed depth that
+     * keeps the twilight story legible; it does NOT reach the bodies'
+     * nightly minima (a winter Sun at mid-northern latitudes bottoms
+     * near −79°, the Moon near −60°…−78°), so out-of-domain parts of
+     * both sampled curves clamp at the band's edge: the Sun's curve
+     * riding the bottom edge through a winter night is the expected
+     * shape, not a sampling defect. The domain does not adapt to the
+     * season. The 0° horizon sits at 36/126 of the height. Pure
+     * mapping — the UI only turns the fraction into a y position.
      */
     fun altitudeFraction(altitudeDeg: Double): Double =
         ((altitudeDeg - TRACK_MIN_ALTITUDE_DEG) /

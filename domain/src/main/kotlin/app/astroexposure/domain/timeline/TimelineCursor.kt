@@ -521,4 +521,101 @@ object TimelineCursor {
         !instant.isBefore(phases.culminationSpan.end) -> PassPhase.SETTING
         else -> PassPhase.NEAR_CULMINATION
     }
+
+    // --- Clock-follow mode (ui-design §7.5, 0.8.12) ----------------------------
+
+    /**
+     * State of the cursor's clock-follow mode for one visit of the
+     * Tonight page (ui-design §7.5, 0.8.12). A fresh visit starts with
+     * follow on; the transitions below are the ONLY ways the state
+     * changes — the UI keeps one instance per visit and replaces it
+     * through them, so the follow rules live here, not in widgets.
+     */
+    data class CursorFollowState(
+        /** The follow switch: on at the start of every visit. */
+        val on: Boolean = true,
+        /**
+         * Set by the "whole night" exit: follow stays off for the rest
+         * of this visit and no tick may resurrect the cursor.
+         */
+        val visitDisabled: Boolean = false,
+        /**
+         * Set by any manual cursor move: the user has taken the cursor
+         * over and the clock must not pull it back.
+         */
+        val manuallyHeld: Boolean = false,
+    ) {
+        /** True while the clock tick is allowed to drive the cursor. */
+        val driving: Boolean get() = on && !visitDisabled && !manuallyHeld
+
+        /** Any manual cursor move takes the cursor over: follow stops. */
+        fun afterManualMove(): CursorFollowState =
+            copy(on = false, manuallyHeld = true)
+
+        /** "Whole night" exits the cursor AND disables follow for this visit. */
+        fun afterWholeNightExit(): CursorFollowState =
+            copy(on = false, visitDisabled = true)
+
+        /**
+         * The time bar's "Now" button: the cursor jumps to the current
+         * minute and follow re-opens — including after a "whole night"
+         * exit, since the press is an explicit user action.
+         */
+        fun afterJumpToNow(): CursorFollowState = CursorFollowState()
+    }
+
+    /** What one clock tick does to the cursor (ui-design §7.5, 0.8.12). */
+    enum class FollowTickAction { PLACE_AT_NOW, KEEP }
+
+    /**
+     * The follow decision of one clock tick: [FollowTickAction.PLACE_AT_NOW]
+     * only while follow is [CursorFollowState.driving], the cursor is
+     * not locked (the lock outranks follow, as it outranks every axis
+     * gesture), and the current minute lies inside the displayed axis
+     * — the axis on screen is the only yardstick, no date mapping is
+     * invented here. An already-aligned cursor is kept (no churn), and
+     * a "now" outside the axis never places anything: the no-cursor
+     * default state then stays exactly as it was.
+     */
+    fun followTickAction(
+        follow: CursorFollowState,
+        locked: Boolean,
+        cursor: Instant?,
+        now: Instant,
+        axisStart: Instant,
+        axisEnd: Instant,
+    ): FollowTickAction {
+        if (!follow.driving || locked) return FollowTickAction.KEEP
+        val nowMinute = truncatedToMinute(now)
+        if (nowMinute.isBefore(axisStart) || nowMinute.isAfter(axisEnd)) {
+            return FollowTickAction.KEEP
+        }
+        return if (cursor == nowMinute) {
+            FollowTickAction.KEEP
+        } else {
+            FollowTickAction.PLACE_AT_NOW
+        }
+    }
+
+    /**
+     * Whether the time bar offers its "Now" button (ui-design §7.5,
+     * 0.8.12): a cursor is placed, follow is not driving it (off,
+     * visit-disabled or manually held), the current minute lies
+     * inside the axis and differs from the cursor's minute. Pressing
+     * it is a deliberate action like the step buttons, so the lock
+     * does not suppress the offer; while locked, the tick still never
+     * moves the cursor (see [followTickAction]).
+     */
+    fun jumpToNowOffered(
+        follow: CursorFollowState,
+        cursor: Instant?,
+        now: Instant,
+        axisStart: Instant,
+        axisEnd: Instant,
+    ): Boolean {
+        if (cursor == null || follow.driving) return false
+        val nowMinute = truncatedToMinute(now)
+        return !nowMinute.isBefore(axisStart) && !nowMinute.isAfter(axisEnd) &&
+            nowMinute != cursor
+    }
 }
