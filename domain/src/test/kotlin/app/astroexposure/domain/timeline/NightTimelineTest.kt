@@ -1,6 +1,9 @@
 package app.astroexposure.domain.timeline
 
 import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -109,5 +112,90 @@ class NightTimelineTest {
         assertEquals(start.plusSeconds(1800), NightTimeline.instantAtFraction(0.5, start, axisEnd))
         assertEquals(start, NightTimeline.instantAtFraction(-0.25, start, axisEnd))
         assertEquals(axisEnd, NightTimeline.instantAtFraction(1.25, start, axisEnd))
+    }
+
+    // -- Whole-hour axis stepping (ui-design §7.4, 0.8.10) --
+
+    private val nyZone: ZoneId = ZoneId.of("America/New_York")
+
+    private fun local(year: Int, month: Int, day: Int, hour: Int, minute: Int): Instant =
+        ZonedDateTime.of(year, month, day, hour, minute, 0, 0, nyZone).toInstant()
+
+    private fun hourLabels(axisStart: Instant, axisEnd: Instant, step: Int): List<String> =
+        NightTimeline.hourAxisLabels(axisStart, axisEnd, nyZone, step).map {
+            DateTimeFormatter.ofPattern("HH:mm").format(it.atZone(nyZone))
+        }
+
+    /** The UI's estimate for an "HH:mm" label at the axis size (10.5sp). */
+    private val axisLabelWidthDp = 5 * 0.55 * 10.5
+
+    @Test
+    fun hourAxisOnBoardLengthAxisTakesThreeHourStep() {
+        // The comparison board's axis: 17:35–08:47 (15.2 h). Hourly
+        // labels would collide, and a 2h step — wide enough on paper —
+        // breaks the density cap, so 3h wins and the label set is the
+        // spec §7.4 example exactly.
+        val axisStart = local(2026, 10, 28, 17, 35)
+        val axisEnd = local(2026, 10, 29, 8, 47)
+        val step = NightTimeline.hourAxisStepHours(axisStart, axisEnd, 344.0, axisLabelWidthDp)
+        assertEquals(3, step)
+        assertEquals(
+            listOf("18:00", "21:00", "00:00", "03:00", "06:00"),
+            hourLabels(axisStart, axisEnd, step),
+        )
+    }
+
+    @Test
+    fun hourAxisOnShortSummerAxisTakesOneHourStep() {
+        // A 5⅙-hour axis: an hour spans ~67dp of plot, far clear of
+        // the label width, and the density cap allows hourly labels.
+        val axisStart = local(2026, 6, 15, 21, 10)
+        val axisEnd = local(2026, 6, 16, 2, 20)
+        val step = NightTimeline.hourAxisStepHours(axisStart, axisEnd, 344.0, axisLabelWidthDp)
+        assertEquals(1, step)
+        assertEquals(
+            listOf("22:00", "23:00", "00:00", "01:00", "02:00"),
+            hourLabels(axisStart, axisEnd, step),
+        )
+    }
+
+    @Test
+    fun hourAxisOnMediumAxisTakesTwoHourStep() {
+        // An 11-hour axis: hourly spacing (~31dp) is just under the
+        // label width plus gap, so 2h is the smallest clearing step.
+        val axisStart = local(2026, 9, 1, 19, 20)
+        val axisEnd = local(2026, 9, 2, 6, 20)
+        val step = NightTimeline.hourAxisStepHours(axisStart, axisEnd, 344.0, axisLabelWidthDp)
+        assertEquals(2, step)
+        assertEquals(
+            listOf("20:00", "22:00", "00:00", "02:00", "04:00", "06:00"),
+            hourLabels(axisStart, axisEnd, step),
+        )
+    }
+
+    @Test
+    fun hourAxisStepWidensWhenLabelsWouldCollide() {
+        // A 9-hour axis squeezed onto a 140dp plot (~15.6dp per
+        // hour): even 2h stays under the label width plus gap, so the
+        // non-overlap rule — not the density cap — forces 3h.
+        val axisStart = local(2026, 12, 1, 20, 0)
+        val axisEnd = local(2026, 12, 2, 5, 0)
+        assertEquals(
+            3,
+            NightTimeline.hourAxisStepHours(axisStart, axisEnd, 140.0, axisLabelWidthDp),
+        )
+    }
+
+    @Test
+    fun hourAxisStepFallsBackToCoarsestStep() {
+        // An extreme 30-hour span on a 100dp plot: no candidate
+        // clears the labels, and the documented fallback is the
+        // coarsest step (the UI's omission backstop then decides).
+        val axisStart = local(2026, 12, 21, 12, 0)
+        val axisEnd = axisStart.plusSeconds(30 * 3600)
+        assertEquals(
+            6,
+            NightTimeline.hourAxisStepHours(axisStart, axisEnd, 100.0, axisLabelWidthDp),
+        )
     }
 }
