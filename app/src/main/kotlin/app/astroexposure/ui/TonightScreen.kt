@@ -36,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.astroexposure.R
@@ -880,17 +882,29 @@ private fun LocationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         // GPS sync dot (ui-design §7.2): ahead of the
                         // coordinate figures while the site's
                         // coordinates came from a GPS fix — the state
                         // "ok" colour, which the red-light theme maps
                         // into its red scale like every state colour.
+                        // The row merges its semantics so a screen
+                        // reader hears the coordinates together with
+                        // the dot's "GPS synced" description.
                         if (showGpsSyncDot) {
+                            val gpsSyncedDescription =
+                                stringResource(R.string.location_gps_synced)
                             Text(
                                 text = "●",
                                 color = app.astroexposure.ui.theme.LocalStateColors.current.ok,
-                                modifier = Modifier.padding(end = 8.dp),
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .semantics {
+                                        contentDescription = gpsSyncedDescription
+                                    },
                             )
                         }
                         // The edit entry is a full 48dp-tall touch target
