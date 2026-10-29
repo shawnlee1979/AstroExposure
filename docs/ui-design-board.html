@@ -150,6 +150,8 @@
   .red .tlx .axis { border-color:#471512; color:#8F2B21; }
   /* 分层时间轴（0.8.7 起 App 现行版式；⑦⑧⑨ 于 0.8.8 按对照样张 C 案画法对齐、0.8.9 泳道改真实高度弧线＋整点时刻轴＋气泡三行） */
   .tl2 { background:#070B18; border:1px solid #22304F; border-radius:10px; padding:9px 10px 7px; display:flex; flex-direction:column; gap:4px; position:relative; margin-bottom:10px; }
+  .tl2 .trackband { height:44px; border-radius:4px; background:#131B31; position:relative; overflow:hidden; }
+  .tl2 .trackband svg { position:absolute; inset:0; }
   .tl2 .sunband { height:16px; border-radius:4px; background:linear-gradient(90deg,#8A5A20 0%,#3D4E7D 10%,#101C42 24%,#101C42 76%,#3D4E7D 89%,#8A5A20 100%); position:relative; overflow:hidden; }
   .tl2 .sunband span { position:absolute; top:50%; transform:translate(-50%,-50%); font-size:8px; color:#C9D4EE; white-space:nowrap; }
   .tl2 .moonband { height:12px; border-radius:3px; background:#131B31; position:relative; overflow:hidden; }
@@ -175,6 +177,7 @@
   .tl2 .bubble small { display:block; color:#E9EEF8; font-size:9px; }
   .tl2 .cursor { position:absolute; top:4px; bottom:4px; width:1px; background:#F2C66D; z-index:4; }
   .red .tl2 { background:#0D0303; border-color:#57150E; }
+  .red .tl2 .trackband { background:#1C0705; }
   .red .tl2 .sunband { background:linear-gradient(90deg,#8F2B21 0%,#701C13 10%,#2B0806 24%,#2B0806 76%,#701C13 89%,#8F2B21 100%); }
   .red .tl2 .moonband { background:#1C0705; } .red .tl2 .moonband i { background:#B03A2B; }
   .red .tl2 .moonband span { color:#FF9D8A; }
@@ -339,7 +342,7 @@
         <div class="tev"><span class="tt">05:36</span><span class="tn">天文夜结束</span><div class="td">收工；晨昏蒙影可拍地景空镜</div></div>
       </div>
     </div>
-    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式、0.8.9 按 C 案返工同步（泳道改真实高度弧线、标记行去刻度、窗口带改淡填充、面板内整点时刻轴、气泡改三行新组成）；0.8.10 各带行高与带内字号按真机可读性放大，样张以注记标明、未逐像素改绘。</p>
+    <p style="font-size:12px;color:#5D6C8C;line-height:1.7;">图形时间轴已分期落地（0.4.0 静态轴、0.5.0 游标、0.5.1 弧段、0.6.0 推荐区间、0.7.0 详情改弹出窗、0.8.7 分层改版、0.8.8 按对照样张 C 案画法对齐）；本样张 ⑦⑧ 为静态轴、⑨ 为游标态，三张已于 0.8.8 更新为分层版式、0.8.9 按 C 案返工同步（泳道改真实高度弧线、标记行去刻度、窗口带改淡填充、面板内整点时刻轴、气泡改三行新组成）；0.8.10 各带行高与带内字号按真机可读性放大，样张以注记标明、未逐像素改绘。0.8.11 ⑨ 游标态补日月轨带（面板顶部：太阳金色实线、月亮蓝色虚线、地平线，气泡改锚轨带），⑦⑧ 静态轴无此行。</p>
   </div>
   <div class="tabbar">
     <div class="tab on"><span class="ic">◎</span>今晚</div>
@@ -530,7 +533,8 @@
     <div style="font-size:11px;color:#6EA8FE;margin-bottom:6px;">月亮 · 月相照明 42%</div>
     <div class="tl2">
       <div class="cursor" style="left:44%"></div>
-      <div class="bubble" style="left:46%">22:41 · 天文夜<small>月高 38° · 月相照明 42%</small><small>月光干扰 弱 · 光害 Bortle 4 级</small></div>
+      <div class="bubble" style="left:46%;top:12px">22:41 · 天文夜<small>月高 38° · 月相照明 42%</small><small>月光干扰 弱 · 光害 Bortle 4 级</small></div>
+      <div class="trackband"><svg viewBox="0 0 336 44" preserveAspectRatio="none"><path d="M0,31 L336,31" stroke="#3D4E7D" stroke-width="1"/><path d="M0,27 Q84,40 168,42 Q252,40 336,25" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,38 Q60,36 84,30 Q150,16 190,15 Q260,20 336,34" fill="none" stroke="#6EA8FE" stroke-width="1.5" stroke-dasharray="4 3"/></svg></div>
       <div class="sunband"><span style="left:11%">黄昏</span><span style="left:49%">天文夜</span><span style="left:86%">黎明</span></div>
       <div class="moonband"><i style="left:0;width:39.6%"></i></div>
       <div class="marks">
@@ -558,7 +562,7 @@
     <div class="tab"><span class="ic">⚙</span>设置</div>
   </div>
 </div>
-<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.9 按 C 案返工、0.8.10 行高字号按真机可读性放大）<small>注记：行高字号放大同 ⑦ 注记。游标金线纵贯分层面板各行 + 深色气泡（卡面底＋金边框，三行：时刻 · 所处阶段／月高 · 月相照明／月光干扰档位 · 光害 Bortle 等级）；目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间），目标名在泳道左端、泳道内不标中天文字；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
+<div class="cap">⑨ 今晚页 · 时间轴游标态（分层版式，0.8.7 起；0.8.9 按 C 案返工、0.8.10 行高字号按真机可读性放大、0.8.11 补日月轨带）<small>注记：行高字号放大同 ⑦ 注记。面板顶部为日月轨带（0.8.11 新增，仅游标态：太阳金色实线、月亮蓝色虚线、细线地平线，纵轴域 −36°…+90°，带内无文字）——轨带即游标的直接拖动面（点按定位、横拖跟随，不需长按；锁定后不生效），气泡改锚轨带区（卡面底＋金边框，三行：时刻 · 所处阶段／月高 · 月相照明／月光干扰档位 · 光害 Bortle 等级），不再压泳道；游标金线纵贯分层面板各行；目标泳道为真实高度弧线（曲线下填充、中天段金色填充、金框推荐区间），目标名在泳道左端、泳道内不标中天文字，泳道点按为观察式（不吞面板拖动与长按抓取）；时间条 −1′/+1′ 步进（长按 10′ 连跳）与锁定开关；点按泳道弹出目标详情窗（高度 / 方位、≥20° 窗口与中天、距月夹角、推荐区间、全画幅焦距建议，窗内「去计算」按类别跳计算器）。</small></div>
 </div>
 
 <style>
