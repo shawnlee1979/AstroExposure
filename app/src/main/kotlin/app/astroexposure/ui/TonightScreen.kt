@@ -279,27 +279,15 @@ fun TonightScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Status line: the time-health marker alone — the red-light
-        // switch moved to the title bar (ui-design §7.2, 0.8.6).
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Health reads by glyph AND colour (ui-design §2 triple
-            // encoding): a filled disc when healthy, a warning triangle
-            // when not — previously both states rendered the same disc
-            // in two red-theme colours one hex step apart.
-            Text(
-                text = if (timeHealth.healthy) "●" else "▲",
-                color = if (timeHealth.healthy) {
-                    app.astroexposure.ui.theme.LocalStateColors.current.ok
-                } else {
-                    app.astroexposure.ui.theme.LocalStateColors.current.bad
-                },
-            )
-        }
-
-        // Time-health warnings, stated plainly (design §2.2).
+        // Time-health warnings, stated plainly (design §2.2). There
+        // is no standing health marker on the page (ui-design §7.2,
+        // 0.8.7): healthy shows nothing at all, and an unhealthy state
+        // is carried by the warning lines below — the first of them
+        // bears the ▲ glyph in the bad state colour, so the state
+        // still reads by colour AND glyph. (The page-top status row
+        // that used to hold the marker was deleted: its lone ● was
+        // indistinguishable from the GPS sync dot on the location
+        // card.)
         TimeHealthWarningText(timeHealth)
 
         LocationCard(
