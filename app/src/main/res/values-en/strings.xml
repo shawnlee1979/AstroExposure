@@ -87,6 +87,7 @@
     <string name="timeline_chart_description">Timeline: sun band, moon band, nine key-moment ticks and target lanes. Tap a tick for details; drag horizontally to place the cursor.</string>
     <string name="timeline_no_night">No astronomical night tonight</string>
     <string name="timeline_moon_note">Moon · phase illumination %1$d%%</string>
+    <string name="timeline_lane_legend">Gold frame = recommended window · gold fill = culmination span</string>
     <string name="timeline_sun_sunset">Sunset</string>
     <string name="timeline_sun_sunrise">Sunrise</string>
     <string name="timeline_sun_dusk">Dusk</string>
