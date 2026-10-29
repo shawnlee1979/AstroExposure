@@ -245,17 +245,42 @@ fun TonightScreen(
     } else {
         null
     }
+    // The bubble's three lines (ui-design §7.5, 0.8.9 composition):
+    // time · solar segment / Moon altitude · phase illumination /
+    // moonlight-interference tier · Bortle grade. All figures describe
+    // the cursor instant: while the evaluation is in flight the Moon
+    // figures and the segment are interpolated / classified from the
+    // timeline's own samples at the cursor, not taken from dusk; the
+    // interference tier exists only in the evaluation, so the third
+    // line carries the Bortle grade alone until the evaluation lands.
+    val bubbleSegmentText = if (cursorActive && retainedCursor != null) {
+        val band = if (evalMatchesCursor) {
+            cursorEval!!.segment
+        } else {
+            TimelineCursor.sunAltitudeAt(overview.timeline.samples, retainedCursor!!)
+                ?.let { NightTimeline.bandFor(it) }
+        }
+        band?.let {
+            stringResource(
+                when (it) {
+                    NightTimeline.SunBand.DAY -> R.string.cursor_segment_day
+                    NightTimeline.SunBand.CIVIL_TWILIGHT -> R.string.cursor_segment_civil
+                    NightTimeline.SunBand.NAUTICAL_TWILIGHT -> R.string.cursor_segment_nautical
+                    NightTimeline.SunBand.ASTRONOMICAL_TWILIGHT ->
+                        R.string.cursor_segment_astronomical
+                    NightTimeline.SunBand.ASTRONOMICAL_NIGHT -> R.string.cursor_segment_night
+                },
+            )
+        }
+    } else {
+        null
+    }
     val bubbleMoonText = if (cursorActive && retainedCursor != null) {
         val moonAlt = if (evalMatchesCursor) {
             cursorEval!!.moonAltitudeDeg
         } else {
             TimelineCursor.moonAltitudeAt(overview.timeline.samples, retainedCursor!!)
         }
-        // All bubble figures describe the cursor instant: while the
-        // evaluation is in flight the illumination is interpolated
-        // from the timeline's own samples at the cursor, not taken
-        // from dusk. The light-pollution figure is the location
-        // card's value for this site (same source, same format).
         val illumination = if (evalMatchesCursor) {
             cursorEval!!.moonIllumination
         } else {
@@ -265,11 +290,39 @@ fun TonightScreen(
         moonAlt?.let {
             stringResource(
                 R.string.cursor_bubble_moon, it, percentRounded(illumination),
-                overview.lightPollutionInfo?.artificialMcdPerM2?.let { lp ->
-                    "%.2f".format(lp)
-                } ?: "—",
             )
         }
+    } else {
+        null
+    }
+    val bubbleTierText = if (cursorActive && retainedCursor != null) {
+        val tierPart = if (evalMatchesCursor) {
+            stringResource(R.string.detail_grid_moon_interference) + " " +
+                stringResource(
+                    when (cursorEval!!.moonInterference) {
+                        TimelineCursor.MoonInterference.NONE ->
+                            R.string.cursor_interference_none
+                        TimelineCursor.MoonInterference.WEAK ->
+                            R.string.cursor_interference_weak
+                        TimelineCursor.MoonInterference.STRONG ->
+                            R.string.cursor_interference_strong
+                    },
+                )
+        } else {
+            null
+        }
+        // The site's Bortle grade with the environment section's
+        // derivation (§7.2): the grid estimate where the grid has
+        // data, else the manual grade, else no grade at all.
+        val bortle = if (overview.lightPollutionInfo?.artificialMcdPerM2 != null) {
+            overview.lightPollutionInfo?.bortleEstimate
+        } else {
+            manualBortle
+        }
+        val bortlePart = bortle?.let {
+            stringResource(R.string.cursor_bubble_bortle, it)
+        }
+        listOfNotNull(tierPart, bortlePart).joinToString(" · ").ifEmpty { null }
     } else {
         null
     }
@@ -357,18 +410,15 @@ fun TonightScreen(
             bubbleTimeText = retainedCursor?.let { formatTime(it, zone) },
             bubbleMoonText = bubbleMoonText,
             bubbleSnapLabel = snappedLabel,
+            bubbleSegmentText = bubbleSegmentText,
+            bubbleTierText = bubbleTierText,
             arcs = if (cursorActive && evalMatchesCursor) {
                 cursorEval!!.targets.map { target ->
                     TimelineArc(
                         intervals = target.arcIntervals,
                         phases = target.phases,
-                        culmination = target.culmination,
                         label = target.obj.nameZh ?: target.obj.name,
-                        culminationText = stringResource(
-                            R.string.cursor_arc_culmination,
-                            formatTime(target.culmination, zone),
-                            target.culminationAltitudeDeg,
-                        ),
+                        altitudeSamples = target.altitudeSamples,
                         recommendedFrame = target.recommendedFrame,
                     )
                 }

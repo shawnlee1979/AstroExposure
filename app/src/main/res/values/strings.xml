@@ -102,7 +102,13 @@
     <string name="common_close">关闭</string>
 
     <!-- Timeline cursor (ui-design §7.5) -->
-    <string name="cursor_bubble_moon">月高 %1$.0f°，月相 %2$d%%，光害 %3$s</string>
+    <string name="cursor_bubble_moon">月高 %1$.0f° · 月相照明 %2$d%%</string>
+    <string name="cursor_bubble_bortle">Bortle %1$d 级</string>
+    <string name="cursor_segment_day">白天</string>
+    <string name="cursor_segment_civil">民用暮光</string>
+    <string name="cursor_segment_nautical">航海暮光</string>
+    <string name="cursor_segment_astronomical">天文暮光</string>
+    <string name="cursor_segment_night">天文夜</string>
     <string name="cursor_step_back">−1′</string>
     <string name="cursor_step_forward">+1′</string>
     <string name="cursor_show_whole_night">看整晚 ✕</string>
@@ -111,7 +117,6 @@
     <string name="cursor_interference_none">无</string>
     <string name="cursor_interference_weak">弱</string>
     <string name="cursor_interference_strong">强</string>
-    <string name="cursor_arc_culmination">中天 %1$s · %2$.0f°</string>
     <string name="cursor_detail_goto_calculator">去计算</string>
     <string name="cursor_detail_unavailable">目标详情加载失败，请关闭后重试</string>
     <string name="cursor_moon_below_horizon">月亮在地平线下，夹角仅供参考</string>
