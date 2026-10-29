@@ -718,20 +718,19 @@ class TonightOverviewUseCase(
                 moonIllumination = ephemeris.moonIllumination(t),
             )
         }
-        // Without an astronomical night the timeline degrades to the
-        // Sun/Moon curves plus the explicit no-night note (ui-design
-        // §7.4): the solar background bands and the galactic-centre
-        // interval band are absent, not merely unpainted.
+        // Degradation without an astronomical night (ui-design §7.4):
+        // the window band rows and the galactic-centre interval are
+        // absent, and the explicit no-night note shows — but the solar
+        // band segments still derive from the samples, so the sun band
+        // strip keeps its daytime / twilight spans and simply has no
+        // astronomical-night segment (0.8.8; before, the whole strip
+        // went blank, which the spec's degradation line never said).
         val hasNight = night != null
         return Timeline(
             axisStart = axisStart,
             axisEnd = axisEnd,
             samples = samples,
-            bandSegments = if (hasNight) {
-                NightTimeline.bandSegments(samples, axisStart, axisEnd)
-            } else {
-                emptyList()
-            },
+            bandSegments = NightTimeline.bandSegments(samples, axisStart, axisEnd),
             moonAboveIntervals = NightTimeline.moonAboveIntervals(samples, axisStart, axisEnd),
             galacticCenterInterval = if (hasNight) {
                 gc?.let {

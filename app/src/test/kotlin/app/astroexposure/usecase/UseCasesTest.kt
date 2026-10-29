@@ -614,10 +614,11 @@ class UseCasesTest {
     @Test
     fun tonightTimelineDegradesWithoutAstronomicalNight() {
         // Tromsø in mid-June: the Sun never drops to -18°, so there is no
-        // astronomical night. Per the ui-design §7.4 degradation rule the
-        // timeline then carries no background bands and no
-        // galactic-centre interval band — only the Sun/Moon curve
-        // samples and the explicit flag remain.
+        // astronomical night. Per the ui-design §7.4 degradation rule
+        // (0.8.8) the sun band still derives its day / twilight segments
+        // from the samples — only the astronomical-night segment and
+        // the galactic-centre interval band are absent, so the band row
+        // degrades instead of rendering blank.
         val tromso = GeoLocation(
             latitude = Degrees(69.6492),
             longitude = Degrees(18.9553),
@@ -629,7 +630,12 @@ class UseCasesTest {
         assertEquals(null, result.night)
         assertFalse(result.timeline.hasAstronomicalNight)
         assertTrue(result.timeline.samples.isNotEmpty())
-        assertTrue(result.timeline.bandSegments.isEmpty())
+        assertTrue(result.timeline.bandSegments.isNotEmpty())
+        assertTrue(
+            result.timeline.bandSegments.none {
+                it.band == app.astroexposure.domain.timeline.NightTimeline.SunBand.ASTRONOMICAL_NIGHT
+            },
+        )
         assertEquals(null, result.timeline.galacticCenterInterval)
     }
 
