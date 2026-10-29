@@ -219,4 +219,98 @@ class NightTimelineTest {
         assertEquals(0.0, NightTimeline.altitudeFraction(-90.0), 1e-9)
         assertEquals(1.0, NightTimeline.altitudeFraction(120.0), 1e-9)
     }
+
+    // --- Track band curve runs (0.8.13) -----------------------------------------
+    // Points are (axis fraction, altitude in degrees); the band fraction of
+    // an altitude is (altitude + 36) / 126.
+
+    private fun assertRunEquals(
+        expected: List<Pair<Double, Double>>,
+        actual: List<Pair<Double, Double>>,
+    ) {
+        assertEquals(expected.size, actual.size)
+        for ((e, a) in expected zip actual) {
+            assertEquals(e.first, a.first, 1e-9)
+            assertEquals(e.second, a.second, 1e-9)
+        }
+    }
+
+    @Test
+    fun trackCurveRunsKeepsAnInsideCurveWhole() {
+        val runs = NightTimeline.trackCurveRuns(
+            listOf(0.0 to 27.0, 0.5 to 48.0, 1.0 to 27.0),
+        )
+        assertEquals(1, runs.size)
+        assertRunEquals(
+            listOf(0.0 to 0.5, 0.5 to 2.0 / 3.0, 1.0 to 0.5),
+            runs[0],
+        )
+    }
+
+    @Test
+    fun trackCurveRunsBreaksBelowTheDomainAndResumesAtTheCrossings() {
+        // Down through the bottom edge between the first two samples,
+        // back in between the third and fourth (altitude -99° is
+        // band fraction -0.5; 0° is 36/126).
+        val runs = NightTimeline.trackCurveRuns(
+            listOf(
+                0.0 to 0.0, 0.25 to -99.0, 0.5 to -99.0,
+                0.75 to 0.0, 1.0 to 27.0,
+            ),
+        )
+        assertEquals(2, runs.size)
+        val exitT = (36.0 / 126.0) / (36.0 / 126.0 + 0.5)
+        assertRunEquals(
+            listOf(0.0 to 36.0 / 126.0, 0.25 * exitT to 0.0),
+            runs[0],
+        )
+        val entryT = 0.5 / (0.5 + 36.0 / 126.0)
+        assertRunEquals(
+            listOf(
+                0.5 + 0.25 * entryT to 0.0,
+                0.75 to 36.0 / 126.0,
+                1.0 to 0.5,
+            ),
+            runs[1],
+        )
+    }
+
+    @Test
+    fun trackCurveRunsBreaksAboveTheDomain() {
+        val runs = NightTimeline.trackCurveRuns(
+            listOf(0.0 to 27.0, 0.5 to 153.0, 1.0 to 27.0),
+        )
+        assertEquals(2, runs.size)
+        assertRunEquals(listOf(0.0 to 0.5, 0.25 to 1.0), runs[0])
+        assertRunEquals(listOf(0.75 to 1.0, 1.0 to 0.5), runs[1])
+    }
+
+    @Test
+    fun trackCurveRunsPassesThroughTheWholeDomainInOneStep() {
+        val runs = NightTimeline.trackCurveRuns(
+            listOf(0.0 to -99.0, 1.0 to 153.0),
+        )
+        assertEquals(1, runs.size)
+        assertRunEquals(listOf(0.25 to 0.0, 0.75 to 1.0), runs[0])
+    }
+
+    @Test
+    fun trackCurveRunsTreatsBoundarySamplesAsInside() {
+        val runs = NightTimeline.trackCurveRuns(
+            listOf(0.0 to -36.0, 1.0 to 90.0),
+        )
+        assertEquals(1, runs.size)
+        assertRunEquals(listOf(0.0 to 0.0, 1.0 to 1.0), runs[0])
+    }
+
+    @Test
+    fun trackCurveRunsDropsEmptyOutsideAndSingletonInput() {
+        assertTrue(NightTimeline.trackCurveRuns(emptyList()).isEmpty())
+        assertTrue(NightTimeline.trackCurveRuns(listOf(0.0 to 27.0)).isEmpty())
+        assertTrue(
+            NightTimeline.trackCurveRuns(
+                listOf(0.0 to -99.0, 1.0 to -90.0),
+            ).isEmpty(),
+        )
+    }
 }

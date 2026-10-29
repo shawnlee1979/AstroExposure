@@ -255,15 +255,93 @@ object NightTimeline {
      * is twice the astronomical-twilight depth — a fixed depth that
      * keeps the twilight story legible; it does NOT reach the bodies'
      * nightly minima (a winter Sun at mid-northern latitudes bottoms
-     * near −79°, the Moon near −60°…−78°), so out-of-domain parts of
-     * both sampled curves clamp at the band's edge: the Sun's curve
-     * riding the bottom edge through a winter night is the expected
-     * shape, not a sampling defect. The domain does not adapt to the
-     * season. The 0° horizon sits at 36/126 of the height. Pure
-     * mapping — the UI only turns the fraction into a y position.
+     * near −79°, the Moon near −60°…−78°). The domain does not adapt
+     * to the season. The 0° horizon sits at 36/126 of the height.
+     * Pure mapping — the UI only turns the fraction into a y
+     * position. (The clamped ends serve fixed reference points such
+     * as the horizon's own position; the sampled curves themselves
+     * are NOT drawn clamped — [trackCurveRuns] breaks them at the
+     * domain boundary, since 0.8.13.)
      */
     fun altitudeFraction(altitudeDeg: Double): Double =
         ((altitudeDeg - TRACK_MIN_ALTITUDE_DEG) /
             (TRACK_MAX_ALTITUDE_DEG - TRACK_MIN_ALTITUDE_DEG)).coerceIn(0.0, 1.0)
+
+    /**
+     * Splits a sampled altitude polyline into the runs that lie
+     * inside the track band's vertical domain (ui-design §7.4,
+     * 0.8.13). [points] are (axis fraction 0..1, altitude in
+     * degrees) in time order; the result is a list of runs, each a
+     * list of (axis fraction, band fraction 0..1) points ready to be
+     * stroked as one path. A segment that crosses a domain boundary
+     * ends its run at the linearly interpolated boundary point, the
+     * out-of-domain part is not returned at all, and a later
+     * re-entry starts a new run at its boundary point — the same
+     * crossing construction as the lanes' 20° window entries. A
+     * segment that passes through the whole domain within one step
+     * yields a two-point run of both boundary crossings. Runs of a
+     * single point are dropped (nothing to stroke). Before 0.8.13
+     * the UI clamped every sample through [altitudeFraction], so an
+     * out-of-domain stretch collapsed onto the band's edge and read
+     * on device as a fake flat line (the winter Sun riding the
+     * bottom edge for hours); breaking the curve is the fix, the
+     * fixed domain itself is unchanged.
+     */
+    fun trackCurveRuns(
+        points: List<Pair<Double, Double>>,
+    ): List<List<Pair<Double, Double>>> {
+        val span = TRACK_MAX_ALTITUDE_DEG - TRACK_MIN_ALTITUDE_DEG
+        fun bandFraction(altitudeDeg: Double): Double =
+            (altitudeDeg - TRACK_MIN_ALTITUDE_DEG) / span
+        fun inside(fraction: Double): Boolean =
+            fraction >= 0.0 && fraction <= 1.0
+        fun crossing(
+            a: Pair<Double, Double>,
+            fa: Double,
+            b: Pair<Double, Double>,
+            fb: Double,
+            boundary: Double,
+        ): Pair<Double, Double> {
+            val t = (boundary - fa) / (fb - fa)
+            return (a.first + t * (b.first - a.first)) to boundary
+        }
+        val runs = mutableListOf<List<Pair<Double, Double>>>()
+        var current = mutableListOf<Pair<Double, Double>>()
+        fun flush() {
+            if (current.size >= 2) runs += current
+            current = mutableListOf()
+        }
+        for (i in 0 until points.size - 1) {
+            val a = points[i]
+            val b = points[i + 1]
+            val fa = bandFraction(a.second)
+            val fb = bandFraction(b.second)
+            val aIn = inside(fa)
+            val bIn = inside(fb)
+            if (aIn && current.isEmpty()) current += a.first to fa
+            when {
+                aIn && bIn -> current += b.first to fb
+                aIn && !bIn -> {
+                    current += crossing(a, fa, b, fb, if (fb > 1.0) 1.0 else 0.0)
+                    flush()
+                }
+                !aIn && bIn -> {
+                    current += crossing(a, fa, b, fb, if (fa > 1.0) 1.0 else 0.0)
+                    current += b.first to fb
+                }
+                !aIn && !bIn && (fa < 0.0) != (fb < 0.0) -> {
+                    // The step crosses the whole domain: enter at the
+                    // near boundary, leave at the far one.
+                    val near = if (fa < 0.0) 0.0 else 1.0
+                    current += crossing(a, fa, b, fb, near)
+                    current += crossing(a, fa, b, fb, 1.0 - near)
+                    flush()
+                }
+                else -> Unit
+            }
+        }
+        flush()
+        return runs
+    }
 
 }
