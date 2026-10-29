@@ -439,20 +439,41 @@ fun CalculatorEffects(
  */
 @Composable
 fun TimeHealthWarningText(result: TimeHealthCheck.Result) {
-    for (warning in result.warnings) {
-        Text(
-            text = when (warning) {
-                TimeHealthCheck.Warning.ZONE_MISMATCH ->
-                    stringResource(R.string.time_health_zone_mismatch)
-                TimeHealthCheck.Warning.CLOCK_SKEW ->
-                    stringResource(
-                        R.string.time_health_clock_skew,
-                        result.clockSkewSeconds ?: 0L,
-                    )
-            },
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall,
-        )
+    result.warnings.forEachIndexed { index, warning ->
+        val message = when (warning) {
+            TimeHealthCheck.Warning.ZONE_MISMATCH ->
+                stringResource(R.string.time_health_zone_mismatch)
+            TimeHealthCheck.Warning.CLOCK_SKEW ->
+                stringResource(
+                    R.string.time_health_clock_skew,
+                    result.clockSkewSeconds ?: 0L,
+                )
+        }
+        if (index == 0) {
+            // The first warning line carries the unhealthy state's
+            // glyph (ui-design §7.2, 0.8.7): a ▲ in the bad state
+            // colour ahead of the text, so the state reads by colour
+            // AND glyph. Healthy renders nothing — there is no
+            // standing health marker anywhere.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "▲ ",
+                    color = app.astroexposure.ui.theme.LocalStateColors.current.bad,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        } else {
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 
