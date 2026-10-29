@@ -218,6 +218,11 @@ class TonightOverviewUseCase(
      * catalogue failed to load — the same explicit degradation as the
      * whole-night list. A single target's detail is NOT part of this
      * evaluation: the detail dialog asks [evaluateTargetAtCursor].
+     * [skyTowardGalacticCenter] is the galactic-centre sky sample at
+     * the cursor — the same composition the status figures above are
+     * classified from — carried so the location card's environment
+     * section can follow the cursor with the very same sample
+     * (ui-design §7.2, 0.8.6) instead of composing a second one.
      */
     data class CursorEvaluation(
         val instant: Instant,
@@ -225,6 +230,7 @@ class TonightOverviewUseCase(
         val sunAltitudeDeg: Double,
         val moonAltitudeDeg: Double,
         val moonIllumination: Double,
+        val skyTowardGalacticCenter: SkyContext,
         val moonInterference: TimelineCursor.MoonInterference,
         val lowMoonStatus: TimelineCursor.LowMoonStatus,
         val targets: List<CursorTarget>,
@@ -428,6 +434,7 @@ class TonightOverviewUseCase(
                 sunAltitudeDeg = sunAltitude,
                 moonAltitudeDeg = moonPosition.altitude.value,
                 moonIllumination = gcSky.moonIllumination,
+                skyTowardGalacticCenter = gcSky,
                 moonInterference = TimelineCursor.moonInterference(
                     gcSky.moonlightMcdPerM2, baselineTotal,
                 ),
@@ -537,6 +544,7 @@ class TonightOverviewUseCase(
             sunAltitudeDeg = sunAltitude,
             moonAltitudeDeg = moonPosition.altitude.value,
             moonIllumination = gcSky.moonIllumination,
+            skyTowardGalacticCenter = gcSky,
             moonInterference = TimelineCursor.moonInterference(
                 gcSky.moonlightMcdPerM2, baselineTotal,
             ),
