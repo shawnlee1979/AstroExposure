@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>曝光参谋 · 首页（今晚页）整合排版设计样张 v1.0（定稿）</title>
+<title>曝光参谋 · 首页（今晚页）整合排版设计样张 v1.0</title>
 <style>
   :root{
     --bg:#05070D; --card:#0C1120; --card2:#131B31; --border:#22304F;
@@ -69,7 +69,7 @@
 </style>
 </head>
 <body>
-<h1>首页（今晚页）整合排版 · 设计样张 v1.0（定稿）</h1>
+<h1>首页（今晚页）整合排版 · 设计样张 v1.0</h1>
 <p class="sub">数值为示意，非真实历算。改动只有三处：环境数据并入地点卡、今晚概览立于时间轴上方、页底五类计算入口删除。样张中的时间轴已按当前 App 的实际样子复刻（日光带／月亮带／标记行／目标泳道含中天金段与推荐区间金框／低月光带／游标气泡），本稿不改时间轴本体与游标行为。</p>
 
 <div class="wrap">
@@ -87,9 +87,10 @@
       <div class="card">
         <div class="rowline">
           <span class="title">湖畔营地</span>
-          <span class="small">GPS 定位 · 10月28日更新</span>
+          <span class="small">GPS 定位 · 已匹配收藏地点</span>
         </div>
         <div class="small" style="margin-top:2px; font-family:ui-monospace,Menlo,monospace;">40.0123° N · 74.0060° W</div>
+        <div class="small" style="margin-top:2px;">海拔约 86 m（GPS 椭球高，精度粗，仅供参考）</div>
         <div class="divider"></div>
         <div class="sect">环境（黄昏时 · 朝向银心）</div>
         <div class="envrow"><span class="lab">光害</span><span class="val">3.24 <span class="small">mcd/m² · Bortle 估计 5</span></span></div>
@@ -129,10 +130,6 @@
           <div class="bubble" style="left:calc(44% + 6px); top:44px;">21:40<br>月高 32°，月相 94%，光害 3.24</div>
         </div>
         <div class="axis"><span>17:00</span><span>20:00</span><span>23:00</span><span>02:00</span><span>05:00</span></div>
-        <div class="rowline" style="margin-top:6px;">
-          <span style="font-size:12px; color:var(--tx2);">21:40 · 天文夜 · 银心可见时段</span>
-          <span class="small">◂ 1′ ▸</span>
-        </div>
       </div>
 
       <!-- shortlist -->
@@ -142,8 +139,6 @@
         <div class="envrow"><span style="font-size:13px;">NGC 752 疏散星团</span><span class="val">中天 62°</span></div>
         <div class="envrow"><span style="font-size:13px;">M45 昴星团</span><span class="val">中天 71°</span></div>
       </div>
-
-      <div class="endnote">— 页面到此 —<br>五类计算入口已移至「计算」页顶部选择，此处不再出现</div>
 
       <div class="tabs"><div class="on">今晚</div><div>计算</div><div>计划</div><div>设置</div></div>
     </div>
@@ -166,6 +161,10 @@
     <div class="note">
       <h3><span class="num">4</span>地点识别与保存（追加）</h3>
       <p>GPS 定位后自动比对收藏地点：<b>100 m 内</b>有收藏点就直接显示它的名字；没有匹配时卡面只显坐标＋<b>海拔</b>（GPS 自带，椭球高、精度粗，仅参考），并给一个<b>「保存为收藏地点」</b>按钮，点按命名即存，下次再来自动认出。手动地点无海拔来源时显 —，不编造。</p>
+    </div>
+    <div class="note">
+      <h3><span class="num">5</span>页面收尾</h3>
+      <p>五类计算入口已移至「计算」页顶部选择，今晚页以短名单收尾，页内不再出现入口（此为设计解说，按通则置于手机框外，框内只留产品文案）。</p>
     </div>
     <div class="note">
       <h3>不变项</h3>

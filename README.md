@@ -10,7 +10,7 @@ Everything runs on-device: no account, no cloud, no network required in the fiel
 
 ## Status
 
-**Implemented and in active iteration (current release: 0.8.4).** The full three-layer codebase (domain / data / app) lives in this repository, and pre-release APKs are published on the [Releases](https://github.com/shawnlee1979/AstroExposure/releases) page. The design document is in [docs/design.md](docs/design.md) (Chinese; the app itself is bilingual).
+**Implemented and in active iteration (current release: 0.8.5).** The full three-layer codebase (domain / data / app) lives in this repository, and pre-release APKs are published on the [Releases](https://github.com/shawnlee1979/AstroExposure/releases) page. The design document is in [docs/design.md](docs/design.md) (Chinese; the app itself is bilingual).
 
 ## Features
 
@@ -69,7 +69,7 @@ Full selection rationale: [docs/opensource-survey.md](docs/opensource-survey.md)
 - [Design document](docs/design.md) — product definition, input/calculation/output layers, models, phasing, decision log (Chinese).
 - [Open-source survey](docs/opensource-survey.md) — framework and dataset selection with per-item licence verification (Chinese).
 - [Compass and orientation survey](docs/compass-survey.md) — library selection for the device-orientation port: platform capabilities, candidates and licence checks (Chinese).
-- [UI design spec](docs/ui-design.md) — interface design tokens, key screens and state presentation (Chinese), with mockup board [docs/ui-design-board.html](docs/ui-design-board.html).
+- [UI design spec](docs/ui-design.md) — interface design tokens, key screens and state presentation (Chinese), with mockup boards [docs/ui-design-board.html](docs/ui-design-board.html) and [docs/home-design-board.html](docs/home-design-board.html) (tonight-page integration layout).
 - [Data licences](DATA-LICENSES.md) — third-party data and library attributions and obligations.
 - [Development rules](DEVELOPMENT-RULES.md) — layering, third-party adapter isolation, contract tests, data-pipeline and change-process rules all code must follow.
 - Architecture decision records — [ADR-0001 development rules and layering](docs/adr/0001-development-rules-and-layering.md), [ADR-0002 package name](docs/adr/0002-package-name.md), [ADR-0003 catalog ports and resources](docs/adr/0003-catalog-ports-and-resources.md).
@@ -97,7 +97,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 项目状态
 
-**已实现并持续迭代（当前版本 0.8.4）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
+**已实现并持续迭代（当前版本 0.8.5）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
 
 ## 功能概览
 
@@ -156,7 +156,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - [设计方案](docs/design.md) —— 产品定义、输入 / 计算 / 输出三层、五类模型、分期与决议记录。
 - [开源选型调研](docs/opensource-survey.md) —— 框架与数据集选型，逐项核实许可证。
 - [罗盘与姿态指向选型调研](docs/compass-survey.md) —— 方向传感器端口的库选型：平台自带能力、候选核查与许可证结论。
-- [UI 设计规格](docs/ui-design.md) —— 界面设计令牌、关键界面与状态呈现；配套样张 [docs/ui-design-board.html](docs/ui-design-board.html)。
+- [UI 设计规格](docs/ui-design.md) —— 界面设计令牌、关键界面与状态呈现；配套样张 [docs/ui-design-board.html](docs/ui-design-board.html) 与首页整合样张 [docs/home-design-board.html](docs/home-design-board.html)。
 - [数据许可说明](DATA-LICENSES.md) —— 第三方数据与库的来源、署名与使用义务。
 - [开发规则](DEVELOPMENT-RULES.md) —— 分层架构、第三方接口隔离、契约测试、数据管线与变更流程的硬性纪律。
 - 架构决策记录 —— [ADR-0001 开发规则与分层](docs/adr/0001-development-rules-and-layering.md)、[ADR-0002 包名](docs/adr/0002-package-name.md)、[ADR-0003 目录端口与资源](docs/adr/0003-catalog-ports-and-resources.md)。
