@@ -185,6 +185,16 @@ object TimelineCursor {
         interpolateSampleValue(samples, instant) { it.moonAltitudeDeg }
 
     /**
+     * Sun altitude at an arbitrary instant, interpolated between the
+     * timeline samples exactly like [moonAltitudeAt] — the cursor
+     * bubble's solar-segment fallback while the cursor evaluation is
+     * in flight (ui-design §7.5, 0.8.9), classified by
+     * [NightTimeline.bandFor] at the call site.
+     */
+    fun sunAltitudeAt(samples: List<NightTimeline.Sample>, instant: Instant): Double? =
+        interpolateSampleValue(samples, instant) { it.sunAltitudeDeg }
+
+    /**
      * Moon illumination fraction at an arbitrary instant, interpolated
      * between the timeline samples exactly like [moonAltitudeAt] — so
      * the bubble's two Moon figures always describe the SAME instant

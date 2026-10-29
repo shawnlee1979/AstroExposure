@@ -345,6 +345,63 @@ class UseCasesTest {
     }
 
     @Test
+    fun tonightCursorTargetsCarryFullAxisAltitudeSamples() {
+        // The lane curve's data (ui-design §7.5, 0.8.9): every
+        // displayed target carries its real altitude samples across
+        // the whole axis at the shared 5-minute step — the same series
+        // its culmination and phases derive from, so the drawn curve,
+        // the peak and the window can never disagree.
+        val useCase = TonightOverviewUseCase(
+            ephemeris = ephemeris,
+            objectCatalog = JsonObjectCatalog(),
+            lightPollution = GridLightPollutionSource(),
+        )
+        val date = LocalDate.of(2026, 8, 12)
+        val overview = useCase.execute(nyc, date)
+        val timeline = overview.timeline
+        val cursor = date.atTime(23, 0).atZone(nyc.zone).toInstant()
+        val evaluation = useCase.evaluateCursor(nyc, date, cursor, timeline)
+        assertTrue(evaluation.targets.isNotEmpty())
+
+        val expectedInstants = app.astroexposure.domain.timeline.NightTimeline
+            .sampleInstants(timeline.axisStart, timeline.axisEnd)
+        for (target in evaluation.targets) {
+            val samples = target.altitudeSamples
+            // Full axis at the shared grid: same instants, in order.
+            assertEquals(expectedInstants, samples.map { it.instant })
+            assertTrue(samples.size >= 2)
+            // The peak of the series IS the stated culmination (same
+            // sample, not a second computation).
+            val peak = samples.maxByOrNull { it.altitudeDeg }!!
+            assertEquals(target.culmination, peak.instant)
+            assertEquals(target.culminationAltitudeDeg, peak.altitudeDeg, 1e-9)
+            // A single pass is unimodal: altitudes never decrease
+            // before the peak sample and never increase after it.
+            val peakIndex = samples.indexOf(peak)
+            for (i in 1..peakIndex) {
+                assertTrue(samples[i].altitudeDeg >= samples[i - 1].altitudeDeg - 1e-9)
+            }
+            for (i in peakIndex + 1 until samples.size) {
+                assertTrue(samples[i].altitudeDeg <= samples[i - 1].altitudeDeg + 1e-9)
+            }
+            // The ≥20° window (phases) brackets the peak, and the
+            // samples inside it clear the threshold while the samples
+            // just outside it (when they exist) do not.
+            val phases = target.phases
+            assertNotNull(phases)
+            assertTrue(!phases!!.window.start.isAfter(peak.instant))
+            assertTrue(!phases.window.end.isBefore(peak.instant))
+            for (sample in samples) {
+                if (!sample.instant.isBefore(phases.window.start) &&
+                    sample.instant.isBefore(phases.window.end)
+                ) {
+                    assertTrue(sample.altitudeDeg >= 20.0 - 1e-9)
+                }
+            }
+        }
+    }
+
+    @Test
     fun tonightCursorEvaluationNormalisesInstantAndDegradesOnCatalogueFailure() {
         val failingCatalog = object : ObjectCatalog {
             override val dataVersion: String get() = "failing"

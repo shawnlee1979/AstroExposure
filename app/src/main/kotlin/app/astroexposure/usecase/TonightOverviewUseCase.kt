@@ -132,6 +132,15 @@ class TonightOverviewUseCase(
         val culmination: Instant,
         val culminationAltitudeDeg: Double,
         val rising: Boolean,
+        /**
+         * The target's real altitude samples across the whole axis at
+         * the timeline's 5-minute step (ui-design §7.5, 0.8.9): the
+         * series the lane's altitude curve is drawn from — the same
+         * samples [arcIntervals], [phases] and the culmination are
+         * derived from, carried whole so the UI draws the curve from
+         * data, never from a template shape.
+         */
+        val altitudeSamples: List<TimelineCursor.AltitudeSample> = emptyList(),
         /** Rising / culmination / setting segmentation of the arc (ui-design §7.5, 0.5.1). */
         val phases: TimelineCursor.ArcPhases? = null,
         /**
@@ -534,6 +543,7 @@ class TonightOverviewUseCase(
                 rising = ephemeris.altitudeOf(
                     location, coords, cursor.plus(Duration.ofMinutes(15)),
                 ).value > candidate.altitudeDeg,
+                altitudeSamples = arcSamples,
                 phases = phases,
                 recommendedFrame = recommendedFrame,
             )
