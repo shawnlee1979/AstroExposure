@@ -1,7 +1,10 @@
 package app.astroexposure.usecase
 
+import app.astroexposure.domain.camera.FramingChart
+import app.astroexposure.domain.catalog.ChartStar
 import app.astroexposure.domain.catalog.ConstellationEntry
 import app.astroexposure.domain.catalog.ConstellationCatalog
+import app.astroexposure.domain.catalog.ConstellationLines
 import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.EclipseRecord
@@ -10,6 +13,7 @@ import app.astroexposure.domain.catalog.LightPollutionVersion
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.catalog.StarCatalog
 import app.astroexposure.domain.catalog.WideFieldCatalog
 import app.astroexposure.domain.catalog.WideFieldViewpoint
 import app.astroexposure.domain.ephemeris.CelestialBody
@@ -52,6 +56,8 @@ class TonightOverviewUseCase(
     private val lightPollution: LightPollutionSource? = null,
     private val constellationCatalog: ConstellationCatalog? = null,
     private val wideFieldCatalog: WideFieldCatalog? = null,
+    private val starCatalog: StarCatalog? = null,
+    private val constellationLines: ConstellationLines? = null,
 ) {
 
     enum class MomentKind {
@@ -352,6 +358,53 @@ class TonightOverviewUseCase(
         val meteorPeakDate: LocalDate? = null,
         /** Radiant details only: the shower's peak ZHR. */
         val meteorZhr: Int? = null,
+        /**
+         * The framing chart's data (ui-design §7.10); null when the
+         * subject gets no chart section — a viewpoint, a radiant, a
+         * deep-sky object without a catalogue size, or a build whose
+         * star / line catalogues failed to load.
+         */
+        val framingChart: FramingChartData? = null,
+    )
+
+    /**
+     * Everything the detail dialog's framing-chart section renders
+     * (ui-design §7.10), assembled from the star, line and object
+     * catalogues: the subject's shape (an ellipse for a deep-sky
+     * object, its constellation's skeleton for a constellation), the
+     * bright-star set and line figures the chart draws, and the
+     * neighbouring deep-sky objects it may faintly show. All
+     * judgement stays in the domain ([FramingChart]); this is data.
+     */
+    data class FramingChartData(
+        /** Subject centre, degrees (the star products' native unit). */
+        val centerRaDeg: Double,
+        val centerDecDeg: Double,
+        /** The deep-sky ellipse; null for a constellation subject. */
+        val ellipse: FramingChart.EllipseSpec?,
+        /** The subject constellation's own code; null for a deep-sky subject. */
+        val skeletonCode: String?,
+        /**
+         * The constellation whose lines the chart emphasises: the
+         * subject itself for a constellation, the host constellation
+         * for a deep-sky object (null when the catalogue lists none).
+         */
+        val emphasisCode: String?,
+        val stars: List<ChartStar>,
+        val lines: Map<String, List<List<Int>>>,
+        val neighbours: List<FramingNeighbour>,
+    )
+
+    /** One neighbouring deep-sky object the chart may faintly draw (ui-design §7.10). */
+    data class FramingNeighbour(
+        val id: String,
+        val name: String,
+        val nameZh: String?,
+        val raDeg: Double,
+        val decDeg: Double,
+        val sizeMajorArcmin: Double,
+        val sizeMinorArcmin: Double?,
+        val positionAngleDeg: Double?,
     )
 
     /**
@@ -855,7 +908,66 @@ class TonightOverviewUseCase(
                 ShowerDates.approxDate(it.shower.peakLon, date)
             },
             meteorZhr = (subject as? TonightSubject.Radiant)?.shower?.peakZhr,
+            framingChart = framingChartFor(subject),
         )
+    }
+
+    /**
+     * The framing chart's data for one subject (ui-design §7.10):
+     * deep-sky objects with a catalogue size get their ellipse,
+     * constellations get their line skeleton; viewpoints, radiants
+     * and size-less objects get none (the dialog states the no-size
+     * case in words instead of drawing an empty chart). Without the
+     * star or line catalogues the section is absent, never faked.
+     */
+    private fun framingChartFor(subject: TonightSubject): FramingChartData? {
+        val stars = starCatalog?.stars() ?: return null
+        val lines = constellationLines?.lines() ?: return null
+        val neighbours = objectCatalog?.allObjects().orEmpty()
+            .filter { it.id != (subject as? TonightSubject.DeepSky)?.obj?.id }
+            .mapNotNull { obj ->
+                val major = obj.sizeMajorArcmin ?: return@mapNotNull null
+                FramingNeighbour(
+                    id = obj.id,
+                    name = obj.name,
+                    nameZh = obj.nameZh,
+                    raDeg = obj.raHours * 15.0,
+                    decDeg = obj.decDeg,
+                    sizeMajorArcmin = major,
+                    sizeMinorArcmin = obj.sizeMinorArcmin,
+                    positionAngleDeg = obj.positionAngleDeg,
+                )
+            }
+        return when (subject) {
+            is TonightSubject.DeepSky -> {
+                val major = subject.obj.sizeMajorArcmin ?: return null
+                FramingChartData(
+                    centerRaDeg = subject.obj.raHours * 15.0,
+                    centerDecDeg = subject.obj.decDeg,
+                    ellipse = FramingChart.EllipseSpec(
+                        majorArcmin = major,
+                        minorArcmin = subject.obj.sizeMinorArcmin,
+                        positionAngleDeg = subject.obj.positionAngleDeg,
+                    ),
+                    skeletonCode = null,
+                    emphasisCode = subject.obj.constellation,
+                    stars = stars,
+                    lines = lines,
+                    neighbours = neighbours,
+                )
+            }
+            is TonightSubject.Constellation -> FramingChartData(
+                centerRaDeg = subject.entry.centerRaHours * 15.0,
+                centerDecDeg = subject.entry.centerDecDeg,
+                ellipse = null,
+                skeletonCode = subject.entry.code,
+                emphasisCode = subject.entry.code,
+                stars = stars,
+                lines = lines,
+                neighbours = neighbours,
+            )
+            else -> null
+        }
     }
 
     /**

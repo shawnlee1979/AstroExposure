@@ -4,18 +4,22 @@ import android.content.Context
 import androidx.room.Room
 import app.astroexposure.data.catalog.GridLightPollutionSource
 import app.astroexposure.data.catalog.JsonConstellationCatalog
+import app.astroexposure.data.catalog.JsonConstellationLines
 import app.astroexposure.data.catalog.JsonEclipseCatalog
 import app.astroexposure.data.catalog.JsonLensCatalog
 import app.astroexposure.data.catalog.JsonMeteorShowerCatalog
 import app.astroexposure.data.catalog.JsonObjectCatalog
+import app.astroexposure.data.catalog.JsonStarCatalog
 import app.astroexposure.data.catalog.JsonWideFieldCatalog
 import app.astroexposure.data.ephemeris.AstronomyEngineEphemeris
 import app.astroexposure.domain.catalog.ConstellationCatalog
+import app.astroexposure.domain.catalog.ConstellationLines
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.LensCatalog
 import app.astroexposure.domain.catalog.LightPollutionSource
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.catalog.StarCatalog
 import app.astroexposure.domain.catalog.WideFieldCatalog
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.geo.GeoLocation
@@ -46,6 +50,8 @@ class AppContainer(context: Context) {
     val showerCatalog: MeteorShowerCatalog = JsonMeteorShowerCatalog()
     val constellationCatalog: ConstellationCatalog = JsonConstellationCatalog()
     val wideFieldCatalog: WideFieldCatalog = JsonWideFieldCatalog()
+    val starCatalog: StarCatalog = JsonStarCatalog()
+    val constellationLines: ConstellationLines = JsonConstellationLines()
     val lensCatalog: LensCatalog = JsonLensCatalog()
     val lightPollution: LightPollutionSource = GridLightPollutionSource()
 
@@ -60,7 +66,7 @@ class AppContainer(context: Context) {
 
     val tonightOverview = TonightOverviewUseCase(
         ephemeris, objectCatalog, eclipseCatalog, showerCatalog, lightPollution,
-        constellationCatalog, wideFieldCatalog,
+        constellationCatalog, wideFieldCatalog, starCatalog, constellationLines,
     )
     val wideField = WideFieldUseCase()
     val landscape = LandscapeUseCase()
