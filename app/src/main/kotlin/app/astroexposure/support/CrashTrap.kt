@@ -64,10 +64,7 @@ object CrashTrap {
                     throwable.printStackTrace(PrintWriter(writer))
                 }.toString()
                 recordFile.writeText(
-                    "AstroExposure $versionLabel\n" +
-                        "time: ${Instant.now()}\n" +
-                        "thread: ${thread.name}\n\n" +
-                        trace,
+                    recordText(versionLabel, Instant.now(), thread.name, trace),
                 )
             } catch (ignored: Throwable) {
                 // Deliberately swallowed: the trap must never take
@@ -77,6 +74,25 @@ object CrashTrap {
             previous?.uncaughtException(thread, throwable)
         }
     }
+
+    /**
+     * The record's text for one crash: header (app name and
+     * version label), the crash instant, the thread name, a blank
+     * line, then the stack trace verbatim. A pure function of its
+     * inputs so the format is unit-testable without a Context; the
+     * handler above passes the live values and writes the result
+     * unchanged.
+     */
+    internal fun recordText(
+        versionLabel: String,
+        time: Instant,
+        threadName: String,
+        trace: String,
+    ): String =
+        "AstroExposure $versionLabel\n" +
+            "time: $time\n" +
+            "thread: $threadName\n\n" +
+            trace
 
     /** The recorded crash text, or null when no record exists. */
     fun read(context: Context): String? =
