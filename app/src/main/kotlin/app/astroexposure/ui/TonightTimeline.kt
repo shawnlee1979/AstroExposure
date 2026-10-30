@@ -147,6 +147,19 @@ data class TimelineArc(
 )
 
 /**
+ * Per-category lane counts of a lane list (ui-design §7.8): the
+ * category filter chips read the WHOLE-NIGHT lane list through
+ * this, so the numbers are a property of the night and stay put
+ * while the cursor moves — feeding them from the display set made
+ * them drift with the cursor state's ranked shootable set.
+ * Uncategorized lanes (category null) are not counted.
+ */
+internal fun laneCategoryCounts(
+    arcs: List<TimelineArc>,
+): Map<TonightOverviewUseCase.SubjectCategory, Int> =
+    arcs.mapNotNull { it.category }.groupingBy { it }.eachCount()
+
+/**
  * One row of the tonight-picks popup (ui-design §7.8): the board
  * entry's identity and category, its composed one-line reason, and
  * the recommended interval the row's locate chip acts on (the
@@ -441,6 +454,16 @@ fun NightTimelineCard(
     /** The bubble's third line: moonlight-interference tier and Bortle grade (ui-design §7.5, 0.8.9). */
     bubbleTierText: String? = null,
     arcs: List<TimelineArc> = emptyList(),
+    /**
+     * Tonight's whole-night lanes (board + radiants), in board
+     * order: the category filter chips count THESE and the
+     * hidden-category fact lines name THESE (ui-design §7.8). The
+     * counts are a property of the night — identical in the
+     * whole-night and cursor states — never of the display set in
+     * [arcs], which the cursor state replaces with the ranked
+     * shootable set.
+     */
+    tonightArcs: List<TimelineArc> = emptyList(),
     onCursorTap: (Instant) -> Unit = {},
     onCursorDrag: (Instant) -> Unit = {},
     /** Direct tap/drag on the Sun/Moon track band (ui-design §7.5, 0.8.11). */
@@ -615,16 +638,22 @@ fun NightTimelineCard(
             }
             // Category filter chips (ui-design §7.8): one per board
             // category carrying tonight's lane count, multi-select,
-            // default all-on. A 0-count category keeps its place —
-            // the row's positions must not jump from night to night —
-            // and its count already says it is empty tonight.
-            if (arcs.isNotEmpty() || picks.isNotEmpty()) {
+            // default all-on. The counts come from tonight's
+            // whole-night lanes (tonightArcs), never from the
+            // display set: in the cursor state the display set is
+            // the ranked shootable set of one instant, and counting
+            // it made the chips drift as the cursor moved. A
+            // 0-count category keeps its place — the row's
+            // positions must not jump from night to night — and its
+            // count already says it is empty tonight.
+            val tonightCounts = laneCategoryCounts(tonightArcs)
+            if (tonightArcs.isNotEmpty() || picks.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     for (category in CATEGORY_FILTER_ORDER) {
-                        val count = arcs.count { it.category == category }
+                        val count = tonightCounts[category] ?: 0
                         FilterChip(
                             selected = category !in hiddenCategories,
                             onClick = {
@@ -1114,11 +1143,16 @@ fun NightTimelineCard(
                     // category that HAS lanes tonight says so —
                     // which lanes are hidden, and that the board and
                     // its quotas did not change and were not
-                    // backfilled. A hidden category with no lanes
-                    // tonight needs no line (its chip's 0 says it).
+                    // backfilled. The lanes named and counted are
+                    // tonight's whole-night lanes (tonightArcs), the
+                    // same source as the chips — in the cursor state
+                    // the display set holds different members and
+                    // would misstate what is hidden. A hidden
+                    // category with no lanes tonight needs no line
+                    // (its chip's 0 says it).
                     for (category in CATEGORY_FILTER_ORDER) {
                         if (category in hiddenCategories) {
-                            val hidden = arcs.filter { it.category == category }
+                            val hidden = tonightArcs.filter { it.category == category }
                             if (hidden.isNotEmpty()) {
                                 val names = hidden.take(3).joinToString(
                                     if (isEnglishUiLanguage()) ", " else "、",
