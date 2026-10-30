@@ -118,7 +118,7 @@ fun TonightScreen(
     onSaveFavourite: (String) -> Unit,
     onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
-    onOpenTargetCalculator: (CalcCategory, DeepSkyObject) -> Unit,
+    onOpenTargetCalculator: (CalcCategory, CalcPrefill) -> Unit,
     orientationProvider: app.astroexposure.domain.orientation.DeviceOrientationProvider,
     siteLatitudeDeg: Double,
     siteLongitudeDeg: Double,
@@ -274,6 +274,38 @@ fun TonightScreen(
     }
 
     val evalMatchesCursor = cursorEval != null && cursorEval!!.instant == retainedCursor
+
+    // Locate highlight (ui-design §7.8): the lane a locate landed on
+    // carries a gold border for ~1.2 s, then the state clears itself.
+    var highlightedSubjectId by remember(date) { mutableStateOf<String?>(null) }
+    LaunchedEffect(highlightedSubjectId) {
+        if (highlightedSubjectId != null) {
+            delay(1200)
+            highlightedSubjectId = null
+        }
+    }
+
+    // The lanes the timeline draws (ui-design §7.8): in the cursor
+    // state the ranked shootable set, in the whole-night state the
+    // board lanes — with tonight's radiant lanes appended in both.
+    val displayArcs = mutableListOf<TimelineArc>()
+    if (cursorActive) {
+        if (evalMatchesCursor) {
+            for (target in cursorEval!!.targets) {
+                displayArcs += target.toTimelineArc(highlightedSubjectId)
+            }
+            for (lane in overview.radiantLanes) {
+                displayArcs += lane.toTimelineArc(highlightedSubjectId)
+            }
+        }
+    } else {
+        for (lane in overview.lanes) {
+            displayArcs += lane.toTimelineArc(highlightedSubjectId)
+        }
+        for (lane in overview.radiantLanes) {
+            displayArcs += lane.toTimelineArc(highlightedSubjectId)
+        }
+    }
 
     // The detail dialog's evaluation: runs when a lane tap names a
     // target, against the cursor instant at that moment (the dialog
@@ -498,19 +530,7 @@ fun TonightScreen(
             bubbleSnapLabel = snappedLabel,
             bubbleSegmentText = bubbleSegmentText,
             bubbleTierText = bubbleTierText,
-            arcs = if (cursorActive && evalMatchesCursor) {
-                cursorEval!!.targets.map { target ->
-                    TimelineArc(
-                        intervals = target.arcIntervals,
-                        phases = target.phases,
-                        label = target.obj.nameZh ?: target.obj.name,
-                        altitudeSamples = target.altitudeSamples,
-                        recommendedFrame = target.recommendedFrame,
-                    )
-                }
-            } else {
-                emptyList()
-            },
+            arcs = displayArcs,
             followLive = cursorActive && followState.driving,
             jumpToNowVisible = cursorActive && TimelineCursor.jumpToNowOffered(
                 followState, retainedCursor, nowMinute,
@@ -603,13 +623,54 @@ fun TonightScreen(
                 // not resurrect the cursor the user just dismissed.
                 followState = followState.afterWholeNightExit()
             },
-            onArcTap = { index ->
-                // Tapping a lane opens its target's detail dialog
+            onArcTap = { subjectId ->
+                // Tapping a lane opens its entry's detail dialog
                 // (ui-design §7.5): the detail is evaluated on demand
-                // for the tapped target at the cursor instant.
-                if (evalMatchesCursor) {
-                    cursorEval!!.targets.getOrNull(index)?.let { detailObjectId = it.obj.id }
+                // for the tapped subject at the cursor instant. In
+                // the whole-night state there is no cursor yet, so
+                // the tap first locates — the cursor lands on the
+                // entry's recommended start through the manual
+                // takeover path — and the dialog evaluates there.
+                if (cursorActive) {
+                    if (evalMatchesCursor) {
+                        detailObjectId = subjectId
+                    }
+                } else {
+                    val lane = (overview.lanes + overview.radiantLanes)
+                        .firstOrNull { it.subject.id == subjectId }
+                    if (lane != null) {
+                        placeCursorManually(
+                            lane.recommendedFrame?.start ?: lane.culmination,
+                        )
+                        highlightedSubjectId = subjectId
+                        detailObjectId = subjectId
+                    }
                 }
+            },
+            picks = overview.shortlist.map { entry -> entry.toTonightPick() },
+            picksAvailable = overview.shortlistAvailable,
+            picksDateLabel = date.format(
+                DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM),
+            ),
+            onPickOpen = { pick ->
+                // A picks row opens the entry's detail (ui-design
+                // §7.8) — at the placed cursor in the cursor state;
+                // in the whole-night state the tap locates first,
+                // like a lane tap, so the dialog has a meaningful
+                // instant to evaluate at.
+                if (!cursorActive) {
+                    placeCursorManually(pick.recommendedStart ?: pick.culmination)
+                    highlightedSubjectId = pick.subjectId
+                }
+                detailObjectId = pick.subjectId
+            },
+            onPickLocate = { pick ->
+                // The locate chip (ui-design §7.8): the cursor goes
+                // to the entry's recommended start through the
+                // existing manual-takeover semantics (follow off,
+                // cursor pinned), and the lane flashes its highlight.
+                placeCursorManually(pick.recommendedStart ?: pick.culmination)
+                highlightedSubjectId = pick.subjectId
             },
         )
 
@@ -622,10 +683,13 @@ fun TonightScreen(
         // calculator action appears only when the target's category
         // maps to a calculator (targetCalcCategory).
         detailObjectId?.let { id ->
-            val detail = targetDetail?.takeIf { it.obj.id == id }
-            val tappedName = cursorEval?.targets?.firstOrNull { it.obj.id == id }?.obj
-                ?.let { it.nameZh ?: it.name }
-            val category = detail?.let { targetCalcCategory(it.obj.type) }
+            val detail = targetDetail?.takeIf { it.subject.id == id }
+            val tappedName = displayArcs.firstOrNull { it.subjectId == id }?.subjectName
+            val category = detail?.let { subjectCalcCategory(it.subject) }
+            // The handover prefill is composed here, in composition
+            // (its name is UI-language work), and merely captured by
+            // the action lambda below.
+            val prefill = detail?.let { CalcPrefill.fromSubject(it.subject) }
             if (detail != null && retainedCursor != null) {
                 TargetDetailDialog(
                     detail = detail,
@@ -643,9 +707,9 @@ fun TonightScreen(
                     } else {
                         null
                     },
-                    onAction = if (category != null) {
+                    onAction = if (category != null && prefill != null) {
                         {
-                            onOpenTargetCalculator(category, detail.obj)
+                            onOpenTargetCalculator(category, prefill)
                             detailObjectId = null
                         }
                     } else {
@@ -669,36 +733,13 @@ fun TonightScreen(
             // Cursor state (ui-design §7.5): below the axis only the
             // loading / unavailable strip remains (the status row was
             // deleted in 0.8.4) — target details live in the dialog.
+            // The whole-night state shows nothing here since 0.9.0:
+            // the board moved into the timeline card's picks popup
+            // (ui-design §7.8), so the page order is location card,
+            // overview block, timeline card, events card.
             CursorStatusCard(
                 evaluation = if (evalMatchesCursor) cursorEval else null,
             )
-        } else {
-            // Static bright-object shortlist (unchanged whole-night rules).
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    SectionTitle(stringResource(R.string.tonight_recommendations_title))
-                    if (!overview.recommendationsAvailable) {
-                        Text(text = stringResource(R.string.tonight_recommendations_unavailable))
-                    } else if (overview.recommendations.isEmpty()) {
-                        Text(text = stringResource(R.string.tonight_recommendations_none))
-                    } else {
-                        overview.recommendations.forEach { rec ->
-                            Text(
-                                text = stringResource(
-                                    R.string.tonight_recommendation_item,
-                                    rec.obj.nameZh ?: rec.obj.name,
-                                    rec.obj.magnitude?.toString() ?: "—",
-                                    formatTime(rec.pass.culmination, zone),
-                                    rec.pass.culminationAltitude.value,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         // Events within ±3 days of the selected date.
@@ -902,6 +943,37 @@ private fun timelineMarkFor(
                 } ?: stringResource(R.string.detail_time_line, formatTime(moment.instant, zone)),
             ),
         )
+        TonightOverviewUseCase.MomentKind.RADIANT_CULMINATION -> {
+            // A qualifying radiant's culmination (ui-design §7.8):
+            // the mark names the shower whose lane culminates here.
+            val lane = overview.radiantLanes.firstOrNull {
+                it.culmination == moment.instant
+            }
+            TimelineMark(
+                instant = moment.instant,
+                title = stringResource(
+                    R.string.detail_radiant_moment_title,
+                    lane?.subject?.displayName()
+                        ?: stringResource(R.string.category_meteor),
+                ),
+                shortLabel = stringResource(R.string.timeline_mark_radiant),
+                labelRank = 2,
+                lines = listOf(
+                    if (lane != null) {
+                        stringResource(
+                            R.string.detail_radiant_moment_line,
+                            formatTime(moment.instant, zone),
+                            Math.round(lane.culminationAltitudeDeg),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.detail_time_line,
+                            formatTime(moment.instant, zone),
+                        )
+                    },
+                ),
+            )
+        }
     }
 }
 
@@ -1489,6 +1561,7 @@ private fun momentKindName(kind: TonightOverviewUseCase.MomentKind): String = st
         TonightOverviewUseCase.MomentKind.MOONRISE -> R.string.moment_moonrise
         TonightOverviewUseCase.MomentKind.MOONSET -> R.string.moment_moonset
         TonightOverviewUseCase.MomentKind.GC_CULMINATION -> R.string.moment_gc_culmination
+        TonightOverviewUseCase.MomentKind.RADIANT_CULMINATION -> R.string.moment_radiant_culmination
         TonightOverviewUseCase.MomentKind.ASTRO_DAWN -> R.string.moment_astro_dawn
         TonightOverviewUseCase.MomentKind.SUNRISE -> R.string.moment_sunrise
     },
@@ -1544,6 +1617,85 @@ fun targetCalcCategory(type: DeepSkyObjectType): CalcCategory? = when (type) {
     DeepSkyObjectType.OTHER,
     -> CalcCategory.DEEP_SKY
 }
+
+/**
+ * Which calculator a tonight subject's detail dialog jumps to
+ * (ui-design §7.8): deep-sky objects keep the type table above;
+ * constellations and wide-field viewpoints go to the wide-field
+ * calculator with the centre declination carried in (the same
+ * carry-in rule as deep-sky objects); a radiant goes to the meteor
+ * calculator with its shower selected.
+ */
+fun subjectCalcCategory(
+    subject: TonightOverviewUseCase.TonightSubject,
+): CalcCategory? = when (subject) {
+    is TonightOverviewUseCase.TonightSubject.DeepSky ->
+        targetCalcCategory(subject.obj.type)
+    is TonightOverviewUseCase.TonightSubject.Constellation -> CalcCategory.WIDE_FIELD
+    is TonightOverviewUseCase.TonightSubject.Viewpoint -> CalcCategory.WIDE_FIELD
+    is TonightOverviewUseCase.TonightSubject.Radiant -> CalcCategory.METEOR
+}
+
+/** A cursor-state target as a timeline lane (ui-design §7.8). */
+@Composable
+private fun TonightOverviewUseCase.CursorTarget.toTimelineArc(
+    highlightedSubjectId: String?,
+): TimelineArc = TimelineArc(
+    intervals = arcIntervals,
+    label = "${subject.category.categoryTag()} ${subject.laneLabel()}",
+    altitudeSamples = altitudeSamples,
+    phases = phases,
+    recommendedFrame = recommendedFrame,
+    subjectId = subject.id,
+    subjectName = subject.laneLabel(),
+    category = subject.category,
+    radiant = subject is TonightOverviewUseCase.TonightSubject.Radiant,
+    highlighted = subject.id == highlightedSubjectId,
+)
+
+/** A whole-night lane entry as a timeline lane (ui-design §7.8). */
+@Composable
+private fun TonightOverviewUseCase.LaneEntry.toTimelineArc(
+    highlightedSubjectId: String?,
+): TimelineArc = TimelineArc(
+    intervals = arcIntervals,
+    label = "${subject.category.categoryTag()} ${subject.laneLabel()}",
+    altitudeSamples = altitudeSamples,
+    phases = phases,
+    recommendedFrame = recommendedFrame,
+    subjectId = subject.id,
+    subjectName = subject.laneLabel(),
+    category = subject.category,
+    radiant = subject is TonightOverviewUseCase.TonightSubject.Radiant,
+    highlighted = subject.id == highlightedSubjectId,
+)
+
+/**
+ * A board entry as a picks-popup row (ui-design §7.8): the reason
+ * line is composed from the entry's own threshold facts — whole
+ * night, relative best, or the plain culmination — never a score.
+ */
+@Composable
+private fun TonightOverviewUseCase.ShortlistEntry.toTonightPick(): TonightPick =
+    TonightPick(
+        subjectId = subject.id,
+        category = subject.category,
+        name = subject.displayName(),
+        tag = subject.category.categoryTag(),
+        reason = stringResource(
+            when {
+                spansWholeNight -> R.string.picks_reason_whole_night
+                recommended?.relativeBest == true ->
+                    R.string.picks_reason_relative_best
+                else -> R.string.picks_reason_culmination
+            },
+            Math.round(culminationAltitudeDeg),
+        ),
+        recommendedStart = recommended?.interval?.start,
+        recommendedEnd = recommended?.interval?.end,
+        relativeBest = recommended?.relativeBest == true,
+        culmination = culmination,
+    )
 
 @Composable
 fun BortleSelector(selected: Int?, onChange: (Int?) -> Unit) {

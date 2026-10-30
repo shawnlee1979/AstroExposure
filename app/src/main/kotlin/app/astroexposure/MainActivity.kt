@@ -38,7 +38,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astroexposure.domain.camera.Camera
-import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.geo.FavouriteMatch
 import app.astroexposure.domain.geo.GeoLocation
@@ -60,6 +59,7 @@ import app.astroexposure.support.SkyAssembly
 import app.astroexposure.support.SkyContext
 import app.astroexposure.support.TimeHealthCheck
 import app.astroexposure.ui.CalcCategory
+import app.astroexposure.ui.CalcPrefill
 import app.astroexposure.ui.CalculatorsScreen
 import app.astroexposure.ui.PlansScreen
 import app.astroexposure.ui.SettingsScreen
@@ -117,7 +117,7 @@ private fun AstroApp(container: AppContainer) {
     // A catalogue target handed over from the tonight page's detail
     // dialog (ui-design §7.5): the calculators screen consumes it once
     // to prefill the declination field.
-    var calcPrefill by remember { mutableStateOf<DeepSkyObject?>(null) }
+    var calcPrefill by remember { mutableStateOf<CalcPrefill?>(null) }
     var redLight by rememberSaveable { mutableStateOf(false) }
     var redLightAuto by rememberSaveable { mutableStateOf(false) }
     var defaultStrictness by rememberSaveable { mutableStateOf(Strictness.STANDARD) }
@@ -581,9 +581,9 @@ private fun AstroApp(container: AppContainer) {
                                 objectId,
                             )
                         },
-                        onOpenTargetCalculator = { category, obj ->
+                        onOpenTargetCalculator = { category, prefill ->
                             calcCategory = category
-                            calcPrefill = obj
+                            calcPrefill = prefill
                             tab = Tab.CALCULATE
                         },
                         orientationProvider = container.orientationProvider,
@@ -607,7 +607,7 @@ private fun AstroApp(container: AppContainer) {
                     skyFor = skyFor,
                     category = calcCategory,
                     onCategoryChange = { calcCategory = it },
-                    prefillObject = calcPrefill,
+                    prefill = calcPrefill,
                     onPrefillConsumed = { calcPrefill = null },
                     onSavePlan = { category, title, body, payload ->
                         scope.launch(Dispatchers.IO) {

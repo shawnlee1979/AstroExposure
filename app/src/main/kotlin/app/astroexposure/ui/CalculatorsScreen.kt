@@ -62,6 +62,35 @@ import kotlin.math.roundToInt
 
 enum class CalcCategory { LANDSCAPE, WIDE_FIELD, DEEP_SKY, ECLIPSE, METEOR }
 
+/**
+ * A target handed over from the tonight page's detail dialog
+ * (ui-design §7.5, §7.8): the display name and the declination the
+ * receiving calculators accept, plus — for the meteor calculator —
+ * the shower to select. One handover shape for every tonight
+ * subject category, so the tonight page keeps a single jump
+ * contract whatever the entry's category.
+ */
+data class CalcPrefill(
+    val name: String,
+    val declinationDeg: Double,
+    val showerCode: String? = null,
+) {
+    companion object {
+        /** The prefill for a tonight subject, named in the caller's UI language. */
+        @Composable
+        fun fromSubject(
+            subject: app.astroexposure.usecase.TonightOverviewUseCase.TonightSubject,
+        ): CalcPrefill = CalcPrefill(
+            name = subject.displayName(),
+            declinationDeg = subject.coordinates.declination.value,
+            showerCode = (
+                subject as? app.astroexposure.usecase.TonightOverviewUseCase
+                    .TonightSubject.Radiant
+                )?.shower?.iauCode,
+        )
+    }
+}
+
 fun categoryNameRes(category: CalcCategory): Int = when (category) {
     CalcCategory.LANDSCAPE -> R.string.cat_landscape
     CalcCategory.WIDE_FIELD -> R.string.cat_wide_field
@@ -93,7 +122,7 @@ fun CalculatorsScreen(
     onSavePlan: (category: String, title: String, bodyText: String, payloadJson: String) -> Unit,
     category: CalcCategory,
     onCategoryChange: (CalcCategory) -> Unit,
-    prefillObject: DeepSkyObject? = null,
+    prefill: CalcPrefill? = null,
     onPrefillConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -130,11 +159,17 @@ fun CalculatorsScreen(
     // category switch and never persisted, so leaving the screen
     // drops it too; nothing about it is resident UI.
     var handoverHint by remember { mutableStateOf<Pair<String, String>?>(null) }
-    androidx.compose.runtime.LaunchedEffect(prefillObject) {
-        val obj = prefillObject ?: return@LaunchedEffect
-        declinationText = obj.decDeg.toString()
+    // The meteor handover's shower selection: the screen-level
+    // prefill is consumed (and cleared by the caller) at once, so the
+    // shower code is held here until the meteor calculator — which
+    // owns the selection state — has applied it.
+    var meteorPrefillCode by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(prefill) {
+        val handed = prefill ?: return@LaunchedEffect
+        declinationText = handed.declinationDeg.toString()
         declinationError = false
-        handoverHint = (obj.nameZh ?: obj.name) to declinationText
+        handoverHint = handed.name to declinationText
+        meteorPrefillCode = handed.showerCode
         onPrefillConsumed()
     }
 
@@ -250,6 +285,7 @@ fun CalculatorsScreen(
                 )
                 CalcCategory.LANDSCAPE -> LandscapeCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan, computeSignal,
+                    declinationText = declinationText,
                 )
                 CalcCategory.DEEP_SKY -> DeepSkyCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan, computeSignal,
@@ -259,6 +295,8 @@ fun CalculatorsScreen(
                 )
                 CalcCategory.METEOR -> MeteorCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, showers, skyFor, location, date, onSavePlan, computeSignal,
+                    prefillShowerCode = meteorPrefillCode,
+                    onPrefillShowerConsumed = { meteorPrefillCode = null },
                 )
             }
         }
@@ -468,6 +506,7 @@ private fun LandscapeCalculator(
     sampleInstant: Instant,
     onSavePlan: (String, String, String, String) -> Unit,
     computeSignal: Int,
+    declinationText: String,
 ) {
     var methods by remember {
         mutableStateOf(setOf(LandscapeModel.ForegroundMethod.BLUE_HOUR))
@@ -489,10 +528,22 @@ private fun LandscapeCalculator(
         }
     }
     fun compute() {
-        val skyCtx = skyFor(app.astroexposure.domain.ephemeris.GalacticCenter.COORDINATES)
+        // The sky frame's declination follows the carried-in subject
+        // (ui-design §7.8): the screen's hoisted declination state
+        // holds the galactic centre's −29° by default and a tonight
+        // handover replaces it — the same carry-in rule as the
+        // wide-field calculator's field. The RA stays the galactic
+        // centre's, per the wide-field convention, and an
+        // unparseable field falls back to the centre's declination.
+        val dec = declinationText.toDoubleOrNull()
+            ?: app.astroexposure.domain.ephemeris.GalacticCenter.DEC_DEG
+        val skyCoords = EquatorialCoordinates(
+            app.astroexposure.domain.ephemeris.GalacticCenter.RA_HOURS, Degrees(dec),
+        )
+        val skyCtx = skyFor(skyCoords)
         val wide = container.wideField.execute(
             WideFieldUseCase.Input(
-                camera, focalMm, aperture, app.astroexposure.domain.ephemeris.GalacticCenter.DEC_DEG, strictness, profile, skyCtx.totalSky,
+                camera, focalMm, aperture, dec, strictness, profile, skyCtx.totalSky,
             ),
         )
         val skyShutter: Double
@@ -513,7 +564,7 @@ private fun LandscapeCalculator(
                 // untracked NPF value and the card says so explicitly.
                 val npf = container.wideField.execute(
                     WideFieldUseCase.Input(
-                        camera, focalMm, aperture, app.astroexposure.domain.ephemeris.GalacticCenter.DEC_DEG, strictness,
+                        camera, focalMm, aperture, dec, strictness,
                         app.astroexposure.domain.tracking.BuiltInTrackingProfiles.UNTRACKED,
                         skyCtx.totalSky,
                     ),
@@ -1011,9 +1062,19 @@ private fun MeteorCalculator(
     date: LocalDate,
     onSavePlan: (String, String, String, String) -> Unit,
     computeSignal: Int,
+    prefillShowerCode: String? = null,
+    onPrefillShowerConsumed: () -> Unit = {},
 ) {
     var shower by remember(showers) {
         mutableStateOf(showers.firstOrNull { it.iauCode == "PER" } ?: showers.firstOrNull())
+    }
+    // A shower handed over from a radiant's detail dialog
+    // (ui-design §7.8) selects itself here, where the selection
+    // state lives; an unknown code selects nothing.
+    androidx.compose.runtime.LaunchedEffect(prefillShowerCode) {
+        val code = prefillShowerCode ?: return@LaunchedEffect
+        showers.firstOrNull { it.iauCode == code }?.let { shower = it }
+        onPrefillShowerConsumed()
     }
     var hours by remember { mutableStateOf(3.0f) }
     var card by remember { mutableStateOf<app.astroexposure.usecase.MeteorUseCase.Card?>(null) }

@@ -70,7 +70,7 @@ fun TargetDetailDialog(
     onAction: (() -> Unit)?,
 ) {
     DetailDialog(
-        title = detail.obj.nameZh ?: detail.obj.name,
+        title = detail.subject.displayName(),
         lines = emptyList(),
         onDismiss = onDismiss,
         actionLabel = actionLabel,
@@ -82,7 +82,7 @@ fun TargetDetailDialog(
                     verticalAlignment = Alignment.Top,
                 ) {
                     Text(
-                        text = detail.obj.nameZh ?: detail.obj.name,
+                        text = detail.subject.displayName(),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.weight(1f),
                     )
@@ -184,11 +184,73 @@ fun TargetDetailDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(
-                        text = framingNoteText(detail),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // Category notes (ui-design §7.8): a
+                    // constellation names its representative bright
+                    // stars and its editorial note; a viewpoint shows
+                    // its note; both state the centre-point caliber
+                    // their arc and windows were computed under. A
+                    // radiant has no note lines.
+                    when (val subject = detail.subject) {
+                        is TonightOverviewUseCase.TonightSubject.Constellation -> {
+                            val english = isEnglishUiLanguage()
+                            val stars = subject.entry.brightStars.joinToString(" · ") { star ->
+                                (if (english) star.nameEn else star.nameZh) +
+                                    " " + star.magnitude
+                            }
+                            Text(
+                                text = stringResource(
+                                    R.string.detail_note_bright_stars, stars,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = if (english) {
+                                    subject.entry.noteEn
+                                } else {
+                                    subject.entry.noteZh
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.detail_note_center_point,
+                                    subject.entry.sizeMajorDeg,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        is TonightOverviewUseCase.TonightSubject.Viewpoint -> {
+                            val english = isEnglishUiLanguage()
+                            Text(
+                                text = if (english) {
+                                    subject.viewpoint.noteEn
+                                } else {
+                                    subject.viewpoint.noteZh
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.detail_note_center_point,
+                                    subject.viewpoint.sizeMajorDeg,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        else -> Unit
+                    }
+                    if (detail.subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
+                        Text(
+                            text = framingNoteText(detail),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         },
@@ -252,18 +314,22 @@ private fun DetailWarningBar(text: String, severity: WarningSeverity) {
 }
 
 /**
- * The head's meta line: type · magnitude · constellation, each part
- * present only when the catalogue actually has it (never filled in).
- * The catalogue stores the IAU three-letter code; the line shows the
+ * The head's meta line, per subject category (ui-design §7.5, §7.8):
+ * a deep-sky object keeps type · magnitude · constellation, each
+ * part present only when the catalogue actually has it (never
+ * filled in); a constellation or viewpoint shows its category and
+ * its approximate angular extent; a radiant names itself. The DSO
+ * catalogue stores the IAU three-letter code; the line shows the
  * localized name ([ConstellationNames]), never the raw code.
  */
 @Composable
 private fun detailMetaLine(detail: TonightOverviewUseCase.TargetDetail): String {
-    val obj = detail.obj
     val english = isEnglishUiLanguage()
-    val parts = buildList {
-        add(
-            stringResource(
+    return when (val subject = detail.subject) {
+        is TonightOverviewUseCase.TonightSubject.DeepSky -> {
+            val obj = subject.obj
+            val parts = mutableListOf<String>()
+            parts += stringResource(
                 when (obj.type) {
                     DeepSkyObjectType.GALAXY -> R.string.obj_type_galaxy
                     DeepSkyObjectType.OPEN_CLUSTER -> R.string.obj_type_open_cluster
@@ -275,12 +341,32 @@ private fun detailMetaLine(detail: TonightOverviewUseCase.TargetDetail): String 
                     DeepSkyObjectType.ASTERISM -> R.string.obj_type_asterism
                     DeepSkyObjectType.OTHER -> R.string.obj_type_other
                 },
-            ),
-        )
-        obj.magnitude?.let { add(stringResource(R.string.detail_meta_magnitude, it)) }
-        obj.constellation?.let { add(ConstellationNames.displayName(it, english)) }
+            )
+            obj.magnitude?.let {
+                parts += stringResource(R.string.detail_meta_magnitude, it)
+            }
+            obj.constellation?.let {
+                parts += ConstellationNames.displayName(it, english)
+            }
+            parts.joinToString(" · ")
+        }
+        is TonightOverviewUseCase.TonightSubject.Constellation ->
+            stringResource(R.string.detail_meta_constellation) + " · " +
+                stringResource(
+                    R.string.detail_meta_extent,
+                    subject.entry.sizeMajorDeg,
+                    subject.entry.sizeMinorDeg,
+                )
+        is TonightOverviewUseCase.TonightSubject.Viewpoint ->
+            stringResource(R.string.detail_meta_viewpoint) + " · " +
+                stringResource(
+                    R.string.detail_meta_extent,
+                    subject.viewpoint.sizeMajorDeg,
+                    subject.viewpoint.sizeMinorDeg,
+                )
+        is TonightOverviewUseCase.TonightSubject.Radiant ->
+            stringResource(R.string.detail_meta_radiant)
     }
-    return parts.joinToString(" · ")
 }
 
 /**
@@ -365,15 +451,40 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
                 modifier = Modifier.weight(1f),
             )
         }
+        // Row 2 names what the coordinates ARE (ui-design §7.8):
+        // a centre for constellations and viewpoints, the radiant
+        // for a shower, the object itself for deep-sky entries.
+        val raLabel = when (detail.subject) {
+            is TonightOverviewUseCase.TonightSubject.Constellation,
+            is TonightOverviewUseCase.TonightSubject.Viewpoint ->
+                R.string.detail_grid_ra_center
+            is TonightOverviewUseCase.TonightSubject.Radiant ->
+                R.string.detail_grid_ra_radiant
+            is TonightOverviewUseCase.TonightSubject.DeepSky -> R.string.detail_grid_ra
+        }
+        val decLabel = when (detail.subject) {
+            is TonightOverviewUseCase.TonightSubject.Constellation,
+            is TonightOverviewUseCase.TonightSubject.Viewpoint ->
+                R.string.detail_grid_dec_center
+            is TonightOverviewUseCase.TonightSubject.Radiant ->
+                R.string.detail_grid_dec_radiant
+            is TonightOverviewUseCase.TonightSubject.DeepSky -> R.string.detail_grid_dec
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             GridCell(
-                label = stringResource(R.string.detail_grid_ra),
-                value = stringResource(R.string.detail_grid_ra_value, detail.obj.raHours),
+                label = stringResource(raLabel),
+                value = stringResource(
+                    R.string.detail_grid_ra_value,
+                    detail.subject.coordinates.raHours,
+                ),
                 modifier = Modifier.weight(1f),
             )
             GridCell(
-                label = stringResource(R.string.detail_grid_dec),
-                value = stringResource(R.string.detail_grid_dec_value, detail.obj.decDeg),
+                label = stringResource(decLabel),
+                value = stringResource(
+                    R.string.detail_grid_dec_value,
+                    detail.subject.coordinates.declination.value,
+                ),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -422,7 +533,19 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             GridCell(
-                label = stringResource(R.string.detail_grid_moon_separation),
+                // The separation is measured at the calculation
+                // point; for an extended entry the label says so
+                // (ui-design §7.8: 距中心).
+                label = stringResource(
+                    if (
+                        detail.subject is TonightOverviewUseCase.TonightSubject.Constellation ||
+                        detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint
+                    ) {
+                        R.string.detail_grid_moon_separation_center
+                    } else {
+                        R.string.detail_grid_moon_separation
+                    },
+                ),
                 value = "${Math.round(detail.moonSeparationDeg)}°",
                 sub = if (!detail.moonUp) {
                     stringResource(R.string.cursor_moon_below_horizon)
@@ -437,18 +560,39 @@ private fun DetailGrid(detail: TonightOverviewUseCase.TargetDetail, zone: ZoneId
                 modifier = Modifier.weight(1f),
             )
         }
-        val focals = focalCells(detail)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            GridCell(
-                label = stringResource(R.string.detail_grid_suggested_focal),
-                value = focals.first,
-                modifier = Modifier.weight(1f),
-            )
-            GridCell(
-                label = stringResource(R.string.detail_grid_reference_focal),
-                value = focals.second,
-                modifier = Modifier.weight(1f),
-            )
+        if (detail.subject is TonightOverviewUseCase.TonightSubject.Radiant) {
+            // Row 6 for a radiant (ui-design §7.8): peak date and
+            // ZHR instead of focal lengths — a radiant has no size
+            // to frame.
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                GridCell(
+                    label = stringResource(R.string.detail_grid_peak_date),
+                    value = detail.meteorPeakDate?.let {
+                        stringResource(R.string.detail_grid_peak_value, it.toString())
+                    } ?: stringResource(R.string.detail_grid_none),
+                    modifier = Modifier.weight(1f),
+                )
+                GridCell(
+                    label = stringResource(R.string.detail_grid_zhr),
+                    value = detail.meteorZhr?.toString()
+                        ?: stringResource(R.string.detail_grid_none),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            val focals = focalCells(detail)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                GridCell(
+                    label = stringResource(R.string.detail_grid_suggested_focal),
+                    value = focals.first,
+                    modifier = Modifier.weight(1f),
+                )
+                GridCell(
+                    label = stringResource(R.string.detail_grid_reference_focal),
+                    value = focals.second,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

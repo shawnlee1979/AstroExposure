@@ -17,12 +17,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +63,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,6 +130,40 @@ data class TimelineArc(
      * in the red theme where hues collapse into one family.
      */
     val recommendedFrame: NightTimeline.Interval? = null,
+    /** The lane's subject id (ui-design §7.8): taps and highlights address lanes by it. */
+    val subjectId: String = "",
+    /** The subject's plain display name (no category tag), for the filter fact lines. */
+    val subjectName: String = "",
+    /** The lane's board category, for the category filter (ui-design §7.8); null = unfiltered environment. */
+    val category: TonightOverviewUseCase.SubjectCategory? = null,
+    /**
+     * A meteor radiant lane (ui-design §7.8): dashed arc, info-blue
+     * fill, no culmination tint and no gold frame — the recommended
+     * interval does not apply to a radiant.
+     */
+    val radiant: Boolean = false,
+    /** The locate highlight (ui-design §7.8): a gold border for ~1.2 s after a popup locate. */
+    val highlighted: Boolean = false,
+)
+
+/**
+ * One row of the tonight-picks popup (ui-design §7.8): the board
+ * entry's identity and category, its composed one-line reason, and
+ * the recommended interval the row's locate chip acts on (the
+ * culmination is the locate fallback for an entry whose recommended
+ * window is absent). Rows and lanes are built from the same board,
+ * so a row always has its lane.
+ */
+data class TonightPick(
+    val subjectId: String,
+    val category: TonightOverviewUseCase.SubjectCategory,
+    val name: String,
+    val tag: String,
+    val reason: String,
+    val recommendedStart: Instant?,
+    val recommendedEnd: Instant?,
+    val relativeBest: Boolean,
+    val culmination: Instant,
 )
 
 /** Arc lane visual height (ui-design §7.5): the comparison board's compact 26dp lane. */
@@ -372,6 +412,15 @@ private suspend fun PointerInputScope.detectCursorLongPressDrag(
  * button's offer and the tick's decision are domain rules
  * ([TimelineCursor.jumpToNowOffered], [TimelineCursor.followTickAction]).
  */
+/** Filter chip order (ui-design §7.8): deep sky, wide-field, constellation, meteor. */
+private val CATEGORY_FILTER_ORDER = listOf(
+    TonightOverviewUseCase.SubjectCategory.DEEP_SKY,
+    TonightOverviewUseCase.SubjectCategory.WIDE_FIELD,
+    TonightOverviewUseCase.SubjectCategory.CONSTELLATION,
+    TonightOverviewUseCase.SubjectCategory.METEOR,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NightTimelineCard(
     timeline: TonightOverviewUseCase.Timeline,
@@ -398,7 +447,16 @@ fun NightTimelineCard(
     onTrackDrag: (Instant) -> Unit = {},
     onCursorStep: (Long) -> Unit = {},
     onExitCursor: () -> Unit = {},
-    onArcTap: (Int) -> Unit = {},
+    /** A lane tap, addressed by subject id (ui-design §7.8). */
+    onArcTap: (String) -> Unit = {},
+    /** Tonight-picks popup content (ui-design §7.8): the board rows, in board order. */
+    picks: List<TonightPick> = emptyList(),
+    /** False when a board catalogue failed to load: the popup says so instead of listing. */
+    picksAvailable: Boolean = true,
+    /** The night's date label for the popup header. */
+    picksDateLabel: String = "",
+    onPickOpen: (TonightPick) -> Unit = {},
+    onPickLocate: (TonightPick) -> Unit = {},
     cursorLocked: Boolean = false,
     onCursorLongPressDrag: (Instant) -> Unit = {},
     onCursorGrab: () -> Unit = {},
@@ -410,6 +468,17 @@ fun NightTimelineCard(
     onJumpToNow: () -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
+    // Category filter and picks popup (ui-design §7.8): pure display
+    // state — remember only, never persisted, and every visit starts
+    // all-on, so a category switched off tonight can never silently
+    // hide tomorrow's targets. The filter touches only what draws
+    // (lanes + popup rows); the board upstream never changes with it.
+    var hiddenCategories by remember {
+        mutableStateOf<Set<TonightOverviewUseCase.SubjectCategory>>(emptySet())
+    }
+    var picksOpen by remember { mutableStateOf(false) }
+    val visibleArcs = arcs.filter { it.category == null || it.category !in hiddenCategories }
+    val visiblePicks = picks.filter { it.category !in hiddenCategories }
     val chartDescription = stringResource(R.string.timeline_chart_description)
     // Anti-mistouch gesture state (ui-design §7.5): snapshots read at
     // gesture start — deliberately NOT pointerInput keys, since a key
@@ -436,12 +505,85 @@ fun NightTimelineCard(
     // in both themes instead of a hard-coded near-black.
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
+    if (picksOpen) {
+        PicksSheet(
+            picks = visiblePicks,
+            boardEmpty = picks.isEmpty(),
+            available = picksAvailable,
+            dateLabel = picksDateLabel,
+            hiddenBoardCategories = hiddenCategories -
+                TonightOverviewUseCase.SubjectCategory.METEOR,
+            onShowAll = { hiddenCategories = emptySet() },
+            onOpen = { pick ->
+                picksOpen = false
+                onPickOpen(pick)
+            },
+            onLocate = { pick ->
+                picksOpen = false
+                onPickLocate(pick)
+            },
+            onDismiss = { picksOpen = false },
+            zone = zone,
+        )
+    }
+
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            SectionTitle(stringResource(R.string.timeline_title))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    SectionTitle(stringResource(R.string.timeline_title))
+                }
+                // Tonight-picks button (ui-design §7.8): the full
+                // board lives behind it in a bottom sheet. The badge
+                // counts what the sheet will show under the current
+                // category filter, so it shrinks as categories close.
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, borderColor, RoundedCornerShape(50))
+                        .clickable { picksOpen = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "☰",
+                            fontSize = 12.sp,
+                            color = secondaryTextColor,
+                        )
+                        Text(
+                            text = stringResource(R.string.picks_button),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (picksAvailable) {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .background(sunColor, RoundedCornerShape(50)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = visiblePicks.size.toString(),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onPrimaryColor,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (!timeline.hasAstronomicalNight) {
                 Text(
                     text = stringResource(R.string.timeline_no_night),
@@ -462,14 +604,49 @@ fun NightTimelineCard(
             // Lane legend (ui-design §7.5, 0.8.13): one quiet line
             // under the subtitle naming the lanes' two gold encodings
             // — the recommended window's frame and the culmination
-            // span's tint. Only the cursor state has lanes, so only
-            // it carries the legend.
-            if (cursorActive) {
+            // span's tint. Shown whenever lanes exist (both states
+            // have them since 0.9.0).
+            if (arcs.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.timeline_lane_legend),
                     fontSize = 10.sp,
                     color = axisTextColor,
                 )
+            }
+            // Category filter chips (ui-design §7.8): one per board
+            // category carrying tonight's lane count, multi-select,
+            // default all-on. A 0-count category keeps its place —
+            // the row's positions must not jump from night to night —
+            // and its count already says it is empty tonight.
+            if (arcs.isNotEmpty() || picks.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (category in CATEGORY_FILTER_ORDER) {
+                        val count = arcs.count { it.category == category }
+                        FilterChip(
+                            selected = category !in hiddenCategories,
+                            onClick = {
+                                hiddenCategories = if (category in hiddenCategories) {
+                                    hiddenCategories - category
+                                } else {
+                                    hiddenCategories + category
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = "${category.categoryName()} $count",
+                                    color = if (count == 0) {
+                                        axisTextColor
+                                    } else {
+                                        Color.Unspecified
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
             }
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -756,29 +933,41 @@ fun NightTimelineCard(
                             // cursor could no longer be dragged at all.
                             // Tapping a lane opens its target's detail
                             // dialog.
-                            if (cursorActive && arcs.isNotEmpty()) {
+                            // Lanes draw in BOTH states since 0.9.0
+                            // (ui-design §7.8): the whole-night board
+                            // lanes and the cursor state's ranked set,
+                            // filtered by the category chips. In the
+                            // whole-night state there are no cursor
+                            // gestures to protect, so the lane overlays
+                            // CONSUME their taps (a lane tap locates
+                            // and opens its entry; a tap elsewhere
+                            // places the cursor); in the cursor state
+                            // they keep the observe-only arrangement.
+                            if (visibleArcs.isNotEmpty()) {
                                 Box(modifier = Modifier.padding(top = 5.dp)) {
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(5.dp),
                                     ) {
-                                        arcs.forEach { arc ->
+                                        visibleArcs.forEach { arc ->
                                             ArcLane(
                                                 arc = arc,
                                                 timeline = timeline,
                                                 accent = sunColor,
+                                                infoColor = moonColor,
                                             )
                                         }
                                     }
                                     Column {
-                                        arcs.forEachIndexed { index, arc ->
+                                        visibleArcs.forEachIndexed { index, arc ->
                                             ArcTapOverlay(
                                                 label = arc.label,
-                                                height = if (index < arcs.lastIndex) {
+                                                height = if (index < visibleArcs.lastIndex) {
                                                     31.dp
                                                 } else {
                                                     ARC_LANE_HEIGHT_DP
                                                 },
-                                                onTap = { onArcTap(index) },
+                                                consumeTap = !cursorActive,
+                                                onTap = { onArcTap(arc.subjectId) },
                                             )
                                         }
                                     }
@@ -920,6 +1109,40 @@ fun NightTimelineCard(
                                 }
                             }
                         }
+                    }
+                    // Filter fact lines (ui-design §7.8): a hidden
+                    // category that HAS lanes tonight says so —
+                    // which lanes are hidden, and that the board and
+                    // its quotas did not change and were not
+                    // backfilled. A hidden category with no lanes
+                    // tonight needs no line (its chip's 0 says it).
+                    for (category in CATEGORY_FILTER_ORDER) {
+                        if (category in hiddenCategories) {
+                            val hidden = arcs.filter { it.category == category }
+                            if (hidden.isNotEmpty()) {
+                                val names = hidden.take(3).joinToString(
+                                    if (isEnglishUiLanguage()) ", " else "、",
+                                ) { it.subjectName } +
+                                    if (hidden.size > 3) "…" else ""
+                                Text(
+                                    text = stringResource(
+                                        R.string.timeline_filter_hidden,
+                                        category.categoryName(),
+                                        names,
+                                        hidden.size,
+                                    ),
+                                    fontSize = 10.sp,
+                                    color = axisTextColor,
+                                )
+                            }
+                        }
+                    }
+                    if (hiddenCategories.size == CATEGORY_FILTER_ORDER.size) {
+                        Text(
+                            text = stringResource(R.string.timeline_filter_all_off),
+                            fontSize = 10.sp,
+                            color = axisTextColor,
+                        )
                     }
                     // No legend row under the panel (0.8.8) and no
                     // axis row either (0.8.9): each window band names
@@ -1310,8 +1533,30 @@ private fun ArcTapOverlay(
     label: String,
     height: Dp,
     onTap: () -> Unit,
+    /**
+     * Whole-night state only (ui-design §7.8): consume the tap with a
+     * plain clickable instead of observing it. There is no placed
+     * cursor to protect there — a lane tap must NOT fall through to
+     * the panel's tap-to-place — while in the cursor state the
+     * observe-only arrangement below is what keeps panel drags and
+     * the long-press grab working from on a lane (0.8.11).
+     */
+    consumeTap: Boolean = false,
 ) {
     val latestOnTap = rememberUpdatedState(onTap)
+    if (consumeTap) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = label
+                }
+                .clickable { latestOnTap.value() },
+        )
+        return
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1375,11 +1620,20 @@ private fun ArcLane(
     arc: TimelineArc,
     timeline: TonightOverviewUseCase.Timeline,
     accent: Color,
+    infoColor: Color,
 ) {
     val laneShape = RoundedCornerShape(6.dp)
     val containerColor = MaterialTheme.colorScheme.surfaceVariant
     val borderColor = MaterialTheme.colorScheme.outlineVariant
-    val windowFill = MaterialTheme.colorScheme.secondaryContainer
+    // A radiant lane (ui-design §7.8) ignores its phases and frame
+    // wholesale — dashed arc over an info-blue fill, no culmination
+    // tint, no gold frame — whatever the evaluation attached to it.
+    val phases = if (arc.radiant) null else arc.phases
+    val windowFill = if (arc.radiant) {
+        infoColor.copy(alpha = 0.16f)
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
     // The culmination span's tint (ui-design §7.5): since 0.8.13 at
     // alpha 0.20, so it reads as a tint over the window fill rather
     // than a solid block of its own (the accent is the theme's
@@ -1401,7 +1655,7 @@ private fun ArcLane(
                     instant, timeline.axisStart, timeline.axisEnd,
                 ).toFloat() * size.width
             val samples = arc.altitudeSamples
-            val peak = arc.phases?.culmination?.altitudeDeg
+            val peak = phases?.culmination?.altitudeDeg
                 ?: samples.maxOfOrNull { it.altitudeDeg } ?: 0.0
             if (samples.size >= 2 && peak > 0.0) {
                 val topPad = 2.dp.toPx()
@@ -1517,19 +1771,31 @@ private fun ArcLane(
                         moveTo(points.first().x, points.first().y)
                         points.drop(1).forEach { lineTo(it.x, it.y) }
                     }
+                    // A radiant's arc is dashed info-blue (ui-design
+                    // §7.8) — line style, not hue alone, tells it
+                    // apart from a target's solid grey arc.
                     drawPath(
                         path = path,
-                        color = curveColor,
-                        style = Stroke(width = 1.2.dp.toPx()),
+                        color = if (arc.radiant) infoColor else curveColor,
+                        style = Stroke(
+                            width = 1.2.dp.toPx(),
+                            pathEffect = if (arc.radiant) {
+                                PathEffect.dashPathEffect(
+                                    floatArrayOf(6.dp.toPx(), 4.dp.toPx()),
+                                )
+                            } else {
+                                null
+                            },
+                        ),
                     )
                 }
-                val windows = arc.phases?.window?.let { listOf(it) }
+                val windows = phases?.window?.let { listOf(it) }
                     ?: arc.intervals
                 for (window in windows) {
                     val points = windowCurvePoints(window)
                     fillUnder(points, windowFill)
-                    val span = arc.phases?.culminationSpan
-                    if (span != null && arc.phases?.window == window) {
+                    val span = phases?.culminationSpan
+                    if (span != null && phases?.window == window) {
                         fillUnder(
                             subCurvePoints(
                                 points, xOf(span.start), xOf(span.end),
@@ -1542,8 +1808,9 @@ private fun ArcLane(
             }
             // Recommended-window frame (ui-design §7.5): over the
             // curve fills, in the comparison board's geometry — it
-            // draws whether or not samples exist.
-            arc.recommendedFrame?.let { frame ->
+            // draws whether or not samples exist. A radiant lane
+            // never carries one (ui-design §7.8).
+            (if (arc.radiant) null else arc.recommendedFrame)?.let { frame ->
                 val left = xOf(frame.start)
                 val right = xOf(frame.end)
                 if (right - left >= 2f) {
@@ -1577,6 +1844,16 @@ private fun ArcLane(
                 .fillMaxWidth()
                 .padding(start = 8.dp, end = 4.dp),
         )
+        // Locate highlight (ui-design §7.8): a gold border over the
+        // lane for ~1.2 s after a popup locate lands the cursor on
+        // this lane's recommended start.
+        if (arc.highlighted) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(2.dp, accent, laneShape),
+            )
+        }
     }
 }
 
@@ -2072,5 +2349,230 @@ private fun CursorStepButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/**
+ * The tonight-picks bottom sheet (ui-design §7.8): the full board
+ * behind the timeline card's header button. It shows exactly the
+ * picks the current category filter leaves visible (the sync rule):
+ * when a board category is off, a notice row says so and offers the
+ * one-tap "show all" way back. A row tap opens the entry's detail
+ * dialog (the app's single detail path); the row's time area is a
+ * separate locate chip that places the cursor at the entry's
+ * recommended start instead. The footer's line states the quota and
+ * ordering rules the rows embody.
+ */
+@Composable
+private fun PicksSheet(
+    picks: List<TonightPick>,
+    boardEmpty: Boolean,
+    available: Boolean,
+    dateLabel: String,
+    hiddenBoardCategories: Set<TonightOverviewUseCase.SubjectCategory>,
+    onShowAll: () -> Unit,
+    onOpen: (TonightPick) -> Unit,
+    onLocate: (TonightPick) -> Unit,
+    onDismiss: () -> Unit,
+    zone: ZoneId,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surface,
+                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .background(
+                            MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(50),
+                        ),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.picks_title, dateLabel),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clickable { onDismiss() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "✕",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (!available) {
+                    Text(
+                        text = stringResource(R.string.tonight_recommendations_unavailable),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    if (hiddenBoardCategories.isNotEmpty()) {
+                        val hiddenNames = mutableListOf<String>()
+                        for (category in CATEGORY_FILTER_ORDER) {
+                            if (category in hiddenBoardCategories) {
+                                hiddenNames += category.categoryName()
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.picks_sync_notice,
+                                    hiddenNames.joinToString(
+                                        if (isEnglishUiLanguage()) ", " else "、",
+                                    ),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = onShowAll) {
+                                Text(text = stringResource(R.string.picks_show_all))
+                            }
+                        }
+                    }
+                    if (picks.isEmpty()) {
+                        Text(
+                            text = stringResource(
+                                if (boardEmpty) {
+                                    R.string.picks_empty
+                                } else {
+                                    R.string.picks_empty_filtered
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            picks.forEach { pick ->
+                                PickRow(
+                                    pick = pick,
+                                    zone = zone,
+                                    onOpen = onOpen,
+                                    onLocate = onLocate,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.picks_footer_note),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One picks-sheet row (ui-design §7.8): category tag (outlined text,
+ * never colour alone), name and one-line reason, and the locate chip
+ * at the right — a separate hot zone from the row body, so opening
+ * the detail and locating the cursor can never be confused.
+ */
+@Composable
+private fun PickRow(
+    pick: TonightPick,
+    zone: ZoneId,
+    onOpen: (TonightPick) -> Unit,
+    onLocate: (TonightPick) -> Unit,
+) {
+    val locateDescription = stringResource(R.string.picks_locate)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen(pick) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant,
+                    RoundedCornerShape(4.dp),
+                )
+                .padding(horizontal = 5.dp, vertical = 2.dp),
+        ) {
+            Text(
+                text = pick.tag,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = pick.name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+            )
+            Text(
+                text = pick.reason,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { onLocate(pick) }
+                .semantics { contentDescription = locateDescription }
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        ) {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "⌖ " + if (
+                        pick.recommendedStart != null && pick.recommendedEnd != null
+                    ) {
+                        "${formatTime(pick.recommendedStart, zone)}–" +
+                            formatTime(pick.recommendedEnd, zone)
+                    } else {
+                        formatTime(pick.culmination, zone)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (pick.relativeBest) {
+                    Text(
+                        text = stringResource(R.string.picks_relative_best_suffix),
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
