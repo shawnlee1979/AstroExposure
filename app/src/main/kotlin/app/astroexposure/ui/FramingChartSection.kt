@@ -106,6 +106,19 @@ fun FramingChartSection(
     }
 
     val conclusion = framingConclusionText(verdict, portrait, english)
+    // The in-field neighbours row (§7.10): present only when the
+    // chart actually draws neighbours, named from the same drawn
+    // set the canvas labels — and folded into the chart's
+    // accessibility description below, since canvas labels never
+    // reach the accessibility tree.
+    val neighbourLine = if (model.neighbourNames.isNotEmpty()) {
+        stringResource(
+            R.string.framing_same_field,
+            model.neighbourNames.joinToString(" · "),
+        )
+    } else {
+        null
+    }
     val selectedLens = lenses.firstOrNull { it.id == selectedLensId }
 
     Card(modifier = modifier.fillMaxWidth()) {
@@ -139,7 +152,9 @@ fun FramingChartSection(
                         fieldDiagonal = fieldDiagonal,
                         redLight = redLight,
                         chartWidthDeg = chartWidthDeg,
-                        contentDescription = "$conclusion $quantities",
+                        contentDescription = listOfNotNull(
+                            conclusion, quantities, neighbourLine,
+                        ).joinToString(" "),
                     )
                     Text(
                         text = conclusion,
@@ -152,6 +167,12 @@ fun FramingChartSection(
                         style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
                     )
+                    if (neighbourLine != null) {
+                        Text(
+                            text = neighbourLine,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
 
@@ -430,6 +451,17 @@ internal fun framingSegments(
 
 private const val MAX_CONCLUSION_NAMES = 5
 
+/**
+ * Whether a fits verdict also fits with the orientation swapped,
+ * so the conclusion line carries the equivalence note (§7.10).
+ * Only a fits verdict can carry it — for a cut verdict the swap
+ * outcome is the flip hint's business, never the note's.
+ */
+internal fun framingFitsAlsoAfterSwap(verdict: FramingVerdict): Boolean = when (verdict) {
+    is FramingVerdict.Ellipse -> verdict.verdict.fits && verdict.fitsAfterSwap
+    is FramingVerdict.Skeleton -> verdict.out.isEmpty() && verdict.fitsAfterSwap
+}
+
 /** The conclusion line's full text for one verdict (ui-design §7.10). */
 @Composable
 private fun framingConclusionText(
@@ -441,6 +473,7 @@ private fun framingConclusionText(
         portrait -> stringResource(R.string.framing_flip_to_landscape)
         else -> stringResource(R.string.framing_flip_to_portrait)
     }
+    val equivalentNote = stringResource(R.string.framing_fits_equivalent)
     return when (verdict) {
         is FramingVerdict.Ellipse -> {
             val base = when {
@@ -449,11 +482,16 @@ private fun framingConclusionText(
                     stringResource(R.string.framing_cut_ellipse_long)
                 else -> stringResource(R.string.framing_cut_ellipse_short)
             }
-            if (!verdict.verdict.fits && verdict.fitsAfterSwap) "$base · $flipHint" else base
+            when {
+                !verdict.verdict.fits && verdict.fitsAfterSwap -> "$base · $flipHint"
+                framingFitsAlsoAfterSwap(verdict) -> "$base · $equivalentNote"
+                else -> base
+            }
         }
         is FramingVerdict.Skeleton -> {
             if (verdict.out.isEmpty()) {
-                stringResource(R.string.framing_fits)
+                val base = stringResource(R.string.framing_fits)
+                if (framingFitsAlsoAfterSwap(verdict)) "$base · $equivalentNote" else base
             } else {
                 val nameOf: (ChartStar) -> String? = { star ->
                     if (english) {
@@ -518,6 +556,8 @@ internal class ChartModel(
     val stars: List<StarPlot>,
     val lines: List<LinePlot>,
     val neighbours: List<EllipsePlot>,
+    /** Display ids of [neighbours], same order — the conclusion area's in-field row (§7.10). */
+    val neighbourNames: List<String>,
     val subjectEllipse: EllipsePlot?,
     val outStars: List<StarPlot>,
     val labels: List<ChartLabel>,
@@ -528,11 +568,12 @@ internal class ChartModel(
  * drawable. The field filter works on true angular separation.
  * Line figures are clipped to the field square at this layer
  * ([clipPolylineToField], 0.11.1), so every line coordinate the
- * model hands the canvas is bounded by the field radius. Label
- * anchors are NOT bounded this way — the field disc reaches past
- * the canvas rectangle and out-star labels sit wherever their
- * vertex falls — so the canvas makes each anchor safe at draw
- * time instead ([labelDrawDecision], 0.11.2).
+ * model hands the canvas is bounded by the field radius.
+ * Neighbour label anchors are clamped to the same square here;
+ * star label anchors are NOT bounded this way — the field disc
+ * reaches past the canvas rectangle and out-star labels sit
+ * wherever their vertex falls — so the canvas makes each anchor
+ * safe at draw time instead ([labelDrawDecision], 0.11.2).
  */
 internal fun buildChartModel(
     data: TonightOverviewUseCase.FramingChartData,
@@ -571,20 +612,22 @@ internal fun buildChartModel(
         }
     }
 
-    val neighbours = data.neighbours.mapNotNull { neighbour ->
+    val drawnNeighbours = data.neighbours.mapNotNull { neighbour ->
         val reach = radiusDeg + neighbour.sizeMajorArcmin / 120.0
         if (separationOf(neighbour.raDeg, neighbour.decDeg) > reach) {
             return@mapNotNull null
         }
         val center = tangentOf(neighbour.raDeg, neighbour.decDeg)
             ?: return@mapNotNull null
-        EllipsePlot(
+        neighbour to EllipsePlot(
             center = center,
             majorArcmin = neighbour.sizeMajorArcmin,
             minorArcmin = neighbour.sizeMinorArcmin,
             positionAngleDeg = neighbour.positionAngleDeg,
         )
     }
+    val neighbours = drawnNeighbours.map { it.second }
+    val neighbourNames = drawnNeighbours.map { spacedCatalogueId(it.first.id) }
 
     val subjectEllipse = data.ellipse?.let {
         EllipsePlot(
@@ -627,35 +670,51 @@ internal fun buildChartModel(
             labelledStarIds += star.id
         }
     }
-    val neighbourByPoint = data.neighbours.mapNotNull { neighbour ->
-        val center = tangentOf(neighbour.raDeg, neighbour.decDeg)
-            ?: return@mapNotNull null
-        neighbour to center
-    }
-    for ((neighbour, center) in neighbourByPoint) {
-        if (separationOf(neighbour.raDeg, neighbour.decDeg) > radiusDeg) continue
-        val spacedId = neighbour.id.replace(Regex("^(NGC|IC)(\\d+)"), "$1 $2")
-        val text = if (english) {
-            val name = neighbour.name
-            if (name != spacedId && !name.startsWith("Messier ")) {
-                "$spacedId $name"
-            } else {
-                spacedId
-            }
-        } else {
-            neighbour.nameZh?.let { "$spacedId $it" } ?: spacedId
-        }
-        labels += ChartLabel(text, center)
+    // The label set is the drawn set (§7.10: a drawn neighbour
+    // always carries its label — the two sets used to diverge for
+    // centres in the band between the field radius and the reach,
+    // which left nameless ellipses on the chart). A centre outside
+    // the field square has its anchor clamped onto the square, the
+    // same bound the line figures are clipped to.
+    for ((neighbour, plot) in drawnNeighbours) {
+        val anchor = FramingChart.TangentPoint(
+            xEast = plot.center.xEast.coerceIn(-fieldHalfSide, fieldHalfSide),
+            yNorth = plot.center.yNorth.coerceIn(-fieldHalfSide, fieldHalfSide),
+        )
+        labels += ChartLabel(neighbourLabelText(neighbour, english), anchor)
     }
 
     return ChartModel(
         stars = stars,
         lines = lines,
         neighbours = neighbours,
+        neighbourNames = neighbourNames,
         subjectEllipse = subjectEllipse,
         outStars = outStars,
         labels = labels,
     )
+}
+
+/** A catalogue id with its prefix spaced out for display ("NGC869" -> "NGC 869"). */
+private fun spacedCatalogueId(id: String): String =
+    id.replace(Regex("^(NGC|IC)(\\d+)"), "$1 $2")
+
+/** The chart label text for one neighbouring deep-sky object (§7.10). */
+private fun neighbourLabelText(
+    neighbour: TonightOverviewUseCase.FramingNeighbour,
+    english: Boolean,
+): String {
+    val spacedId = spacedCatalogueId(neighbour.id)
+    return if (english) {
+        val name = neighbour.name
+        if (name != spacedId && !name.startsWith("Messier ")) {
+            "$spacedId $name"
+        } else {
+            spacedId
+        }
+    } else {
+        neighbour.nameZh?.let { "$spacedId $it" } ?: spacedId
+    }
 }
 
 /**
@@ -1088,7 +1147,12 @@ private const val ELLIPSE_STEPS = 64
 
 private data class StarTier(val maxMag: Double, val diameterDp: Float, val alpha: Float)
 
-/** Star point tiers by magnitude (ui-design §7.10's table, verbatim). */
+/**
+ * Star point tiers by magnitude: diameter (dp) and opacity per
+ * tier, as tabled in the 0.11.0 design draft
+ * (ui-design/0.11.0-design-proposal.md, the framing section's
+ * element list); ui-design §7.10 carries the same values.
+ */
 private val STAR_TIERS = listOf(
     StarTier(0.5, 3.6f, 1.00f),
     StarTier(1.5, 2.9f, 0.95f),

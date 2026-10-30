@@ -466,6 +466,7 @@
     <string name="framing_caliber">全画幅 36×24 mm · 北朝上 · 东在左</string>
     <string name="framing_no_size">无目录角尺寸，不出取景图</string>
     <string name="framing_fits">框得全</string>
+    <string name="framing_fits_equivalent">（横 / 竖幅同样全入框）</string>
     <string name="framing_cut_prefix">切边</string>
     <string name="framing_cut_ellipse_long">切边 — 长轴向出框</string>
     <string name="framing_cut_ellipse_short">切边 — 短轴向出框</string>
@@ -479,6 +480,7 @@
     <string name="framing_flip_to_portrait">改竖幅可全入框</string>
     <string name="framing_flip_to_landscape">改横幅可全入框</string>
     <string name="framing_quantities">焦距 %1$d mm · 视场 %2$s°×%3$s° · 长边占比 %4$d%% · 图面 %5$d°</string>
+    <string name="framing_same_field">同图面：%1$s</string>
     <string name="framing_focal_label">焦距（对数）</string>
     <string name="framing_focal_readout_range">%1$d mm · 建议参考 %2$d mm（区间 %3$d–%4$d）</string>
     <string name="framing_focal_readout">%1$d mm</string>
