@@ -77,6 +77,10 @@ import kotlinx.coroutines.withTimeout
  * cancel on lock-in / cancel / disposal — the finder section's
  * subscription discipline). Evaluation is debounced like the
  * cursor's, so stepping does not evaluate every intermediate value.
+ * Both writers also raise the bearing's edited flag: until either
+ * has run, the 180° the field opens on is an unedited placeholder
+ * and the section marks the evaluation as a sample (§7.9, 0.13.0)
+ * — the flag follows the edit, never the value.
  */
 @Composable
 fun CompositionSection(
@@ -98,6 +102,15 @@ fun CompositionSection(
     ) -> Unit = { _, _, _ -> },
 ) {
     var bearingDeg by remember { mutableStateOf(180) }
+    // Whether the bearing is the user's own yet (ui-design §7.9,
+    // 0.13.0): the field opens on a 180° placeholder, and until a
+    // stepper step or a compass lock-in actually writes it, the
+    // evaluation below is a SAMPLE — the value carries a marker
+    // and the results carry a header saying so. The flag follows
+    // the edit, never the value: a bearing the user really set
+    // to 180° is not a sample. Session state like the bearing
+    // itself (not persisted, not shared between entrances).
+    var bearingEdited by remember { mutableStateOf(false) }
     var toleranceDeg by remember {
         mutableStateOf(CompositionWindow.DEFAULT_TOLERANCE_DEG)
     }
@@ -149,6 +162,11 @@ fun CompositionSection(
         ) {
             SectionTitle(stringResource(R.string.composition_title))
             Text(
+                text = stringResource(R.string.composition_purpose),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
                 text = stringResource(
                     if (subjectIsViewpoint) {
                         R.string.composition_caliber_anchor
@@ -182,7 +200,10 @@ fun CompositionSection(
                 BearingStepButton(
                     label = "−",
                     description = stringResource(R.string.composition_step_down),
-                ) { step -> bearingDeg = (bearingDeg - step + 360) % 360 }
+                ) { step ->
+                    bearingDeg = (bearingDeg - step + 360) % 360
+                    bearingEdited = true
+                }
                 Text(
                     text = "$bearingDeg°",
                     style = MaterialTheme.typography.bodyLarge,
@@ -190,10 +211,20 @@ fun CompositionSection(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.width(60.dp),
                 )
+                if (!bearingEdited) {
+                    Text(
+                        text = stringResource(R.string.composition_example_tag),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 BearingStepButton(
                     label = "+",
                     description = stringResource(R.string.composition_step_up),
-                ) { step -> bearingDeg = (bearingDeg + step) % 360 }
+                ) { step ->
+                    bearingDeg = (bearingDeg + step) % 360
+                    bearingEdited = true
+                }
             }
             if (!capturing) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -239,7 +270,10 @@ fun CompositionSection(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
-                            heading?.let { bearingDeg = it.roundToInt() % 360 }
+                            heading?.let {
+                                bearingDeg = it.roundToInt() % 360
+                                bearingEdited = true
+                            }
                             capturing = false
                         },
                         enabled = heading != null,
@@ -281,7 +315,18 @@ fun CompositionSection(
             if (current == null) {
                 Text(text = "…", style = MaterialTheme.typography.bodyLarge)
             } else {
-                CompositionResults(evaluation = current, zone = zone)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!bearingEdited) {
+                        Text(
+                            text = stringResource(
+                                R.string.composition_example_note, bearingDeg,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    CompositionResults(evaluation = current, zone = zone)
+                }
             }
         }
     }
