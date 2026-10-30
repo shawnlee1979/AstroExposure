@@ -1849,7 +1849,10 @@ private fun CrashRecordCard() {
                     .verticalScroll(rememberScrollState()),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { clipboard.setText(AnnotatedString(text)) }) {
+                TextButton(
+                    onClick = { clipboard.setText(AnnotatedString(text)) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
                     Text(stringResource(R.string.crash_record_copy))
                 }
                 TextButton(
@@ -1857,6 +1860,7 @@ private fun CrashRecordCard() {
                         CrashTrap.clear(context)
                         record = null
                     },
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     Text(stringResource(R.string.crash_record_dismiss))
                 }
