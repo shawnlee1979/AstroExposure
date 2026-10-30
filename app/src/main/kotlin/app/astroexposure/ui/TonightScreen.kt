@@ -288,15 +288,17 @@ fun TonightScreen(
     // The lanes the timeline draws (ui-design §7.8): in the cursor
     // state the ranked shootable set, in the whole-night state the
     // board lanes — with tonight's radiant lanes appended in both.
+    // In the cursor state the merge is by subject id: the cursor
+    // evaluation's universe already contains tonight's qualifying
+    // radiants, so appending the whole-night radiant lanes
+    // unconditionally drew every radiant twice.
     val displayArcs = mutableListOf<TimelineArc>()
     if (cursorActive) {
         if (evalMatchesCursor) {
-            for (target in cursorEval!!.targets) {
-                displayArcs += target.toTimelineArc(highlightedSubjectId)
-            }
-            for (lane in overview.radiantLanes) {
-                displayArcs += lane.toTimelineArc(highlightedSubjectId)
-            }
+            displayArcs += mergeCursorStateArcs(
+                cursorEval!!.targets.map { it.toTimelineArc(highlightedSubjectId) },
+                overview.radiantLanes.map { it.toTimelineArc(highlightedSubjectId) },
+            )
         }
     } else {
         for (lane in overview.lanes) {
@@ -306,6 +308,14 @@ fun TonightScreen(
             displayArcs += lane.toTimelineArc(highlightedSubjectId)
         }
     }
+
+    // Tonight's own lanes (board + radiants), independent of the
+    // display state: the category filter chips count these and the
+    // hidden-category fact lines name these (ui-design §7.8) — the
+    // counts are a property of the night, identical in both states,
+    // never of the cursor state's ranked display set above.
+    val tonightArcs = (overview.lanes + overview.radiantLanes)
+        .map { it.toTimelineArc(null) }
 
     // The detail dialog's evaluation: runs when a lane tap names a
     // target, against the cursor instant at that moment (the dialog
@@ -531,6 +541,7 @@ fun TonightScreen(
             bubbleSegmentText = bubbleSegmentText,
             bubbleTierText = bubbleTierText,
             arcs = displayArcs,
+            tonightArcs = tonightArcs,
             followLive = cursorActive && followState.driving,
             jumpToNowVisible = cursorActive && TimelineCursor.jumpToNowOffered(
                 followState, retainedCursor, nowMinute,
@@ -1634,6 +1645,33 @@ fun subjectCalcCategory(
     is TonightOverviewUseCase.TonightSubject.Constellation -> CalcCategory.WIDE_FIELD
     is TonightOverviewUseCase.TonightSubject.Viewpoint -> CalcCategory.WIDE_FIELD
     is TonightOverviewUseCase.TonightSubject.Radiant -> CalcCategory.METEOR
+}
+
+/**
+ * The cursor state's lane assembly (ui-design §7.8): the ranked
+ * shootable targets, then the whole-night radiant lanes that are
+ * not already among them. The cursor evaluation's universe includes
+ * tonight's qualifying radiants, so a radiant can arrive from both
+ * sources; merging by subject id keeps exactly one lane per
+ * radiant — the cursor-evaluated one, which carries this instant's
+ * arc. Lanes without a subject id cannot collide and always pass
+ * through; duplicates within the radiant list itself also collapse.
+ */
+internal fun mergeCursorStateArcs(
+    targetArcs: List<TimelineArc>,
+    radiantArcs: List<TimelineArc>,
+): List<TimelineArc> {
+    val seen = HashSet<String>()
+    val out = ArrayList<TimelineArc>(targetArcs.size + radiantArcs.size)
+    for (arc in targetArcs) {
+        if (arc.subjectId.isNotEmpty()) seen += arc.subjectId
+        out += arc
+    }
+    for (arc in radiantArcs) {
+        if (arc.subjectId.isNotEmpty() && !seen.add(arc.subjectId)) continue
+        out += arc
+    }
+    return out
 }
 
 /** A cursor-state target as a timeline lane (ui-design §7.8). */
