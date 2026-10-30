@@ -8,15 +8,17 @@ import org.junit.Test
 
 /**
  * Source-level contract for the framing chart's strings
- * (ui-design §7.10, 0.13.1): the quantities line is the SINGLE
- * home of the chart width and the projection name — the line
- * under the chart, which the accessibility description reuses —
- * and the in-chart corner overlay strings are gone (the overlay
- * duplicated the chart width and printed the constant
- * north-up/east-left convention on every chart). String
- * resources cannot be read from a JVM unit test, so this test
- * reads the shipped resource files directly; it fails loudly if
- * they cannot be found.
+ * (ui-design §7.10, 0.13.1): the quantities string is the SINGLE
+ * home of the chart width and the projection name. It printed
+ * as the visible line under the chart until 0.13.1; since
+ * 0.13.2 that visible line is gone (on-device feedback) and
+ * the string is carried only by the chart's accessibility
+ * description. The in-chart corner overlay strings are gone
+ * since 0.13.1 (the overlay duplicated the chart width and
+ * printed the constant north-up/east-left convention on every
+ * chart). String resources cannot be read from a JVM unit
+ * test, so this test reads the shipped resource files
+ * directly; it fails loudly if they cannot be found.
  */
 class FramingChartStringsTest {
 

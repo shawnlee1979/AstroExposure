@@ -467,10 +467,6 @@
     <string name="composition_plan_best">Composition best: %1$s</string>
     <string name="composition_plan_best_none">Composition best: —</string>
     <string name="composition_minibar_cd">Whole-night bar: dark span is the astronomical night, gold spans are composition windows, gold ticks are best moments</string>
-    <string name="framing_title">Framing chart</string>
-    <string name="framing_purpose">What this focal length and rotation put in the frame — and what they cut.</string>
-    <string name="framing_caliber">Full frame 36×24 mm · north up · east left</string>
-    <string name="framing_candidates_note">Lenses reaching the suggested range · by closeness to the %1$d mm reference</string>
     <string name="framing_candidates_empty_range">No lens in the library reaches the suggested range (%1$d–%2$d mm) — pick any lens under All lenses, or use the slider</string>
     <string name="framing_candidates_empty_capped_max">Target too small: no lens reaches the suggested share — about %1$d%% at the longest focal length; use the slider or pick the longest lens under All lenses</string>
     <string name="framing_candidates_empty_capped_min">Target too large: the suggested range sits below the slider floor — about %1$d%% at the widest focal length; use the slider or pick the widest lens under All lenses</string>

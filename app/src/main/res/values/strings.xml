@@ -469,10 +469,6 @@
     <string name="composition_plan_best">构图最佳：%1$s</string>
     <string name="composition_plan_best_none">构图最佳：—</string>
     <string name="composition_minibar_cd">整晚时间条：深段为天文夜，金段为构图窗，金线为最佳时刻</string>
-    <string name="framing_title">取景图</string>
-    <string name="framing_purpose">这个焦距与摆角下，框里有什么、切掉什么。</string>
-    <string name="framing_caliber">全画幅 36×24 mm · 北朝上 · 东在左</string>
-    <string name="framing_candidates_note">能落入建议区间的镜头 · 按接近参考 %1$d mm 排序</string>
     <string name="framing_candidates_empty_range">镜头库里没有能落入建议区间（%1$d–%2$d mm）的镜头，可经「全部镜头」任选，或用滑杆</string>
     <string name="framing_candidates_empty_capped_max">目标过小：没有镜头能达到建议占比，最长焦距处占比约 %1$d%%，可用滑杆或经「全部镜头」选最长者</string>
     <string name="framing_candidates_empty_capped_min">目标过大：建议区间在滑杆下限以下，最广焦距处占比约 %1$d%%，可用滑杆或经「全部镜头」选最广者</string>

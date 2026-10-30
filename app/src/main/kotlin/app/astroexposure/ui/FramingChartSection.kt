@@ -92,8 +92,8 @@ import kotlin.math.tan
  * The lens pick row (0.13.0) is a CANDIDATE row, not the whole
  * library: [FramingLensCandidates] keeps the lenses that reach
  * the subject's suggested focal range, ordered by closeness to
- * the reference, with a header line saying so; when none reach
- * it, the row's place carries an explicit empty line instead of
+ * the reference; the row carries no header, and when none reach
+ * it, an explicit empty line takes the row's place instead of
  * silently refilling with the whole library. The full library
  * stays one tap away in the all-lenses panel (mount / brand
  * facets, same screen — see [AllLensesPanel]). A pick lands a
@@ -178,18 +178,11 @@ fun FramingChartSection(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionTitle(stringResource(R.string.framing_title))
-            Text(
-                text = stringResource(R.string.framing_purpose),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource(R.string.framing_caliber),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
+            // No section title, purpose line or caliber line:
+            // the section opens with the chart itself (0.13.2,
+            // on-device feedback). The chart's accessibility
+            // description below still carries the verdict, the
+            // quantities and the neighbour names in full.
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val chartWidthDeg = fieldDiagonal *
                     (maxWidth.value / hypot(maxWidth.value, CHART_HEIGHT_DP))
@@ -219,17 +212,11 @@ fun FramingChartSection(
                             conclusion, quantities, neighbourDescription,
                         ).joinToString(" "),
                     )
-                    Text(
-                        text = conclusion,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = quantities,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                    )
+                    // No visible verdict or quantities line under
+                    // the chart (0.13.2, on-device feedback): both
+                    // strings live on in the canvas description
+                    // above, so nothing is lost to the
+                    // accessibility tree.
                 }
             }
 
@@ -260,20 +247,13 @@ fun FramingChartSection(
             }
             if (lenses.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // The row's header states its caliber — or,
-                    // when no lens reaches the suggested range,
-                    // says so outright. The candidate set never
-                    // refills silently from the whole library.
-                    if (selection.candidates.isNotEmpty()) {
-                        Text(
-                            text = stringResource(
-                                R.string.framing_candidates_note,
-                                defaultFocal.roundToInt(),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
+                    // No header line (0.13.2, on-device feedback):
+                    // the chips speak for themselves. When no lens
+                    // reaches the suggested range, an explicit
+                    // empty line takes the row's place instead —
+                    // the candidate set never refills silently
+                    // from the whole library.
+                    if (selection.candidates.isEmpty()) {
                         Text(
                             text = candidateEmptyText(advice, selection, subjectMajorArcmin),
                             style = MaterialTheme.typography.bodySmall,
@@ -1664,8 +1644,8 @@ private fun AllLensesPanel(
  * chip per value. The row is generic over the facet's value type
  * so the selection state stays in that type end to end — the
  * brand facet in particular is keyed by the [LensBrand] enum
- * itself, never by looking a display name back up (0.13.1,
- * supervisor 0.13.0-batch suggestion 3); [valueLabel] is the
+ * itself, never by looking a display name back up (0.13.1);
+ * [valueLabel] is the
  * only place a value becomes display text.
  */
 @Composable
@@ -1745,7 +1725,7 @@ private fun LensPanelRow(
  * The panel row's focal/aperture line: "135 mm · f/1.8",
  * "35–150 mm · f/2–2.8". The aperture numbers come from the
  * shared [formatApertureValue] — the panel has no aperture
- * formatting of its own (0.13.1, supervisor 0.13.0-batch L1).
+ * formatting of its own (0.13.1; §7.10).
  */
 @Composable
 private fun lensSpecText(lens: Lens): String {

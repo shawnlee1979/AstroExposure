@@ -9,8 +9,8 @@ import org.junit.Test
 /**
  * The all-lenses panel's aperture numbers are the shared
  * [formatApertureValue] output — the panel keeps no formatter
- * of its own (ui-design §7.10; 0.13.1, supervisor 0.13.0-batch
- * L1: the panel's former private formatter stripped every
+ * of its own (ui-design §7.10; before 0.13.1 the panel's
+ * former private formatter stripped every
  * trailing ".0", so an f/4.0 lens read "f/4" in the panel but
  * "f/4.0" in the calculator). The value cases pin the shared
  * formatter at the exact points where the two implementations
@@ -18,8 +18,8 @@ import org.junit.Test
  * aperture text, by construction — and the source cases pin
  * that the panel row really calls the shared function, and
  * that the brand facet's selection is keyed by the [LensBrand]
- * enum itself rather than by looking a display name back up
- * (suggestion 3 of the same list). Source is read directly,
+ * enum itself rather than by looking a display name back up.
+ * Source is read directly,
  * like FramingChartStringsTest, because the row's text
  * assembly is a composable a JVM test cannot invoke.
  */

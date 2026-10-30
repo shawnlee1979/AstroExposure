@@ -22,6 +22,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.hypot
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,9 +71,10 @@ import org.junit.Test
  * decision at every placement is Draw on both canvases, and a
  * suppressed P0 has no fully-inside candidate at all (checked
  * independently of the layout's intersection logic). P0
- * minimum-overlap fallback triggers are counted and printed —
- * the fallback is a fuse, not a path (§7.10), and its count is
- * recorded here so any growth is visible.
+ * minimum-overlap fallback triggers are counted, printed and
+ * asserted to be zero — the fallback is a fuse, not a path
+ * (§7.10); if a future batch legitimately needs a trigger,
+ * this assertion and the §7.7 record change together.
  */
 class FramingLabelConstraintSweepTest {
 
@@ -170,6 +172,15 @@ class FramingLabelConstraintSweepTest {
             "label sweep: ${failures.size} decision failure(s); first: " +
                 (failures.firstOrNull() ?: "none"),
             failures.isEmpty(),
+        )
+        assertEquals(
+            "P0 minimum-overlap fallback must stay at zero across the " +
+                "whole sweep (§7.10: the fallback is a fuse, not a path; " +
+                "§7.7 records zero triggers — if a future batch ever " +
+                "legitimately needs a trigger, change this assertion " +
+                "and the spec record together)",
+            0,
+            layoutP0Fallbacks,
         )
     }
 
