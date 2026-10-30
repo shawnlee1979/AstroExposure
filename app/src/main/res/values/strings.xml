@@ -72,8 +72,6 @@
     <string name="category_wide_field">广域</string>
     <string name="category_meteor">流星雨</string>
     <string name="category_meteor_tag">流星</string>
-    <string name="timeline_filter_hidden">%1$s类已关：%2$s，共 %3$d 条泳道隐藏 · 组榜与配额不变、不回填名额</string>
-    <string name="timeline_filter_all_off">全部类目已关 · 点任一类目重新显示</string>
     <string name="timeline_mark_radiant">辐射点中天</string>
     <string name="detail_radiant_moment_title">%1$s · 辐射点中天</string>
     <string name="detail_radiant_moment_line">辐射点 %1$s 过中天，高度 %2$d°</string>
