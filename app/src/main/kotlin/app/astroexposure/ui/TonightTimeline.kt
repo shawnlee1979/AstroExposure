@@ -1139,45 +1139,6 @@ fun NightTimelineCard(
                             }
                         }
                     }
-                    // Filter fact lines (ui-design §7.8): a hidden
-                    // category that HAS lanes tonight says so —
-                    // which lanes are hidden, and that the board and
-                    // its quotas did not change and were not
-                    // backfilled. The lanes named and counted are
-                    // tonight's whole-night lanes (tonightArcs), the
-                    // same source as the chips — in the cursor state
-                    // the display set holds different members and
-                    // would misstate what is hidden. A hidden
-                    // category with no lanes tonight needs no line
-                    // (its chip's 0 says it).
-                    for (category in CATEGORY_FILTER_ORDER) {
-                        if (category in hiddenCategories) {
-                            val hidden = tonightArcs.filter { it.category == category }
-                            if (hidden.isNotEmpty()) {
-                                val names = hidden.take(3).joinToString(
-                                    if (isEnglishUiLanguage()) ", " else "、",
-                                ) { it.subjectName } +
-                                    if (hidden.size > 3) "…" else ""
-                                Text(
-                                    text = stringResource(
-                                        R.string.timeline_filter_hidden,
-                                        category.categoryName(),
-                                        names,
-                                        hidden.size,
-                                    ),
-                                    fontSize = 10.sp,
-                                    color = axisTextColor,
-                                )
-                            }
-                        }
-                    }
-                    if (hiddenCategories.size == CATEGORY_FILTER_ORDER.size) {
-                        Text(
-                            text = stringResource(R.string.timeline_filter_all_off),
-                            fontSize = 10.sp,
-                            color = axisTextColor,
-                        )
-                    }
                     // No legend row under the panel (0.8.8) and no
                     // axis row either (0.8.9): each window band names
                     // itself inside its span, and the whole-hour axis

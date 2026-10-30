@@ -72,8 +72,6 @@
     <string name="category_wide_field">Wide-field</string>
     <string name="category_meteor">Meteors</string>
     <string name="category_meteor_tag">Meteor</string>
-    <string name="timeline_filter_hidden">%1$s off: %2$s — %3$d lane(s) hidden · board and quotas unchanged, no backfill</string>
-    <string name="timeline_filter_all_off">All categories off · tap any category to show again</string>
     <string name="timeline_mark_radiant">Radiant culmination</string>
     <string name="detail_radiant_moment_title">%1$s · radiant culmination</string>
     <string name="detail_radiant_moment_line">The radiant culminates at %1$s, altitude %2$d°</string>
