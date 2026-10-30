@@ -5,26 +5,38 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.astroexposure.R
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ConstellationNames
@@ -37,17 +49,61 @@ import app.astroexposure.usecase.TonightOverviewUseCase
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+
+/**
+ * The steps of the target detail dialog's flow (ui-design §7.5,
+ * 0.12.0), in the order the user works through them: first the
+ * target's information, then the composition choices, and only
+ * then picking the phone up to find the target.
+ */
+internal enum class DetailStep { INFO, COMPOSE, FINDER }
+
+/**
+ * The steps [subject]'s dialog is assembled from, in presentation
+ * order. Target info (the data grid and its notes) and the finder
+ * always exist. The composition step exists whenever the subject
+ * has anything to compose — the framing chart or its no-size
+ * statement, plus the §7.9 composition section — which is every
+ * subject but a meteor radiant: a radiant is not a framable
+ * subject and gets neither (§7.9, §7.10), so its composition
+ * step is absent outright rather than shown empty. Step numbers
+ * are positions in this list, so the radiant's finder is step 2
+ * of 2 — no gap is left for the missing step.
+ */
+internal fun detailSteps(
+    subject: TonightOverviewUseCase.TonightSubject,
+): List<DetailStep> = buildList {
+    add(DetailStep.INFO)
+    if (subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
+        add(DetailStep.COMPOSE)
+    }
+    add(DetailStep.FINDER)
+}
+
+/** The shared name string of a step — the step header and the navigation chip use the same one. */
+private fun detailStepNameRes(step: DetailStep): Int = when (step) {
+    DetailStep.INFO -> R.string.detail_step_info
+    DetailStep.COMPOSE -> R.string.detail_step_compose
+    DetailStep.FINDER -> R.string.detail_step_finder
+}
 
 /**
  * The target detail dialog's layout (ui-design §7.5): the shared
  * [DetailDialog] shell carries a fixed head in its title slot — the
  * target's name, its catalogue meta line, one gold conclusion line
  * and the warning bar, none of which scroll away — a scrolling
- * middle (the finder section, then the one six-row two-column data
- * grid and its small-print notes) as its body, and the shell's own
- * button row as the fixed footer (calculator jump + close). The
- * 0.8.0 folded whole-night section is gone since 0.8.2: every datum
- * lives in the one grid, each exactly once.
+ * middle as its body, and the shell's own button row as the fixed
+ * footer (calculator jump + close). Since 0.12.0 the middle is a
+ * three-step flow in the order the dialog is actually used: step 1
+ * target info (the one six-row two-column data grid and its
+ * small-print notes), step 2 composition (the framing chart, then
+ * the §7.9 composition section), step 3 the finder section, moved
+ * here from the top of the middle — the finder is picked up last,
+ * once the composition is settled. A navigation row at the top of
+ * the middle scrolls any step into view. The 0.8.0 folded
+ * whole-night section is gone since 0.8.2: every datum lives in
+ * the one grid, each exactly once.
  *
  * Every value shown comes from the one on-demand evaluation
  * ([TonightOverviewUseCase.TargetDetail]); the finder only renders
@@ -139,177 +195,284 @@ fun TargetDetailDialog(
             }
         },
         content = {
+            val steps = detailSteps(detail.subject)
+            val scrollState = rememberScrollState()
+            val scope = rememberCoroutineScope()
+            val stepOffsets = remember(detail.subject.id) {
+                mutableStateMapOf<DetailStep, Int>()
+            }
             Column(
                 modifier = Modifier
                     .heightIn(max = MIDDLE_MAX_HEIGHT)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                FinderSection(
-                    provider = orientationProvider,
-                    siteLatitudeDeg = siteLatitudeDeg,
-                    siteLongitudeDeg = siteLongitudeDeg,
-                    siteAltitudeMeters = siteAltitudeMeters,
-                    targetAltDeg = detail.altitudeDeg,
-                    targetAzDeg = detail.azimuthDeg,
-                    horizonRise = detail.horizonRise,
-                    horizonSet = detail.horizonSet,
-                    cursor = cursor,
-                    zone = zone,
-                )
-                DetailGrid(detail = detail, zone = zone)
-                // The grid's small-print notes: the relative-best
-                // qualification of the recommended window, the neutral
-                // moonlight caution, and the framing remainder the
-                // focal cells cannot carry (ui-design §7.5).
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val recommended = detail.recommended
-                    if (recommended?.relativeBest == true) {
-                        Text(
-                            text = stringResource(
-                                R.string.cursor_recommended_relative_best,
-                                recommended.culminationAltitudeDeg,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // The step navigation row (ui-design §7.5,
+                // 0.12.0): one chip per step that actually exists
+                // in this dialog; tapping one scrolls its step
+                // header to the top of the middle. Navigation only
+                // moves the scroll position — no evaluation or
+                // sensor subscription is tied to it.
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    steps.forEachIndexed { index, step ->
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                stepOffsets[step]?.let { offset ->
+                                    scope.launch {
+                                        scrollState.animateScrollTo(offset)
+                                    }
+                                }
+                            },
+                            label = {
+                                Text(
+                                    "${index + 1} " +
+                                        stringResource(detailStepNameRes(step)),
+                                )
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp),
                         )
                     }
-                    if (detail.moonUp &&
-                        detail.moonProximity == TimelineCursor.MoonProximity.CAUTION
+                }
+                steps.forEachIndexed { index, step ->
+                    Column(
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            stepOffsets[step] =
+                                coordinates.positionInParent().y.roundToInt()
+                        },
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(
-                            text = stringResource(
-                                R.string.cursor_moon_caution,
-                                Math.round(detail.moonSeparationDeg),
-                                stringResource(
-                                    moonInterferenceNameRes(detail.moonInterference),
-                                ),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (index > 0) {
+                            // A step after the first sits further
+                            // from the block above (ui-design
+                            // §7.5): the widened gap plus the
+                            // header's divider reads as a chapter
+                            // break, not another card.
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        StepHeader(
+                            step = step,
+                            number = index + 1,
+                            total = steps.size,
                         )
-                    }
-                    // Category notes (ui-design §7.8): a
-                    // constellation names its representative bright
-                    // stars and its editorial note; a viewpoint shows
-                    // its note; both state the centre-point caliber
-                    // their arc and windows were computed under. A
-                    // radiant has no note lines.
-                    when (val subject = detail.subject) {
-                        is TonightOverviewUseCase.TonightSubject.Constellation -> {
-                            val english = isEnglishUiLanguage()
-                            val stars = subject.entry.brightStars.joinToString(" · ") { star ->
-                                (if (english) star.nameEn else star.nameZh) +
-                                    " " + star.magnitude
+                        when (step) {
+                            DetailStep.INFO -> {
+                                DetailGrid(detail = detail, zone = zone)
+                                // The grid's small-print notes: the relative-best
+                                // qualification of the recommended window, the neutral
+                                // moonlight caution, and the framing remainder the
+                                // focal cells cannot carry (ui-design §7.5).
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    val recommended = detail.recommended
+                                    if (recommended?.relativeBest == true) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.cursor_recommended_relative_best,
+                                                recommended.culminationAltitudeDeg,
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (detail.moonUp &&
+                                        detail.moonProximity == TimelineCursor.MoonProximity.CAUTION
+                                    ) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.cursor_moon_caution,
+                                                Math.round(detail.moonSeparationDeg),
+                                                stringResource(
+                                                    moonInterferenceNameRes(detail.moonInterference),
+                                                ),
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    // Category notes (ui-design §7.8): a
+                                    // constellation names its representative bright
+                                    // stars and its editorial note; a viewpoint shows
+                                    // its note; both state the centre-point caliber
+                                    // their arc and windows were computed under. A
+                                    // radiant has no note lines.
+                                    when (val subject = detail.subject) {
+                                        is TonightOverviewUseCase.TonightSubject.Constellation -> {
+                                            val english = isEnglishUiLanguage()
+                                            val stars = subject.entry.brightStars.joinToString(" · ") { star ->
+                                                (if (english) star.nameEn else star.nameZh) +
+                                                    " " + star.magnitude
+                                            }
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.detail_note_bright_stars, stars,
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Text(
+                                                text = if (english) {
+                                                    subject.entry.noteEn
+                                                } else {
+                                                    subject.entry.noteZh
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.detail_note_center_point,
+                                                    subject.entry.sizeMajorDeg,
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        is TonightOverviewUseCase.TonightSubject.Viewpoint -> {
+                                            val english = isEnglishUiLanguage()
+                                            Text(
+                                                text = if (english) {
+                                                    subject.viewpoint.noteEn
+                                                } else {
+                                                    subject.viewpoint.noteZh
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.detail_note_center_point,
+                                                    subject.viewpoint.sizeMajorDeg,
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        else -> Unit
+                                    }
+                                    if (detail.subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
+                                        Text(
+                                            text = framingNoteText(detail),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
                             }
-                            Text(
-                                text = stringResource(
-                                    R.string.detail_note_bright_stars, stars,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = if (english) {
-                                    subject.entry.noteEn
-                                } else {
-                                    subject.entry.noteZh
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = stringResource(
-                                    R.string.detail_note_center_point,
-                                    subject.entry.sizeMajorDeg,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        is TonightOverviewUseCase.TonightSubject.Viewpoint -> {
-                            val english = isEnglishUiLanguage()
-                            Text(
-                                text = if (english) {
-                                    subject.viewpoint.noteEn
-                                } else {
-                                    subject.viewpoint.noteZh
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = stringResource(
-                                    R.string.detail_note_center_point,
-                                    subject.viewpoint.sizeMajorDeg,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        else -> Unit
-                    }
-                    if (detail.subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
-                        Text(
-                            text = framingNoteText(detail),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                            DetailStep.COMPOSE -> {
+                                // The framing chart (ui-design §7.10): the grid's
+                                // focal advice drawn — a star chart with the
+                                // full-frame rectangle over the subject. Deep-sky
+                                // objects and constellations get it; a deep-sky
+                                // object without a catalogue size gets the honest
+                                // one-line statement instead of an empty chart.
+                                // Viewpoints and radiants get neither (a radiant is
+                                // not a framable subject; viewpoints are out of this
+                                // batch's scope). Not the composition section below:
+                                // that one is §7.9's time-window geometry, and the
+                                // two share neither state nor wording.
+                                val chart = detail.framingChart
+                                if (chart != null) {
+                                    FramingChartSection(
+                                        data = chart,
+                                        advice = detail.framing,
+                                        subjectMajorArcmin =
+                                            detail.subject.sizeMajorDeg?.times(60.0) ?: 0.0,
+                                        lenses = lenses,
+                                        redLight = redLight,
+                                    )
+                                } else if (
+                                    detail.subject is TonightOverviewUseCase.TonightSubject.DeepSky &&
+                                    detail.framing is FullFrameFraming.Advice.NoSizeData
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.framing_no_size),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
 
-                // The framing chart (ui-design §7.10): the grid's
-                // focal advice drawn — a star chart with the
-                // full-frame rectangle over the subject. Deep-sky
-                // objects and constellations get it; a deep-sky
-                // object without a catalogue size gets the honest
-                // one-line statement instead of an empty chart.
-                // Viewpoints and radiants get neither (a radiant is
-                // not a framable subject; viewpoints are out of this
-                // batch's scope). Not the composition section below:
-                // that one is §7.9's time-window geometry, and the
-                // two share neither state nor wording.
-                val chart = detail.framingChart
-                if (chart != null) {
-                    FramingChartSection(
-                        data = chart,
-                        advice = detail.framing,
-                        subjectMajorArcmin =
-                            detail.subject.sizeMajorDeg?.times(60.0) ?: 0.0,
-                        lenses = lenses,
-                        redLight = redLight,
-                    )
-                } else if (
-                    detail.subject is TonightOverviewUseCase.TonightSubject.DeepSky &&
-                    detail.framing is FullFrameFraming.Advice.NoSizeData
-                ) {
-                    Text(
-                        text = stringResource(R.string.framing_no_size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                // The composition section (ui-design §7.9): every
-                // pointable subject but a meteor radiant gets one —
-                // a radiant is not a framable subject, and its pane
-                // carries no fake controls.
-                if (detail.subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
-                    CompositionSection(
-                        onEvaluate = onEvaluateComposition,
-                        evaluationKey = detail.subject.id,
-                        orientationProvider = orientationProvider,
-                        siteLatitudeDeg = siteLatitudeDeg,
-                        siteLongitudeDeg = siteLongitudeDeg,
-                        siteAltitudeMeters = siteAltitudeMeters,
-                        zone = zone,
-                        subjectIsViewpoint =
-                            detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
-                    )
+                                // The composition section (ui-design §7.9): every
+                                // pointable subject but a meteor radiant gets one —
+                                // a radiant is not a framable subject, and its pane
+                                // carries no fake controls.
+                                CompositionSection(
+                                    onEvaluate = onEvaluateComposition,
+                                    evaluationKey = detail.subject.id,
+                                    orientationProvider = orientationProvider,
+                                    siteLatitudeDeg = siteLatitudeDeg,
+                                    siteLongitudeDeg = siteLongitudeDeg,
+                                    siteAltitudeMeters = siteAltitudeMeters,
+                                    zone = zone,
+                                    subjectIsViewpoint =
+                                        detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
+                                )
+                            }
+                            DetailStep.FINDER -> {
+                                FinderSection(
+                                    provider = orientationProvider,
+                                    siteLatitudeDeg = siteLatitudeDeg,
+                                    siteLongitudeDeg = siteLongitudeDeg,
+                                    siteAltitudeMeters = siteAltitudeMeters,
+                                    targetAltDeg = detail.altitudeDeg,
+                                    targetAzDeg = detail.azimuthDeg,
+                                    horizonRise = detail.horizonRise,
+                                    horizonSet = detail.horizonSet,
+                                    cursor = cursor,
+                                    zone = zone,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
     )
+}
+
+/**
+ * One step header of the dialog's three-step flow (ui-design
+ * §7.5, 0.12.0): a divider over a numbered badge and the step
+ * name. The header is a signpost, not a control — no tap target,
+ * no completion state; its spoken semantics give the step's
+ * position ("step 2 of 3") instead of reading the badge as a
+ * bare digit. Gold stays reserved for conclusions: neither the
+ * badge nor the name uses it.
+ */
+@Composable
+private fun StepHeader(step: DetailStep, number: Int, total: Int) {
+    val positionDescription =
+        stringResource(R.string.detail_step_position, number, total)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                contentDescription = positionDescription
+            },
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = number.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                text = stringResource(detailStepNameRes(step)),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
 }
 
 /** Which of the two house warning forms a [DetailWarningBar] takes. */

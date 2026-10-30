@@ -706,10 +706,10 @@ fun TonightScreen(
             },
         )
 
-        // Target detail dialog (ui-design §7.5, 0.8.0 layout): the
-        // layered dialog — fixed conclusion head and warning bar,
-        // the finder, the key-data grid and the folded whole-night
-        // section — in the shared DetailDialog shell. Loading and
+        // Target detail dialog (ui-design §7.5): the layered
+        // dialog — fixed conclusion head and warning bar, then the
+        // scrolling three-step middle (target info, composition,
+        // finder) — in the shared DetailDialog shell. Loading and
         // failure keep the plain shell with their distinct wordings
         // (0.7.1): a failure is never dressed as loading. The
         // calculator action appears only when the target's category
