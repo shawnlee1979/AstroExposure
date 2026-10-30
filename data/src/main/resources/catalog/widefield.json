@@ -1,0 +1,84 @@
+{
+ "schemaVersion": 1,
+ "dataVersion": "Editorial wide-field viewpoint list v1 (2026-10-29); anchors and extents are approximations",
+ "source": "Editorial list (this repository)",
+ "viewpoints": [
+  {
+   "id": "galactic-centre",
+   "nameZh": "天蝎–人马银河段（银心）",
+   "nameEn": "Scorpius–Sagittarius Milky Way (Galactic Centre)",
+   "anchorRaHours": 17.75,
+   "anchorDecDeg": -29.0,
+   "sizeMajorDeg": 35,
+   "sizeMinorDeg": 12,
+   "noteZh": "银河最亮核心区，礁湖、三裂星云同段；入秋后只剩黄昏西南短窗。",
+   "noteEn": "The brightest core of the Milky Way, with the Lagoon and Trifid in the same stretch; by late autumn only a short dusk window in the southwest remains."
+  },
+  {
+   "id": "scutum-star-cloud",
+   "nameZh": "盾牌座银河亮云",
+   "nameEn": "Scutum Star Cloud",
+   "anchorRaHours": 18.85,
+   "anchorDecDeg": -8.5,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 10,
+   "noteZh": "夏季银河的一团亮云，野鸭星团 M11 在其北缘。",
+   "noteEn": "A bright cloud of the summer Milky Way; the Wild Duck Cluster M11 sits at its northern edge."
+  },
+  {
+   "id": "cygnus-milky-way",
+   "nameZh": "天鹅座银河段",
+   "nameEn": "Cygnus Milky Way",
+   "anchorRaHours": 20.37,
+   "anchorDecDeg": 40.3,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 12,
+   "noteZh": "北美洲星云与面纱星云同段，夏秋前半夜高悬。",
+   "noteEn": "The North America and Veil Nebulae share this stretch, high in the first half of summer and autumn nights."
+  },
+  {
+   "id": "cassiopeia-milky-way",
+   "nameZh": "仙后座银河段",
+   "nameEn": "Cassiopeia Milky Way",
+   "anchorRaHours": 0.9,
+   "anchorDecDeg": 60.0,
+   "sizeMajorDeg": 25,
+   "sizeMinorDeg": 10,
+   "noteZh": "心脏、灵魂星云所在，秋冬北天高纬银河。",
+   "noteEn": "Home to the Heart and Soul Nebulae — the high northern Milky Way of autumn and winter."
+  },
+  {
+   "id": "winter-milky-way",
+   "nameZh": "冬季银河（猎户–金牛）",
+   "nameEn": "Winter Milky Way (Orion–Taurus)",
+   "anchorRaHours": 5.0,
+   "anchorDecDeg": 25.0,
+   "sizeMajorDeg": 40,
+   "sizeMinorDeg": 12,
+   "noteZh": "昴星团、加州星云一线，冬夜后半夜至黎明的主景。",
+   "noteEn": "The Pleiades and California Nebula line — the main scene of winter nights after midnight."
+  },
+  {
+   "id": "monoceros-milky-way",
+   "nameZh": "麒麟座银河段",
+   "nameEn": "Monoceros Milky Way",
+   "anchorRaHours": 6.8,
+   "anchorDecDeg": 0.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 12,
+   "noteZh": "玫瑰星云所在，冬季银河中段。",
+   "noteEn": "The middle stretch of the winter Milky Way, holding the Rosette Nebula."
+  },
+  {
+   "id": "centaurus-crux-milky-way",
+   "nameZh": "半人马–南十字银河段",
+   "nameEn": "Centaurus–Crux Milky Way",
+   "anchorRaHours": 12.9,
+   "anchorDecDeg": -60.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 12,
+   "noteZh": "南天银河最亮段，煤袋与南十字在其内；北纬中纬度不可见。",
+   "noteEn": "The brightest southern stretch, with the Coalsack and the Cross; invisible from mid-northern latitudes."
+  }
+ ]
+}

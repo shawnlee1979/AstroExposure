@@ -1,5 +1,6 @@
 package app.astroexposure.data.catalog
 
+import app.astroexposure.domain.catalog.ConstellationCatalog
 import app.astroexposure.domain.catalog.DeepSkyObjectType
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.EclipseType
@@ -7,6 +8,7 @@ import app.astroexposure.domain.catalog.LensCatalog
 import app.astroexposure.domain.catalog.LightPollutionSource
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.catalog.WideFieldCatalog
 import app.astroexposure.domain.ephemeris.EclipseKind
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.units.Degrees
@@ -97,6 +99,50 @@ class EclipseCatalogContractTest {
         assertTrue(lunar.all { it.pathWidthKm == null })
         assertEquals(EclipseType.TOTAL, lunar.first { it.date == LocalDate.of(2026, 3, 3) }.type)
         assertEquals(EclipseType.PARTIAL, lunar.first { it.date == LocalDate.of(2026, 8, 28) }.type)
+        assertEquals("test-fixture-1", catalog.dataVersion)
+    }
+}
+
+class ConstellationCatalogContractTest {
+
+    private val catalog: ConstellationCatalog = JsonConstellationCatalog()
+
+    @Test
+    fun `Cygnus fields are mapped from the document`() {
+        val cyg = catalog.constellations().first { it.code == "Cyg" }
+        assertEquals(20.5, cyg.centerRaHours, 1e-9)
+        assertEquals(42.0, cyg.centerDecDeg, 1e-9)
+        assertEquals(38, cyg.sizeMajorDeg)
+        assertEquals(19, cyg.sizeMinorDeg)
+        assertEquals(2, cyg.brightStars.size)
+        assertEquals("天津四", cyg.brightStars[0].nameZh)
+        assertEquals(1.3, cyg.brightStars[0].magnitude, 1e-9)
+        assertEquals("夹具注记。", cyg.noteZh)
+    }
+
+    @Test
+    fun `fixture lists both constellations and surfaces the version`() {
+        assertEquals(2, catalog.constellations().size)
+        assertEquals("test-fixture-1", catalog.dataVersion)
+    }
+}
+
+class WideFieldCatalogContractTest {
+
+    private val catalog: WideFieldCatalog = JsonWideFieldCatalog()
+
+    @Test
+    fun `galactic centre viewpoint maps from the document`() {
+        val gc = catalog.viewpoints().first { it.id == "galactic-centre" }
+        assertEquals(17.75, gc.anchorRaHours, 1e-9)
+        assertEquals(-29.0, gc.anchorDecDeg, 1e-9)
+        assertEquals(35, gc.sizeMajorDeg)
+        assertEquals("天蝎–人马银河段（银心）", gc.nameZh)
+    }
+
+    @Test
+    fun `fixture lists both viewpoints and surfaces the version`() {
+        assertEquals(2, catalog.viewpoints().size)
         assertEquals("test-fixture-1", catalog.dataVersion)
     }
 }

@@ -1,5 +1,8 @@
 package app.astroexposure.data.catalog
 
+import app.astroexposure.domain.catalog.BrightStar
+import app.astroexposure.domain.catalog.ConstellationCatalog
+import app.astroexposure.domain.catalog.ConstellationEntry
 import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.DeepSkyObjectType
 import app.astroexposure.domain.catalog.EclipseCatalog
@@ -9,6 +12,8 @@ import app.astroexposure.domain.catalog.LensCatalog
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.catalog.WideFieldCatalog
+import app.astroexposure.domain.catalog.WideFieldViewpoint
 import app.astroexposure.domain.ephemeris.EclipseKind
 import app.astroexposure.domain.lens.Lens
 import java.time.Instant
@@ -171,6 +176,76 @@ class JsonMeteorShowerCatalog(
     }
 
     override fun showers(): List<MeteorShower> = loaded.showers
+
+    override val dataVersion: String get() = loaded.dataVersion
+}
+
+/** [ConstellationCatalog] over `catalog/constellations.json` (editorial 88-entry table, design section 6.1). */
+class JsonConstellationCatalog(
+    private val resourcePath: String = "/catalog/constellations.json",
+) : ConstellationCatalog {
+
+    private data class Loaded(val dataVersion: String, val entries: List<ConstellationEntry>)
+
+    private val loaded: Loaded by lazy {
+        val root = CatalogResources.readDocument(resourcePath)
+        val context = resourcePath
+        val entries = root.required("constellations", context).asArray(context).map { item ->
+            val o = item.asObject(context)
+            ConstellationEntry(
+                code = o.stringField("code", context),
+                centerRaHours = o.doubleField("centerRaHours", context),
+                centerDecDeg = o.doubleField("centerDecDeg", context),
+                sizeMajorDeg = o.intField("sizeMajorDeg", context),
+                sizeMinorDeg = o.intField("sizeMinorDeg", context),
+                brightStars = o.required("brightStars", context).asArray(context).map { starItem ->
+                    val s = starItem.asObject(context)
+                    BrightStar(
+                        nameZh = s.stringField("nameZh", context),
+                        nameEn = s.stringField("nameEn", context),
+                        magnitude = s.doubleField("magnitude", context),
+                    )
+                },
+                noteZh = o.stringField("noteZh", context),
+                noteEn = o.stringField("noteEn", context),
+            )
+        }
+        Loaded(root.stringField("dataVersion", context), entries)
+    }
+
+    override fun constellations(): List<ConstellationEntry> = loaded.entries
+
+    override val dataVersion: String get() = loaded.dataVersion
+}
+
+/** [WideFieldCatalog] over `catalog/widefield.json` (editorial viewpoint list, design section 6.1). */
+class JsonWideFieldCatalog(
+    private val resourcePath: String = "/catalog/widefield.json",
+) : WideFieldCatalog {
+
+    private data class Loaded(val dataVersion: String, val viewpoints: List<WideFieldViewpoint>)
+
+    private val loaded: Loaded by lazy {
+        val root = CatalogResources.readDocument(resourcePath)
+        val context = resourcePath
+        val viewpoints = root.required("viewpoints", context).asArray(context).map { item ->
+            val o = item.asObject(context)
+            WideFieldViewpoint(
+                id = o.stringField("id", context),
+                nameZh = o.stringField("nameZh", context),
+                nameEn = o.stringField("nameEn", context),
+                anchorRaHours = o.doubleField("anchorRaHours", context),
+                anchorDecDeg = o.doubleField("anchorDecDeg", context),
+                sizeMajorDeg = o.intField("sizeMajorDeg", context),
+                sizeMinorDeg = o.intField("sizeMinorDeg", context),
+                noteZh = o.stringField("noteZh", context),
+                noteEn = o.stringField("noteEn", context),
+            )
+        }
+        Loaded(root.stringField("dataVersion", context), viewpoints)
+    }
+
+    override fun viewpoints(): List<WideFieldViewpoint> = loaded.viewpoints
 
     override val dataVersion: String get() = loaded.dataVersion
 }
