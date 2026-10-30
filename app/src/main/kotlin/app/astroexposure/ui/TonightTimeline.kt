@@ -160,24 +160,77 @@ internal fun laneCategoryCounts(
     arcs.mapNotNull { it.category }.groupingBy { it }.eachCount()
 
 /**
- * One row of the tonight-picks popup (ui-design §7.8): the board
- * entry's identity and category, its composed one-line reason, and
- * the recommended interval the row's locate chip acts on (the
- * culmination is the locate fallback for an entry whose recommended
- * window is absent). Rows and lanes are built from the same board,
- * so a row always has its lane.
+ * One row of the tonight-targets sheet (ui-design §7.8, 0.10.0):
+ * a qualified entry rendered — its identity and category, the
+ * category key-quantity line, whether it also holds a board slot
+ * ([onBoard], the gold pick mark), and the recommended interval
+ * the row's locate chip acts on (the culmination is the locate
+ * fallback for an entry whose recommended window is absent).
+ * Non-board rows have no lane; locating them only places the
+ * cursor (see the sheet's row behaviour in §7.8).
  */
-data class TonightPick(
+data class TonightTarget(
     val subjectId: String,
     val category: TonightOverviewUseCase.SubjectCategory,
     val name: String,
     val tag: String,
-    val reason: String,
+    val keyLine: String,
+    val onBoard: Boolean,
     val recommendedStart: Instant?,
     val recommendedEnd: Instant?,
     val relativeBest: Boolean,
     val culmination: Instant,
 )
+
+/**
+ * Whether the row owns a timeline lane — a board member or a
+ * radiant (ui-design §7.8, 0.10.0). Only lane-owning rows can flash
+ * the lane highlight when located; a non-board row has no lane to
+ * light and none is drawn for it.
+ */
+internal val TonightTarget.hasLane: Boolean
+    get() = onBoard ||
+        category == TonightOverviewUseCase.SubjectCategory.METEOR
+
+/**
+ * The sheet's visible set: the rows the category filter leaves in
+ * (ui-design §7.8, 0.10.0). Pure, so the badge number and the sheet
+ * always read the same filtering — the button badge is this list's
+ * size, never a second count.
+ */
+internal fun visibleTargets(
+    targets: List<TonightTarget>,
+    hiddenCategories: Set<TonightOverviewUseCase.SubjectCategory>,
+): List<TonightTarget> = targets.filter { it.category !in hiddenCategories }
+
+/**
+ * The sheet's category zones, in chip order (ui-design §7.8,
+ * 0.10.0): categories with no visible rows are absent — an empty
+ * category hides its whole zone, never an empty header.
+ */
+internal fun targetsZones(
+    targets: List<TonightTarget>,
+): List<Pair<TonightOverviewUseCase.SubjectCategory, List<TonightTarget>>> =
+    CATEGORY_FILTER_ORDER.mapNotNull { category ->
+        val rows = targets.filter { it.category == category }
+        if (rows.isEmpty()) null else category to rows
+    }
+
+/**
+ * The hidden categories that still hold qualified rows (ui-design
+ * §7.8, 0.10.0): the sheet's sync notice names these, each with its
+ * qualified count — a category with nothing qualified tonight is
+ * not news even while switched off.
+ */
+internal fun hiddenTargetsCategories(
+    targets: List<TonightTarget>,
+    hiddenCategories: Set<TonightOverviewUseCase.SubjectCategory>,
+): List<Pair<TonightOverviewUseCase.SubjectCategory, Int>> =
+    CATEGORY_FILTER_ORDER.mapNotNull { category ->
+        if (category !in hiddenCategories) return@mapNotNull null
+        val count = targets.count { it.category == category }
+        if (count == 0) null else category to count
+    }
 
 /** Arc lane visual height (ui-design §7.5): the comparison board's compact 26dp lane. */
 private val ARC_LANE_HEIGHT_DP = 26.dp
@@ -472,14 +525,12 @@ fun NightTimelineCard(
     onExitCursor: () -> Unit = {},
     /** A lane tap, addressed by subject id (ui-design §7.8). */
     onArcTap: (String) -> Unit = {},
-    /** Tonight-picks popup content (ui-design §7.8): the board rows, in board order. */
-    picks: List<TonightPick> = emptyList(),
-    /** False when a board catalogue failed to load: the popup says so instead of listing. */
-    picksAvailable: Boolean = true,
-    /** The night's date label for the popup header. */
-    picksDateLabel: String = "",
-    onPickOpen: (TonightPick) -> Unit = {},
-    onPickLocate: (TonightPick) -> Unit = {},
+    /** Tonight-targets sheet content (ui-design §7.8, 0.10.0): the qualified set, in-category order. */
+    targets: List<TonightTarget> = emptyList(),
+    /** False when a board catalogue failed to load: the sheet says so instead of listing. */
+    targetsAvailable: Boolean = true,
+    onTargetOpen: (TonightTarget) -> Unit = {},
+    onTargetLocate: (TonightTarget) -> Unit = {},
     cursorLocked: Boolean = false,
     onCursorLongPressDrag: (Instant) -> Unit = {},
     onCursorGrab: () -> Unit = {},
@@ -491,7 +542,7 @@ fun NightTimelineCard(
     onJumpToNow: () -> Unit = {},
 ) {
     var selectedMark by remember { mutableStateOf<TimelineMark?>(null) }
-    // Category filter and picks popup (ui-design §7.8): pure display
+    // Category filter and targets sheet (ui-design §7.8): pure display
     // state — remember only, never persisted, and every visit starts
     // all-on, so a category switched off tonight can never silently
     // hide tomorrow's targets. The filter touches only what draws
@@ -499,9 +550,9 @@ fun NightTimelineCard(
     var hiddenCategories by remember {
         mutableStateOf<Set<TonightOverviewUseCase.SubjectCategory>>(emptySet())
     }
-    var picksOpen by remember { mutableStateOf(false) }
+    var targetsOpen by remember { mutableStateOf(false) }
     val visibleArcs = arcs.filter { it.category == null || it.category !in hiddenCategories }
-    val visiblePicks = picks.filter { it.category !in hiddenCategories }
+    val visibleTargetRows = visibleTargets(targets, hiddenCategories)
     val chartDescription = stringResource(R.string.timeline_chart_description)
     // Anti-mistouch gesture state (ui-design §7.5): snapshots read at
     // gesture start — deliberately NOT pointerInput keys, since a key
@@ -528,24 +579,22 @@ fun NightTimelineCard(
     // in both themes instead of a hard-coded near-black.
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
-    if (picksOpen) {
-        PicksSheet(
-            picks = visiblePicks,
-            boardEmpty = picks.isEmpty(),
-            available = picksAvailable,
-            dateLabel = picksDateLabel,
-            hiddenBoardCategories = hiddenCategories -
-                TonightOverviewUseCase.SubjectCategory.METEOR,
+    if (targetsOpen) {
+        TargetsSheet(
+            targets = visibleTargetRows,
+            allEmpty = targets.isEmpty(),
+            available = targetsAvailable,
+            hiddenWithCounts = hiddenTargetsCategories(targets, hiddenCategories),
             onShowAll = { hiddenCategories = emptySet() },
-            onOpen = { pick ->
-                picksOpen = false
-                onPickOpen(pick)
+            onOpen = { target ->
+                targetsOpen = false
+                onTargetOpen(target)
             },
-            onLocate = { pick ->
-                picksOpen = false
-                onPickLocate(pick)
+            onLocate = { target ->
+                targetsOpen = false
+                onTargetLocate(target)
             },
-            onDismiss = { picksOpen = false },
+            onDismiss = { targetsOpen = false },
             zone = zone,
         )
     }
@@ -562,9 +611,10 @@ fun NightTimelineCard(
                 Box(modifier = Modifier.weight(1f)) {
                     SectionTitle(stringResource(R.string.timeline_title))
                 }
-                // Tonight-picks button (ui-design §7.8): the full
-                // board lives behind it in a bottom sheet. The badge
-                // counts what the sheet will show under the current
+                // Tonight-targets button (ui-design §7.8, 0.10.0):
+                // the full qualified set lives behind it in a bottom
+                // sheet. The badge is the FILTERED qualified total —
+                // the number the sheet will show under the current
                 // category filter, so it shrinks as categories close.
                 Box(
                     modifier = Modifier
@@ -572,7 +622,7 @@ fun NightTimelineCard(
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .border(1.dp, borderColor, RoundedCornerShape(50))
-                        .clickable { picksOpen = true }
+                        .clickable { targetsOpen = true }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Row(
@@ -589,7 +639,7 @@ fun NightTimelineCard(
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        if (picksAvailable) {
+                        if (targetsAvailable) {
                             Box(
                                 modifier = Modifier
                                     .size(18.dp)
@@ -597,7 +647,7 @@ fun NightTimelineCard(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = visiblePicks.size.toString(),
+                                    text = visibleTargetRows.size.toString(),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = onPrimaryColor,
@@ -647,7 +697,7 @@ fun NightTimelineCard(
             // positions must not jump from night to night — and its
             // count already says it is empty tonight.
             val tonightCounts = laneCategoryCounts(tonightArcs)
-            if (tonightArcs.isNotEmpty() || picks.isNotEmpty()) {
+            if (tonightArcs.isNotEmpty() || targets.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -2348,26 +2398,30 @@ private fun CursorStepButton(
 }
 
 /**
- * The tonight-picks bottom sheet (ui-design §7.8): the full board
- * behind the timeline card's header button. It shows exactly the
- * picks the current category filter leaves visible (the sync rule):
- * when a board category is off, a notice row says so and offers the
- * one-tap "show all" way back. A row tap opens the entry's detail
- * dialog (the app's single detail path); the row's time area is a
- * separate locate chip that places the cursor at the entry's
- * recommended start instead. The footer's line states the quota and
- * ordering rules the rows embody.
+ * The tonight-targets bottom sheet (ui-design §7.8, 0.10.0): the
+ * full qualified set behind the timeline card's header button,
+ * grouped in category zones (chip order; a category with no
+ * visible rows has no zone). The header counts line is the sheet's
+ * only dual count — qualified N, picks M — and follows the filter
+ * like everything else here (the sync rule): a category switched
+ * off is absent from the zones, and the notice row names it with
+ * its qualified count and offers the one-tap "show all" way back.
+ * Rows of the quota board carry the gold pick mark; every row tap
+ * opens the subject's detail dialog (the app's single detail
+ * path), and the row's time area is a separate locate chip that
+ * places the cursor instead. The whole list scrolls as one — no
+ * search, no collapsing. The footer's line states the set's rules
+ * (gates, board quotas, in-category orders).
  */
 @Composable
-private fun PicksSheet(
-    picks: List<TonightPick>,
-    boardEmpty: Boolean,
+private fun TargetsSheet(
+    targets: List<TonightTarget>,
+    allEmpty: Boolean,
     available: Boolean,
-    dateLabel: String,
-    hiddenBoardCategories: Set<TonightOverviewUseCase.SubjectCategory>,
+    hiddenWithCounts: List<Pair<TonightOverviewUseCase.SubjectCategory, Int>>,
     onShowAll: () -> Unit,
-    onOpen: (TonightPick) -> Unit,
-    onLocate: (TonightPick) -> Unit,
+    onOpen: (TonightTarget) -> Unit,
+    onLocate: (TonightTarget) -> Unit,
     onDismiss: () -> Unit,
     zone: ZoneId,
 ) {
@@ -2401,7 +2455,7 @@ private fun PicksSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(R.string.picks_title, dateLabel),
+                        text = stringResource(R.string.picks_title),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -2424,12 +2478,32 @@ private fun PicksSheet(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
-                    if (hiddenBoardCategories.isNotEmpty()) {
-                        val hiddenNames = mutableListOf<String>()
-                        for (category in CATEGORY_FILTER_ORDER) {
-                            if (category in hiddenBoardCategories) {
-                                hiddenNames += category.categoryName()
-                            }
+                    // The dual-count header line (ui-design §7.8,
+                    // 0.10.0): qualified and board counts of what
+                    // the sheet shows NOW — under a filter, both
+                    // shrink with the visible set.
+                    val countsText = stringResource(
+                        if (hiddenWithCounts.isEmpty()) {
+                            R.string.targets_counts
+                        } else {
+                            R.string.targets_counts_filtered
+                        },
+                        targets.size,
+                        targets.count { it.onBoard },
+                    )
+                    Text(
+                        text = countsText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (hiddenWithCounts.isNotEmpty()) {
+                        val hiddenLabels = mutableListOf<String>()
+                        for ((category, count) in hiddenWithCounts) {
+                            hiddenLabels += stringResource(
+                                R.string.targets_hidden_category,
+                                category.categoryName(),
+                                count,
+                            )
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -2438,7 +2512,7 @@ private fun PicksSheet(
                             Text(
                                 text = stringResource(
                                     R.string.picks_sync_notice,
-                                    hiddenNames.joinToString(
+                                    hiddenLabels.joinToString(
                                         if (isEnglishUiLanguage()) ", " else "、",
                                     ),
                                 ),
@@ -2451,11 +2525,11 @@ private fun PicksSheet(
                             }
                         }
                     }
-                    if (picks.isEmpty()) {
+                    if (targets.isEmpty()) {
                         Text(
                             text = stringResource(
-                                if (boardEmpty) {
-                                    R.string.picks_empty
+                                if (allEmpty) {
+                                    R.string.targets_empty
                                 } else {
                                     R.string.picks_empty_filtered
                                 },
@@ -2469,13 +2543,20 @@ private fun PicksSheet(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            picks.forEach { pick ->
-                                PickRow(
-                                    pick = pick,
-                                    zone = zone,
-                                    onOpen = onOpen,
-                                    onLocate = onLocate,
+                            for ((category, rows) in targetsZones(targets)) {
+                                TargetsZoneHeader(
+                                    category = category,
+                                    qualifiedCount = rows.size,
+                                    boardCount = rows.count { it.onBoard },
                                 )
+                                rows.forEach { target ->
+                                    TargetRow(
+                                        target = target,
+                                        zone = zone,
+                                        onOpen = onOpen,
+                                        onLocate = onLocate,
+                                    )
+                                }
                             }
                         }
                     }
@@ -2491,23 +2572,66 @@ private fun PicksSheet(
 }
 
 /**
- * One picks-sheet row (ui-design §7.8): category tag (outlined text,
- * never colour alone), name and one-line reason, and the locate chip
- * at the right — a separate hot zone from the row body, so opening
- * the detail and locating the cursor can never be confused.
+ * One category zone header of the targets sheet (ui-design §7.8,
+ * 0.10.0): the category name, tonight's qualified count, and —
+ * only when the zone actually holds board members — the board
+ * sub-count. The radiant zone never shows one (its qualified set
+ * holds no board slots), so it never borrows pick semantics.
  */
 @Composable
-private fun PickRow(
-    pick: TonightPick,
+private fun TargetsZoneHeader(
+    category: TonightOverviewUseCase.SubjectCategory,
+    qualifiedCount: Int,
+    boardCount: Int,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = stringResource(
+                R.string.targets_zone_header,
+                category.categoryName(),
+                qualifiedCount,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (boardCount > 0) {
+            Text(
+                text = "· " + stringResource(R.string.targets_zone_picks, boardCount),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/**
+ * One targets-sheet row (ui-design §7.8, 0.10.0): category tag
+ * (outlined text, never colour alone), name with the gold pick
+ * mark when the row also holds a board slot, the category's
+ * key-quantity line, and the locate chip at the right — a separate
+ * hot zone from the row body, so opening the detail and locating
+ * the cursor can never be confused. A radiant row's recommended
+ * slot is empty, so its chip falls back to the culmination, like
+ * any windowless row.
+ */
+@Composable
+private fun TargetRow(
+    target: TonightTarget,
     zone: ZoneId,
-    onOpen: (TonightPick) -> Unit,
-    onLocate: (TonightPick) -> Unit,
+    onOpen: (TonightTarget) -> Unit,
+    onLocate: (TonightTarget) -> Unit,
 ) {
     val locateDescription = stringResource(R.string.picks_locate)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpen(pick) }
+            .clickable { onOpen(target) }
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2522,19 +2646,38 @@ private fun PickRow(
                 .padding(horizontal = 5.dp, vertical = 2.dp),
         ) {
             Text(
-                text = pick.tag,
+                text = target.tag,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = target.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                )
+                if (target.onBoard) {
+                    Text(
+                        text = stringResource(R.string.targets_pick_mark),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(3.dp),
+                            )
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    )
+                }
+            }
             Text(
-                text = pick.name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-            )
-            Text(
-                text = pick.reason,
+                text = target.keyLine,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -2544,23 +2687,23 @@ private fun PickRow(
             modifier = Modifier
                 .clip(RoundedCornerShape(6.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { onLocate(pick) }
+                .clickable { onLocate(target) }
                 .semantics { contentDescription = locateDescription }
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         ) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "⌖ " + if (
-                        pick.recommendedStart != null && pick.recommendedEnd != null
+                        target.recommendedStart != null && target.recommendedEnd != null
                     ) {
-                        "${formatTime(pick.recommendedStart, zone)}–" +
-                            formatTime(pick.recommendedEnd, zone)
+                        "${formatTime(target.recommendedStart, zone)}–" +
+                            formatTime(target.recommendedEnd, zone)
                     } else {
-                        formatTime(pick.culmination, zone)
+                        formatTime(target.culmination, zone)
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
-                if (pick.relativeBest) {
+                if (target.relativeBest) {
                     Text(
                         text = stringResource(R.string.picks_relative_best_suffix),
                         fontSize = 9.sp,
