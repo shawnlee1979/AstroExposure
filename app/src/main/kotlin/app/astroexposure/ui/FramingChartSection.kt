@@ -553,7 +553,7 @@ internal class ChartModel(
     val stars: List<StarPlot>,
     val lines: List<LinePlot>,
     val neighbours: List<EllipsePlot>,
-    /** Display ids of [neighbours], same order — the conclusion area's in-field row (§7.10). */
+    /** Display ids of [neighbours], same order — they feed the chart's content description (§7.10); there is no visible names row (0.11.3). */
     val neighbourNames: List<String>,
     val subjectEllipse: EllipsePlot?,
     val outStars: List<StarPlot>,
