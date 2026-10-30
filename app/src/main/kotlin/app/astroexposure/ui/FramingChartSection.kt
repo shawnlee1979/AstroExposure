@@ -1628,15 +1628,15 @@ private fun AllLensesPanel(
                     label = stringResource(R.string.framing_all_lenses_mount),
                     values = mounts,
                     selected = mountFacet,
+                    valueLabel = { it },
                     onSelect = { mountFacet = it },
                 )
                 LensFacetRow(
                     label = stringResource(R.string.framing_all_lenses_brand),
-                    values = brands.map { it.displayName(customLabel) },
-                    selected = brandFacet?.displayName(customLabel),
-                    onSelect = { name ->
-                        brandFacet = brands.firstOrNull { it.displayName(customLabel) == name }
-                    },
+                    values = brands,
+                    selected = brandFacet,
+                    valueLabel = { it.displayName(customLabel) },
+                    onSelect = { brandFacet = it },
                 )
                 Column(
                     modifier = Modifier
@@ -1659,13 +1659,22 @@ private fun AllLensesPanel(
     }
 }
 
-/** One facet row of the all-lenses panel: an "all" chip plus one chip per value. */
+/**
+ * One facet row of the all-lenses panel: an "all" chip plus one
+ * chip per value. The row is generic over the facet's value type
+ * so the selection state stays in that type end to end — the
+ * brand facet in particular is keyed by the [LensBrand] enum
+ * itself, never by looking a display name back up (0.13.1,
+ * supervisor 0.13.0-batch suggestion 3); [valueLabel] is the
+ * only place a value becomes display text.
+ */
 @Composable
-private fun LensFacetRow(
+private fun <T> LensFacetRow(
     label: String,
-    values: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
+    values: List<T>,
+    selected: T?,
+    valueLabel: (T) -> String,
+    onSelect: (T?) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1687,7 +1696,7 @@ private fun LensFacetRow(
             FilterChip(
                 selected = selected == value,
                 onClick = { onSelect(value) },
-                label = { Text(value) },
+                label = { Text(valueLabel(value)) },
             )
         }
     }
@@ -1732,10 +1741,15 @@ private fun LensPanelRow(
     }
 }
 
-/** The panel row's focal/aperture line: "135 mm · f/1.8", "35–150 mm · f/2–2.8". */
+/**
+ * The panel row's focal/aperture line: "135 mm · f/1.8",
+ * "35–150 mm · f/2–2.8". The aperture numbers come from the
+ * shared [formatApertureValue] — the panel has no aperture
+ * formatting of its own (0.13.1, supervisor 0.13.0-batch L1).
+ */
 @Composable
 private fun lensSpecText(lens: Lens): String {
-    val wide = apertureText(lens.maxAperture)
+    val wide = formatApertureValue(lens.maxAperture)
     if (lens.isPrime) {
         return stringResource(
             R.string.framing_lens_spec_prime, lens.focalMinMm.roundToInt(), wide,
@@ -1746,7 +1760,7 @@ private fun lensSpecText(lens: Lens): String {
         stringResource(
             R.string.framing_lens_spec_zoom_range,
             lens.focalMinMm.roundToInt(), lens.focalMaxMm.roundToInt(),
-            wide, apertureText(tele),
+            wide, formatApertureValue(tele),
         )
     } else {
         stringResource(
@@ -1755,11 +1769,3 @@ private fun lensSpecText(lens: Lens): String {
         )
     }
 }
-
-/** An f-number without a trailing ".0": 2.0 reads "2", 2.8 stays "2.8". */
-private fun apertureText(value: Double): String =
-    if (value == value.roundToInt().toDouble()) {
-        value.roundToInt().toString()
-    } else {
-        String.format(java.util.Locale.US, "%.1f", value)
-    }
