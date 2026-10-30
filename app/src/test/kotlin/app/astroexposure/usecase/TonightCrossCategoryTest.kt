@@ -239,6 +239,77 @@ class TonightCrossCategoryTest {
         )
     }
 
+    // --- Qualified set (ui-design §7.8, 0.10.0) ------------------------------
+
+    @Test
+    fun detailedAssemblyExposesThePreTruncationQualifiedSet() {
+        val candidates = mutableListOf<BoardCandidate>()
+        // Seven deep-sky candidates (the caller's pass scan is their
+        // gate; every candidate here stands for a gate-clearer).
+        for (i in 1..7) {
+            candidates += candidate(
+                deepSky("D$i", magnitude = i.toDouble()), magnitude = i.toDouble(),
+            )
+        }
+        // Four constellations clear their gates; one fails the
+        // two-hour window gate and must not appear anywhere.
+        for (i in 0 until 4) {
+            candidates += candidate(
+                constellation("Q%02d".format(i)), culminationAltitudeDeg = 50.0 + i,
+            )
+        }
+        candidates += candidate(constellation("NQ"), windowMinutes = 60)
+        // Two viewpoints clear; one fails the culmination gate.
+        candidates += candidate(viewpoint("w1"), culminationAltitudeDeg = 30.0)
+        candidates += candidate(viewpoint("w2"), culminationAltitudeDeg = 40.0)
+        candidates += candidate(viewpoint("low"), culminationAltitudeDeg = 20.0)
+
+        val detail = assembleBoardDetailed(candidates)
+        // The plain assembly stays the detailed verdict's selection.
+        assertEquals(
+            assembleBoard(candidates).map { it.subject.id },
+            detail.selected.map { it.subject.id },
+        )
+        // Qualified: every gate-clearer, blocks in chip order (deep
+        // sky, wide-field, constellation), in-category order within
+        // (deep sky by magnitude; the others by culmination).
+        assertEquals(
+            listOf(
+                "D1", "D2", "D3", "D4", "D5", "D6", "D7",
+                "viewpoint:w2", "viewpoint:w1",
+                "constellation:Q03", "constellation:Q02",
+                "constellation:Q01", "constellation:Q00",
+            ),
+            detail.qualified.map { it.subject.id },
+        )
+        // The board marks are the assembly's own selection: the
+        // deep-sky quota prefix, both viewpoints (quota under-filled
+        // at two of three), and the two highest constellations.
+        assertEquals(
+            setOf(
+                "D1", "D2", "D3", "D4", "D5",
+                "viewpoint:w2", "viewpoint:w1",
+                "constellation:Q03", "constellation:Q02",
+            ),
+            detail.boardIds,
+        )
+        assertEquals(detail.selected.map { it.subject.id }.toSet(), detail.boardIds)
+    }
+
+    @Test
+    fun detailedAssemblyMarksOnlyTheActualBoardWhenAQuotaUnderFills() {
+        val candidates = listOf(
+            candidate(deepSky("Only1", 1.0), magnitude = 1.0),
+            candidate(deepSky("Only2", 2.0), magnitude = 2.0),
+            candidate(deepSky("Only3", 3.0), magnitude = 3.0),
+        )
+        val detail = assembleBoardDetailed(candidates)
+        assertEquals(3, detail.qualified.size)
+        // The quota is five but only three cleared the gate: the
+        // marks follow the ACTUAL board (3), never the quota number.
+        assertEquals(setOf("Only1", "Only2", "Only3"), detail.boardIds)
+    }
+
     // --- Radiant entry conditions (proposal §5 ⑤) ----------------------------
 
     private fun shower(
