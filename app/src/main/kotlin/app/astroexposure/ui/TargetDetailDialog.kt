@@ -68,6 +68,8 @@ fun TargetDetailDialog(
     onDismiss: () -> Unit,
     actionLabel: String?,
     onAction: (() -> Unit)?,
+    onEvaluateComposition: (bearingDeg: Double, toleranceDeg: Double) ->
+        TonightOverviewUseCase.CompositionEvaluation?,
 ) {
     DetailDialog(
         title = detail.subject.displayName(),
@@ -251,6 +253,24 @@ fun TargetDetailDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+
+                // The composition section (ui-design §7.9): every
+                // pointable subject but a meteor radiant gets one —
+                // a radiant is not a framable subject, and its pane
+                // carries no fake controls.
+                if (detail.subject !is TonightOverviewUseCase.TonightSubject.Radiant) {
+                    CompositionSection(
+                        onEvaluate = onEvaluateComposition,
+                        evaluationKey = detail.subject.id,
+                        orientationProvider = orientationProvider,
+                        siteLatitudeDeg = siteLatitudeDeg,
+                        siteLongitudeDeg = siteLongitudeDeg,
+                        siteAltitudeMeters = siteAltitudeMeters,
+                        zone = zone,
+                        subjectIsViewpoint =
+                            detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
+                    )
                 }
             }
         },
