@@ -172,7 +172,7 @@
     <string name="detail_conclusion_relative_best">今晚整晚最高 %1$d°，相对最佳在 %2$s</string>
     <string name="detail_step_info">目标信息</string>
     <string name="detail_step_compose">构图</string>
-    <string name="detail_step_finder">指向找目标</string>
+    <string name="detail_step_finder">指向</string>
     <string name="detail_step_position">第 %1$d 步，共 %2$d 步</string>
     <string name="detail_grid_altitude">高度</string>
     <string name="detail_grid_azimuth">方位</string>

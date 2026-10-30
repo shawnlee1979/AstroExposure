@@ -173,7 +173,7 @@
     <string name="detail_conclusion_relative_best">Peaks at only %1$d° tonight; relative best at %2$s</string>
     <string name="detail_step_info">Target info</string>
     <string name="detail_step_compose">Composition</string>
-    <string name="detail_step_finder">Point to target</string>
+    <string name="detail_step_finder">Point</string>
     <string name="detail_step_position">Step %1$d of %2$d</string>
     <string name="detail_grid_altitude">Altitude</string>
     <string name="detail_grid_azimuth">Azimuth</string>

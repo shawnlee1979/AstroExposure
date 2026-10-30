@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -212,8 +213,14 @@ fun TargetDetailDialog(
                 // in this dialog; tapping one scrolls its step
                 // header to the top of the middle. Navigation only
                 // moves the scroll position — no evaluation or
-                // sensor subscription is tied to it.
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // sensor subscription is tied to it. The row
+                // scrolls horizontally (0.12.1) so the English
+                // chips cannot be clipped on a narrow dialog;
+                // when everything fits, nothing changes.
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     steps.forEachIndexed { index, step ->
                         FilterChip(
                             selected = false,
