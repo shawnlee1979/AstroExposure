@@ -1,5 +1,7 @@
 package app.astroexposure.usecase
 
+import app.astroexposure.domain.catalog.ConstellationEntry
+import app.astroexposure.domain.catalog.ConstellationCatalog
 import app.astroexposure.domain.catalog.DeepSkyObject
 import app.astroexposure.domain.catalog.EclipseCatalog
 import app.astroexposure.domain.catalog.EclipseRecord
@@ -8,6 +10,8 @@ import app.astroexposure.domain.catalog.LightPollutionVersion
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.catalog.MeteorShowerCatalog
 import app.astroexposure.domain.catalog.ObjectCatalog
+import app.astroexposure.domain.catalog.WideFieldCatalog
+import app.astroexposure.domain.catalog.WideFieldViewpoint
 import app.astroexposure.domain.ephemeris.CelestialBody
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.ephemeris.EquatorialCoordinates
@@ -32,10 +36,12 @@ import java.time.LocalDate
 /**
  * Full "tonight overview" (design §6.4 simplified scope, §7.2 key-moments
  * list): twilight cards, moon + total-sky verdict, low-moonlight windows,
- * galactic-centre window, eclipses and showers within ±3 days, and a static
- * bright-object shortlist (catalogue magnitude ≤ 6.5, culmination ≥ 40° via
- * the target-pass port, brightest first, at most 10). All instants and the
- * location are supplied by the caller; nothing here reads a clock.
+ * galactic-centre window, eclipses and showers within ±3 days, and the
+ * cross-category tonight board (ui-design §7.8): deep-sky objects,
+ * constellations and wide-field viewpoints under per-category gates and
+ * quotas (at most 10 rows), plus meteor radiant lanes for showers near
+ * their peak. All instants and the location are supplied by the caller;
+ * nothing here reads a clock.
  */
 class TonightOverviewUseCase(
     private val ephemeris: EphemerisProvider,
@@ -43,18 +49,117 @@ class TonightOverviewUseCase(
     private val eclipseCatalog: EclipseCatalog? = null,
     private val showerCatalog: MeteorShowerCatalog? = null,
     private val lightPollution: LightPollutionSource? = null,
+    private val constellationCatalog: ConstellationCatalog? = null,
+    private val wideFieldCatalog: WideFieldCatalog? = null,
 ) {
 
     enum class MomentKind {
         SUNSET, CIVIL_DUSK_END, NAUTICAL_DUSK_END, ASTRO_DUSK,
-        MOONRISE, MOONSET, GC_CULMINATION, ASTRO_DAWN, SUNRISE,
+        MOONRISE, MOONSET, GC_CULMINATION, RADIANT_CULMINATION, ASTRO_DAWN, SUNRISE,
     }
 
     data class Moment(val instant: Instant, val kind: MomentKind)
 
     data class LowMoonlightWindow(val start: Instant, val end: Instant)
 
-    data class RecommendedObject(val obj: DeepSkyObject, val pass: TargetPass)
+    /** Board and lane categories (ui-design §7.8). METEOR exists for lanes and the filter only. */
+    enum class SubjectCategory { DEEP_SKY, CONSTELLATION, WIDE_FIELD, METEOR }
+
+    /**
+     * One entry of the unified tonight subject model (ui-design §7.8):
+     * every downstream quantity (shootable window, recommended
+     * interval, culmination, Moon geometry) is computed at
+     * [coordinates] — the calculation point — so an entry's angular
+     * extent never changes the shared definitions, only the point
+     * they are evaluated at. Ids are namespaced by category so the
+     * four catalogues can never collide.
+     */
+    sealed interface TonightSubject {
+        val id: String
+        val category: SubjectCategory
+        val coordinates: EquatorialCoordinates
+        /** Angular extent, degrees; null for a radiant (a point). */
+        val sizeMajorDeg: Double?
+        val sizeMinorDeg: Double?
+
+        data class DeepSky(val obj: DeepSkyObject) : TonightSubject {
+            override val id: String get() = obj.id
+            override val category: SubjectCategory get() = SubjectCategory.DEEP_SKY
+            override val coordinates: EquatorialCoordinates
+                get() = EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg))
+            override val sizeMajorDeg: Double? get() = obj.sizeMajorArcmin?.div(60.0)
+            override val sizeMinorDeg: Double? get() = obj.sizeMinorArcmin?.div(60.0)
+        }
+
+        data class Constellation(val entry: ConstellationEntry) : TonightSubject {
+            override val id: String get() = "constellation:${entry.code}"
+            override val category: SubjectCategory get() = SubjectCategory.CONSTELLATION
+            override val coordinates: EquatorialCoordinates
+                get() = EquatorialCoordinates(entry.centerRaHours, Degrees(entry.centerDecDeg))
+            override val sizeMajorDeg: Double get() = entry.sizeMajorDeg.toDouble()
+            override val sizeMinorDeg: Double get() = entry.sizeMinorDeg.toDouble()
+        }
+
+        data class Viewpoint(val viewpoint: WideFieldViewpoint) : TonightSubject {
+            override val id: String get() = "viewpoint:${viewpoint.id}"
+            override val category: SubjectCategory get() = SubjectCategory.WIDE_FIELD
+            override val coordinates: EquatorialCoordinates
+                get() = EquatorialCoordinates(viewpoint.anchorRaHours, Degrees(viewpoint.anchorDecDeg))
+            override val sizeMajorDeg: Double get() = viewpoint.sizeMajorDeg.toDouble()
+            override val sizeMinorDeg: Double get() = viewpoint.sizeMinorDeg.toDouble()
+        }
+
+        /** A shower's radiant at the night's date (catalogue radiant plus drift), lanes only. */
+        data class Radiant(val shower: MeteorShower, val radiant: EquatorialCoordinates) : TonightSubject {
+            override val id: String get() = "shower:${shower.iauCode}"
+            override val category: SubjectCategory get() = SubjectCategory.METEOR
+            override val coordinates: EquatorialCoordinates get() = radiant
+            override val sizeMajorDeg: Double? get() = null
+            override val sizeMinorDeg: Double? get() = null
+        }
+    }
+
+    /**
+     * One row of the cross-category tonight board (ui-design §7.8):
+     * the member's sampled culmination, its night-cut ≥20° window
+     * total and span, and its recommended interval (uncut — the same
+     * window the lane frames). Rows are ordered by recommended start.
+     */
+    data class ShortlistEntry(
+        val subject: TonightSubject,
+        val culmination: Instant,
+        val culminationAltitudeDeg: Double,
+        val shootableMinutes: Long,
+        /** First ≥20° sample inside the night span; null when the window misses the night. */
+        val windowStart: Instant?,
+        /** Last ≥20° sample inside the night span; null together with [windowStart]. */
+        val windowEnd: Instant?,
+        /** True when the ≥20° window covers the whole presentation night span (sample tolerance). */
+        val spansWholeNight: Boolean,
+        val recommended: TimelineCursor.RecommendedWindow?,
+    )
+
+    /**
+     * One lane on the timeline (ui-design §7.8): a board entry's — or
+     * a qualifying radiant's — sampled pass over the axis, in the same
+     * shape the cursor-state lanes use, so both states draw from one
+     * structure. Radiant lanes carry no phases and no recommended
+     * frame (the recommended interval does not apply to a radiant);
+     * their culmination goes to the marker row instead.
+     */
+    data class LaneEntry(
+        val subject: TonightSubject,
+        val altitudeSamples: List<TimelineCursor.AltitudeSample>,
+        val arcIntervals: List<NightTimeline.Interval>,
+        val phases: TimelineCursor.ArcPhases?,
+        val recommendedFrame: NightTimeline.Interval?,
+        val culmination: Instant,
+        val culminationAltitudeDeg: Double,
+        /** Radiant lanes only: the shower's approximate peak date for the detail dialog. */
+        val meteorPeakDate: LocalDate? = null,
+        /** Radiant lanes only: the shower's peak ZHR. */
+        val meteorZhr: Int? = null,
+    )
 
     /**
      * Everything the layered timeline draws (ui-design §7.4):
@@ -125,7 +230,7 @@ class TonightOverviewUseCase(
      * the cursor.
      */
     data class CursorTarget(
-        val obj: DeepSkyObject,
+        val subject: TonightSubject,
         val altitudeDeg: Double,
         val moonlightMcdPerM2: Double,
         val arcIntervals: List<NightTimeline.Interval>,
@@ -163,7 +268,7 @@ class TonightOverviewUseCase(
      * it).
      */
     data class TargetDetail(
-        val obj: DeepSkyObject,
+        val subject: TonightSubject,
         val altitudeDeg: Double,
         val azimuthDeg: Double,
         val phase: TimelineCursor.PassPhase?,
@@ -211,6 +316,10 @@ class TonightOverviewUseCase(
         val culmination: Instant? = null,
         /** Altitude at [culmination], degrees; null together with it. */
         val culminationAltitudeDeg: Double? = null,
+        /** Radiant details only: the shower's approximate peak date (the sixth grid row). */
+        val meteorPeakDate: LocalDate? = null,
+        /** Radiant details only: the shower's peak ZHR. */
+        val meteorZhr: Int? = null,
     )
 
     /**
@@ -279,9 +388,13 @@ class TonightOverviewUseCase(
         val events: List<Event>,
         /** False when an event catalogue failed to load and events are incomplete. */
         val eventsAvailable: Boolean,
-        val recommendations: List<RecommendedObject>,
-        /** False when the object catalogue failed to load (see recommendations()). */
-        val recommendationsAvailable: Boolean,
+        val shortlist: List<ShortlistEntry>,
+        /** False when any board catalogue failed to load (see tonightBoard()). */
+        val shortlistAvailable: Boolean,
+        /** Whole-night lanes, in board order (ui-design §7.8). */
+        val lanes: List<LaneEntry>,
+        /** Meteor radiant lanes, drawn after the board lanes (ui-design §7.8). */
+        val radiantLanes: List<LaneEntry>,
         val moments: List<Moment>,
         val timeline: Timeline,
         /** Null when no light-pollution source is configured or it failed to load. */
@@ -349,6 +462,10 @@ class TonightOverviewUseCase(
             )
         }
 
+        val timeline = buildTimeline(location, date, sun, night, gc)
+        val board = tonightBoard(location, date, timeline)
+        val radiant = radiantLanes(location, date, timeline)
+
         val moments = buildList {
             sun.sunset?.let { add(Moment(it, MomentKind.SUNSET)) }
             sun.civilDuskEnd?.let { add(Moment(it, MomentKind.CIVIL_DUSK_END)) }
@@ -357,6 +474,7 @@ class TonightOverviewUseCase(
             riseSet.moonrise?.let { add(Moment(it, MomentKind.MOONRISE)) }
             riseSet.moonset?.let { add(Moment(it, MomentKind.MOONSET)) }
             gc?.let { add(Moment(it.culmination, MomentKind.GC_CULMINATION)) }
+            radiant.forEach { add(Moment(it.culmination, MomentKind.RADIANT_CULMINATION)) }
             night?.let { add(Moment(it.dawn, MomentKind.ASTRO_DAWN)) }
             nextSun.sunrise?.let {
                 add(Moment(it, MomentKind.SUNRISE))
@@ -364,7 +482,6 @@ class TonightOverviewUseCase(
         }.sortedBy { it.instant }
 
         val (eventList, eventsOk) = events(date)
-        val (shortlist, shortlistOk) = recommendations(location, date)
         return Result(
             night = night,
             sunEvents = sun,
@@ -382,10 +499,12 @@ class TonightOverviewUseCase(
             lowMoonlightWindows = lowMoonlightWindows(location, night, sky),
             events = eventList,
             eventsAvailable = eventsOk,
-            recommendations = shortlist,
-            recommendationsAvailable = shortlistOk,
+            shortlist = board.entries,
+            shortlistAvailable = board.available,
+            lanes = board.lanes,
+            radiantLanes = radiant,
             moments = moments,
-            timeline = buildTimeline(location, date, sun, night, gc),
+            timeline = timeline,
             lightPollutionInfo = lightPollutionInfo(location),
             sunDetail = sunDetail,
             moonDetail = moonDetail,
@@ -426,17 +545,14 @@ class TonightOverviewUseCase(
             },
         )
 
-        val catalog = objectCatalog
-        val all = if (catalog == null) {
-            null
-        } else {
-            try {
-                catalog.allObjects()
-            } catch (e: Exception) {
-                null
-            }
-        }
-        if (all == null) {
+        // The subject universe is cross-category since 0.9.0
+        // (ui-design §7.8): deep-sky objects, constellation centres,
+        // wide-field anchors and tonight's qualifying radiants all
+        // join the same set rules. A configured catalogue that fails
+        // to load degrades the whole set explicitly, exactly as the
+        // single-catalogue version did.
+        val load = loadBoardSubjects()
+        if (!load.available) {
             return CursorEvaluation(
                 instant = cursor,
                 segment = NightTimeline.bandFor(sunAltitude),
@@ -450,9 +566,11 @@ class TonightOverviewUseCase(
                 lowMoonStatus = lowMoonStatus,
                 targets = emptyList(),
                 totalShootable = 0,
-                targetsAvailable = catalog == null,
+                targetsAvailable = false,
             )
         }
+        val subjects = load.subjects +
+            radiantLaneData(location, date, timeline).map { it.subject }
 
         // Per-target evaluation at the cursor. The Moon separation is
         // the TRUE spherical angle between the target's and the Moon's
@@ -464,7 +582,7 @@ class TonightOverviewUseCase(
         // display cap, so an excluded target neither draws an arc nor
         // takes a top-10 slot.
         data class EvaluatedTarget(
-            val obj: DeepSkyObject,
+            val subject: TonightSubject,
             val coords: EquatorialCoordinates,
             val candidate: TimelineCursor.Candidate,
             val moonSeparationDeg: Double,
@@ -472,8 +590,8 @@ class TonightOverviewUseCase(
             val moonExcluded: Boolean,
         )
         val moonAltitudeDeg = moonPosition.altitude.value
-        val evaluated = all.map { obj ->
-            val coords = EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg))
+        val evaluated = subjects.map { subject ->
+            val coords = subject.coordinates
             val altitude = ephemeris.altitudeOf(location, coords, cursor).value
             val azimuth = ephemeris.azimuthOf(location, coords, cursor).value
             val separation = TimelineCursor.angularSeparationDeg(
@@ -494,7 +612,7 @@ class TonightOverviewUseCase(
                 )
             }
             EvaluatedTarget(
-                obj = obj,
+                subject = subject,
                 coords = coords,
                 candidate = TimelineCursor.Candidate(altitude, moonlight),
                 moonSeparationDeg = separation,
@@ -506,16 +624,16 @@ class TonightOverviewUseCase(
         val ranked = TimelineCursor.rankShootable(eligible.map { it.candidate })
         // Arc samples are computed once per displayed target per call.
         val arcSamplesCache = mutableMapOf<String, List<TimelineCursor.AltitudeSample>>()
-        fun arcSamplesFor(obj: DeepSkyObject, coords: EquatorialCoordinates):
-            List<TimelineCursor.AltitudeSample> = arcSamplesCache.getOrPut(obj.id) {
+        fun arcSamplesFor(subject: TonightSubject, coords: EquatorialCoordinates):
+            List<TimelineCursor.AltitudeSample> = arcSamplesCache.getOrPut(subject.id) {
                 sampleArcAltitudes(location, timeline, coords)
             }
         val targets = ranked.take(TimelineCursor.MAX_DISPLAYED_TARGETS).map { index ->
             val entry = eligible[index]
-            val obj = entry.obj
+            val subject = entry.subject
             val coords = entry.coords
             val candidate = entry.candidate
-            val arcSamples = arcSamplesFor(obj, coords)
+            val arcSamples = arcSamplesFor(subject, coords)
             val culmination = TimelineCursor.culminationOf(arcSamples)
             val phases = TimelineCursor.arcPhases(
                 arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
@@ -523,16 +641,9 @@ class TonightOverviewUseCase(
             // The framed span on the lane: the recommended window cut
             // to this target's ≥20° arc window (the bar never draws
             // the part of the window that lies outside the arc).
-            val recommendedFrame = TimelineCursor.recommendedWindow(
-                arcSamples, timeline.axisEnd,
-            )?.let { recommended ->
-                val window = phases?.window ?: return@let null
-                val start = maxOf(recommended.interval.start, window.start)
-                val end = minOf(recommended.interval.end, window.end)
-                if (end.isAfter(start)) NightTimeline.Interval(start, end) else null
-            }
+            val recommendedFrame = recommendedFrameFor(arcSamples, phases, timeline.axisEnd)
             CursorTarget(
-                obj = obj,
+                subject = subject,
                 altitudeDeg = candidate.altitudeDeg,
                 moonlightMcdPerM2 = candidate.moonlightMcdPerM2,
                 arcIntervals = TimelineCursor.aboveThresholdIntervals(
@@ -591,13 +702,8 @@ class TonightOverviewUseCase(
         val cursor = TimelineCursor.clampToAxis(
             TimelineCursor.truncatedToMinute(instant), timeline.axisStart, timeline.axisEnd,
         )
-        val catalog = objectCatalog ?: return null
-        val obj = try {
-            catalog.allObjects().firstOrNull { it.id == objectId }
-        } catch (e: Exception) {
-            null
-        } ?: return null
-        val coords = EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg))
+        val subject = resolveSubject(objectId, date) ?: return null
+        val coords = subject.coordinates
         val altitude = ephemeris.altitudeOf(location, coords, cursor).value
         val azimuth = ephemeris.azimuthOf(location, coords, cursor).value
         val moonPosition = ephemeris.horizontalPosition(location, CelestialBody.MOON, cursor)
@@ -614,25 +720,11 @@ class TonightOverviewUseCase(
         )
         // The dialog presents the night's windows, not the axis's
         // (ui-design §7.5, 0.8.4): the ≥20° run and the recommended
-        // window are cut to the astronomical night. The bounds come
-        // from the same ephemeris calls execute() makes; with no
-        // astronomical night the span falls back to sunset → next
-        // sunrise, and with neither there is no span to cut to and
-        // the raw windows stand. The lane phases (evaluateCursor)
-        // and the phase classification below keep the uncut pass.
-        val night = ephemeris.astronomicalNight(location, date)
-        val nightSpan = when {
-            night != null -> NightTimeline.Interval(night.dusk, night.dawn)
-            else -> {
-                val sunset = ephemeris.sunEvents(location, date).sunset
-                val nextSunrise = ephemeris.sunEvents(location, date.plusDays(1)).sunrise
-                if (sunset != null && nextSunrise != null) {
-                    NightTimeline.Interval(sunset, nextSunrise)
-                } else {
-                    null
-                }
-            }
-        }
+        // window are cut to the astronomical night — see [nightSpan]
+        // for the shared span definition. The lane phases
+        // (evaluateCursor) and the phase classification below keep
+        // the uncut pass.
+        val nightSpan = nightSpan(location, date)
         val phases = rawPhases?.let { raw ->
             nightSpan?.let { span -> TimelineCursor.arcPhasesWithin(raw, span) } ?: raw
         }
@@ -642,10 +734,17 @@ class TonightOverviewUseCase(
         val tier = TimelineCursor.moonInterference(
             targetSky.moonlightMcdPerM2, targetSky.totalSky.baselineTotalMcdPerM2,
         )
-        val recommended = TimelineCursor.recommendedWindow(arcSamples, timeline.axisEnd)
-            ?.let { raw ->
-                nightSpan?.let { span -> TimelineCursor.recommendedWithin(raw, span) } ?: raw
-            }
+        // The recommended interval does not apply to a radiant
+        // (ui-design §7.8): its detail keeps the shootable window
+        // and the peak/ZHR row, never a recommended window.
+        val recommended = if (subject is TonightSubject.Radiant) {
+            null
+        } else {
+            TimelineCursor.recommendedWindow(arcSamples, timeline.axisEnd)
+                ?.let { raw ->
+                    nightSpan?.let { span -> TimelineCursor.recommendedWithin(raw, span) } ?: raw
+                }
+        }
         // Horizon crossings for the detail dialog's folded section
         // and its below-horizon fact line: the same evaluation path
         // asks the ephemeris port for tonight's pass at a 0°
@@ -653,7 +752,7 @@ class TonightOverviewUseCase(
         val horizonPass = ephemeris.targetPass(location, coords, date, Degrees(0.0))
         val peakSample = arcSamples.maxByOrNull { it.altitudeDeg }
         return TargetDetail(
-            obj = obj,
+            subject = subject,
             altitudeDeg = altitude,
             azimuthDeg = azimuth,
             phase = rawPhases?.let { TimelineCursor.phaseAt(it, cursor) },
@@ -662,8 +761,13 @@ class TonightOverviewUseCase(
                 arcSamples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
             ),
             phases = phases,
+            // The framing derivation runs off the subject's major
+            // axis for every category (ui-design §7.8): catalogue
+            // arcminutes for a deep-sky object, the editorial extent
+            // for a constellation or viewpoint — the same §7.5
+            // function and the same answer it has always given.
             framing = app.astroexposure.domain.camera.FullFrameFraming.advice(
-                obj.sizeMajorArcmin,
+                subject.sizeMajorDeg?.times(60.0),
             ),
             moonSeparationDeg = separation,
             moonUp = moonAltitudeDeg > 0.0,
@@ -679,6 +783,10 @@ class TonightOverviewUseCase(
             horizonSet = horizonPass?.setsBelow,
             culmination = peakSample?.instant,
             culminationAltitudeDeg = peakSample?.altitudeDeg,
+            meteorPeakDate = (subject as? TonightSubject.Radiant)?.let {
+                ShowerDates.approxDate(it.shower.peakLon, date)
+            },
+            meteorZhr = (subject as? TonightSubject.Radiant)?.shower?.peakZhr,
         )
     }
 
@@ -863,54 +971,350 @@ class TonightOverviewUseCase(
         return all to available
     }
 
+    /** The loaded board-subject universe plus its honest availability. */
+    private class SubjectLoad(val subjects: List<TonightSubject>, val available: Boolean)
+
     /**
-     * Static shortlist (design §6.4): catalogue magnitude ≤ 6.5, tonight's
-     * pass reaching ≥ 40° culmination, brightest first, at most 10. Passes
-     * are evaluated brightest-first and the scan stops once 10 qualify, so
-     * the ephemeris cost stays bounded.
+     * Deep-sky objects, constellation entries and wide-field
+     * viewpoints as unified subjects (ui-design §7.8). Explicit
+     * degradation, not a silent catch: ANY configured catalogue that
+     * fails to load (malformed JSON, unparseable field, unknown
+     * record type, missing resource) empties the universe and reports
+     * [SubjectLoad.available] = false, so callers can say
+     * "unavailable" instead of pretending tonight simply has no
+     * targets. An unconfigured catalogue simply contributes nothing.
+     * The outcome is computed per call — no state survives between
+     * calls on this (singleton) use case.
      */
-    private fun recommendations(
+    private fun loadBoardSubjects(): SubjectLoad {
+        val subjects = mutableListOf<TonightSubject>()
+        return try {
+            objectCatalog?.let { catalog ->
+                subjects += catalog.allObjects().map { TonightSubject.DeepSky(it) }
+            }
+            constellationCatalog?.let { catalog ->
+                subjects += catalog.constellations().map { TonightSubject.Constellation(it) }
+            }
+            wideFieldCatalog?.let { catalog ->
+                subjects += catalog.viewpoints().map { TonightSubject.Viewpoint(it) }
+            }
+            SubjectLoad(subjects, available = true)
+        } catch (e: Exception) {
+            SubjectLoad(emptyList(), available = false)
+        }
+    }
+
+    /** Resolve one subject by its namespaced id; null when unknown or a catalogue fails. */
+    private fun resolveSubject(id: String, date: LocalDate): TonightSubject? = try {
+        when {
+            id.startsWith("constellation:") -> constellationCatalog
+                ?.constellations()
+                ?.firstOrNull { it.code == id.removePrefix("constellation:") }
+                ?.let { TonightSubject.Constellation(it) }
+            id.startsWith("viewpoint:") -> wideFieldCatalog
+                ?.viewpoints()
+                ?.firstOrNull { it.id == id.removePrefix("viewpoint:") }
+                ?.let { TonightSubject.Viewpoint(it) }
+            id.startsWith("shower:") -> showerCatalog
+                ?.showers()
+                ?.firstOrNull { it.iauCode == id.removePrefix("shower:") }
+                ?.let { radiantSubject(it, date) }
+            else -> objectCatalog
+                ?.allObjects()
+                ?.firstOrNull { it.id == id }
+                ?.let { TonightSubject.DeepSky(it) }
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * A shower's radiant subject at [date]: the catalogue radiant
+     * moved by the daily drift times the signed days from peak — the
+     * meteor use case's existing convention, shared so the lane, the
+     * cursor set and the detail dialog always point at one radiant.
+     */
+    private fun radiantSubject(shower: MeteorShower, date: LocalDate): TonightSubject.Radiant {
+        val days = ShowerDates.daysFromPeak(shower, date)
+        return TonightSubject.Radiant(
+            shower = shower,
+            radiant = EquatorialCoordinates(
+                shower.radiantRaHours + shower.driftRaPerDay * days,
+                Degrees(shower.radiantDecDeg + shower.driftDecPerDay * days),
+            ),
+        )
+    }
+
+    /**
+     * The presentation night span windows are cut to (ui-design
+     * §7.5, 0.8.4): the astronomical night when there is one; with no
+     * astronomical night, sunset → next sunrise; with neither, null
+     * and the raw windows stand.
+     */
+    private fun nightSpan(location: GeoLocation, date: LocalDate): NightTimeline.Interval? {
+        val night = ephemeris.astronomicalNight(location, date)
+        if (night != null) return NightTimeline.Interval(night.dusk, night.dawn)
+        val sunset = ephemeris.sunEvents(location, date).sunset
+        val nextSunrise = ephemeris.sunEvents(location, date.plusDays(1)).sunrise
+        return if (sunset != null && nextSunrise != null) {
+            NightTimeline.Interval(sunset, nextSunrise)
+        } else {
+            null
+        }
+    }
+
+    /** Total minutes the ≥20° runs [intervals] spend inside [span] (the whole axis when null). */
+    private fun windowMinutesWithin(
+        intervals: List<NightTimeline.Interval>,
+        span: NightTimeline.Interval?,
+    ): Long = intervals.sumOf { interval ->
+        val start = if (span == null) interval.start else maxOf(interval.start, span.start)
+        val end = if (span == null) interval.end else minOf(interval.end, span.end)
+        if (end.isAfter(start)) Duration.between(start, end).toMinutes() else 0L
+    }
+
+    /**
+     * The lane's gold frame: the recommended window cut to this
+     * target's ≥20° arc window (the bar never draws the part of the
+     * window that lies outside the arc). One implementation shared by
+     * the whole-night lanes and the cursor-state targets.
+     */
+    private fun recommendedFrameFor(
+        samples: List<TimelineCursor.AltitudeSample>,
+        phases: TimelineCursor.ArcPhases?,
+        axisEnd: Instant,
+    ): NightTimeline.Interval? =
+        TimelineCursor.recommendedWindow(samples, axisEnd)?.let { recommended ->
+            val window = phases?.window ?: return@let null
+            val start = maxOf(recommended.interval.start, window.start)
+            val end = minOf(recommended.interval.end, window.end)
+            if (end.isAfter(start)) NightTimeline.Interval(start, end) else null
+        }
+
+    /** Everything sampled about one subject for board and lane construction. */
+    private class SubjectFacts(
+        val samples: List<TimelineCursor.AltitudeSample>,
+        val culmination: TimelineCursor.AltitudeSample?,
+        val arcIntervals: List<NightTimeline.Interval>,
+        val phases: TimelineCursor.ArcPhases?,
+        val windowMinutes: Long,
+        val recommended: TimelineCursor.RecommendedWindow?,
+    )
+
+    private fun subjectFacts(
+        location: GeoLocation,
+        timeline: Timeline,
+        span: NightTimeline.Interval?,
+        subject: TonightSubject,
+    ): SubjectFacts {
+        val samples = sampleArcAltitudes(location, timeline, subject.coordinates)
+        val intervals = TimelineCursor.aboveThresholdIntervals(
+            samples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+        )
+        return SubjectFacts(
+            samples = samples,
+            culmination = TimelineCursor.culminationOf(samples),
+            arcIntervals = intervals,
+            phases = TimelineCursor.arcPhases(
+                samples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+            ),
+            windowMinutes = windowMinutesWithin(intervals, span),
+            recommended = TimelineCursor.recommendedWindow(samples, timeline.axisEnd),
+        )
+    }
+
+    private class BoardAssembly(
+        val entries: List<ShortlistEntry>,
+        val lanes: List<LaneEntry>,
+        val available: Boolean,
+    )
+
+    /**
+     * The cross-category tonight board (ui-design §7.8). The deep-sky
+     * gate is the pre-0.9.0 rule, unchanged (catalogue magnitude
+     * ≤ 6.5, culmination ≥ 40° via the target-pass port), evaluated
+     * brightest-first with the scan stopping at the quota so the
+     * ephemeris cost stays bounded; constellation and viewpoint
+     * candidates are gated on their sampled facts. Gates, quotas and
+     * the final order are decided by the pure [assembleBoard]; this
+     * function only gathers facts and builds the rows and lanes from
+     * its verdict, so the two can never disagree.
+     */
+    private fun tonightBoard(
         location: GeoLocation,
         date: LocalDate,
-    ): Pair<List<RecommendedObject>, Boolean> {
-        val catalog = objectCatalog ?: return emptyList<RecommendedObject>() to true
-        // Explicit degradation, not a silent catch: ANY catalogue load
-        // failure (malformed JSON, unparseable field, unknown record
-        // type, missing resource) degrades the shortlist to empty and
-        // reports [Result.recommendationsAvailable] = false, so the UI
-        // can say "recommendations unavailable" instead of pretending
-        // tonight simply has no targets. The outcome is computed per
-        // call and carried in the return value — no state survives
-        // between execute() calls on this (singleton) use case.
-        val all = try {
-            catalog.allObjects()
-        } catch (e: Exception) {
-            return emptyList<RecommendedObject>() to false
+        timeline: Timeline,
+    ): BoardAssembly {
+        val load = loadBoardSubjects()
+        if (!load.available) return BoardAssembly(emptyList(), emptyList(), available = false)
+        val span = nightSpan(location, date)
+        val spanMinutes = span?.let { Duration.between(it.start, it.end).toMinutes() }
+        val factsById = mutableMapOf<String, SubjectFacts>()
+        fun facts(subject: TonightSubject): SubjectFacts =
+            factsById.getOrPut(subject.id) { subjectFacts(location, timeline, span, subject) }
+
+        val candidates = mutableListOf<BoardCandidate>()
+        // Constellations and viewpoints: every entry is a candidate;
+        // the pure assembly applies their gates.
+        for (subject in load.subjects) {
+            if (subject.category == SubjectCategory.DEEP_SKY) continue
+            val f = facts(subject)
+            candidates += BoardCandidate(
+                subject = subject,
+                culmination = f.culmination?.instant ?: timeline.axisStart,
+                culminationAltitudeDeg = f.culmination?.altitudeDeg ?: 0.0,
+                windowMinutes = f.windowMinutes,
+                magnitude = null,
+                recommendedStart = f.recommended?.interval?.start,
+            )
         }
-        val candidates = all
-            .filter { (it.magnitude ?: Double.MAX_VALUE) <= MAX_MAGNITUDE }
-            .sortedBy { it.magnitude }
-        val out = mutableListOf<RecommendedObject>()
-        for (obj in candidates) {
-            if (out.size >= MAX_RECOMMENDATIONS) break
+        // Deep-sky: brightest-first pass scan, stopping at the quota
+        // (the pre-0.9.0 bounded scan with the smaller 0.9.0 quota).
+        val deepSkySubjects = load.subjects
+            .filterIsInstance<TonightSubject.DeepSky>()
+            .filter { (it.obj.magnitude ?: Double.MAX_VALUE) <= MAX_MAGNITUDE }
+            .sortedBy { it.obj.magnitude }
+        var deepSkyTaken = 0
+        for (subject in deepSkySubjects) {
+            if (deepSkyTaken >= QUOTA_DEEP_SKY) break
             val pass = ephemeris.targetPass(
-                location,
-                EquatorialCoordinates(obj.raHours, Degrees(obj.decDeg)),
-                date,
-                Degrees(MIN_CULMINATION_DEG),
+                location, subject.coordinates, date, Degrees(MIN_CULMINATION_DEG),
             ) ?: continue
-            if (pass.culminationAltitude.value >= MIN_CULMINATION_DEG) {
-                out += RecommendedObject(obj, pass)
-            }
+            if (pass.culminationAltitude.value < MIN_CULMINATION_DEG) continue
+            deepSkyTaken++
+            val f = facts(subject)
+            candidates += BoardCandidate(
+                subject = subject,
+                culmination = f.culmination?.instant ?: pass.culmination,
+                culminationAltitudeDeg = f.culmination?.altitudeDeg
+                    ?: pass.culminationAltitude.value,
+                windowMinutes = f.windowMinutes,
+                magnitude = subject.obj.magnitude,
+                recommendedStart = f.recommended?.interval?.start,
+            )
         }
-        return out to true
+
+        val selected = assembleBoard(candidates)
+        val entries = selected.map { candidate ->
+            val f = facts(candidate.subject)
+            val cut = if (span == null) {
+                f.arcIntervals
+            } else {
+                f.arcIntervals.mapNotNull { interval ->
+                    TimelineCursor.intersectInterval(interval, span)
+                }
+            }
+            ShortlistEntry(
+                subject = candidate.subject,
+                culmination = candidate.culmination,
+                culminationAltitudeDeg = candidate.culminationAltitudeDeg,
+                shootableMinutes = candidate.windowMinutes,
+                windowStart = cut.firstOrNull()?.start,
+                windowEnd = cut.lastOrNull()?.end,
+                spansWholeNight = spanMinutes != null &&
+                    candidate.windowMinutes >= spanMinutes - WHOLE_NIGHT_TOLERANCE_MINUTES,
+                recommended = f.recommended,
+            )
+        }
+        val lanes = entries.map { entry ->
+            val f = facts(entry.subject)
+            LaneEntry(
+                subject = entry.subject,
+                altitudeSamples = f.samples,
+                arcIntervals = f.arcIntervals,
+                phases = f.phases,
+                recommendedFrame = recommendedFrameFor(f.samples, f.phases, timeline.axisEnd),
+                culmination = entry.culmination,
+                culminationAltitudeDeg = entry.culminationAltitudeDeg,
+            )
+        }
+        return BoardAssembly(entries, lanes, available = true)
+    }
+
+    /** Sampled facts for one qualifying radiant (see [radiantLaneData]). */
+    private class RadiantLaneData(
+        val subject: TonightSubject.Radiant,
+        val samples: List<TimelineCursor.AltitudeSample>,
+        val arcIntervals: List<NightTimeline.Interval>,
+        val culmination: TimelineCursor.AltitudeSample,
+    )
+
+    /**
+     * Tonight's qualifying radiants (ui-design §7.8): a shower earns
+     * a lane only when ALL three hold — tonight is inside its active
+     * period, its peak night falls within ±3 days (the same
+     * membership the events section uses — no second window), and its
+     * radiant's ≥20° window inside the astronomical night totals at
+     * least an hour. A shower catalogue that fails to load yields no
+     * lanes; the events section reports that failure separately.
+     */
+    private fun radiantLaneData(
+        location: GeoLocation,
+        date: LocalDate,
+        timeline: Timeline,
+    ): List<RadiantLaneData> {
+        val catalog = showerCatalog ?: return emptyList()
+        val showers = try {
+            catalog.showers()
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        val span = nightSpan(location, date)
+        return showers.mapNotNull { shower ->
+            if (!showerActiveOn(shower, date)) return@mapNotNull null
+            if (kotlin.math.abs(ShowerDates.daysFromPeak(shower, date)) > PEAK_WINDOW_DAYS) {
+                return@mapNotNull null
+            }
+            val subject = radiantSubject(shower, date)
+            val samples = sampleArcAltitudes(location, timeline, subject.coordinates)
+            val peak = TimelineCursor.culminationOf(samples) ?: return@mapNotNull null
+            val intervals = TimelineCursor.aboveThresholdIntervals(
+                samples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
+            )
+            if (windowMinutesWithin(intervals, span) < RADIANT_MIN_WINDOW_MINUTES) {
+                return@mapNotNull null
+            }
+            RadiantLaneData(subject, samples, intervals, peak)
+        }
+    }
+
+    /** The radiant lanes themselves, drawn after the board lanes. */
+    private fun radiantLanes(
+        location: GeoLocation,
+        date: LocalDate,
+        timeline: Timeline,
+    ): List<LaneEntry> = radiantLaneData(location, date, timeline).map { data ->
+        LaneEntry(
+            subject = data.subject,
+            altitudeSamples = data.samples,
+            arcIntervals = data.arcIntervals,
+            phases = null,
+            recommendedFrame = null,
+            culmination = data.culmination.instant,
+            culminationAltitudeDeg = data.culmination.altitudeDeg,
+            meteorPeakDate = ShowerDates.approxDate(data.subject.shower.peakLon, date),
+            meteorZhr = data.subject.shower.peakZhr,
+        )
     }
 
     companion object {
         const val MAX_MAGNITUDE = 6.5
         const val MIN_CULMINATION_DEG = 40.0
-        const val MAX_RECOMMENDATIONS = 10
+        /** Per-category board quotas (ui-design §7.8); unused slots never transfer. */
+        const val QUOTA_DEEP_SKY = 5
+        const val QUOTA_WIDE_FIELD = 3
+        const val QUOTA_CONSTELLATION = 2
+        const val CONSTELLATION_MIN_CULMINATION_DEG = 40.0
+        const val CONSTELLATION_MIN_WINDOW_MINUTES = 120L
+        const val VIEWPOINT_MIN_CULMINATION_DEG = 25.0
+        const val VIEWPOINT_MIN_WINDOW_MINUTES = 60L
+        const val RADIANT_MIN_WINDOW_MINUTES = 60L
+        /** The radiant peak membership window, shared with the events section. */
+        const val PEAK_WINDOW_DAYS = 3.0
+        /** Sample-step slack in the whole-night span test (two 5-minute steps). */
+        const val WHOLE_NIGHT_TOLERANCE_MINUTES = 10L
     }
+
 }
 
 /**
@@ -931,4 +1335,80 @@ internal fun moonriseNoteInstant(
     val rise = moonrise ?: return null
     val window = night ?: return null
     return if (rise.isAfter(window.dusk) && rise.isBefore(window.dawn)) rise else null
+}
+
+/**
+ * Whether [date] falls inside [shower]'s active period. The
+ * catalogue speaks solar longitude only; both bounds resolve through
+ * the same closest-date conversion the peak uses ([ShowerDates]),
+ * and a period wrapping the year boundary (end before start after
+ * anchoring) counts both sides of it. Pure, so the radiant lane's
+ * first entry condition is unit-testable without an ephemeris.
+ */
+internal fun showerActiveOn(shower: MeteorShower, date: LocalDate): Boolean {
+    val start = ShowerDates.approxDate(shower.activityStartLon, date)
+    val end = ShowerDates.approxDate(shower.activityEndLon, date)
+    return if (!end.isBefore(start)) {
+        !date.isBefore(start) && !date.isAfter(end)
+    } else {
+        !date.isBefore(start) || !date.isAfter(end)
+    }
+}
+
+/**
+ * The sampled facts the board assembly decides on (ui-design §7.8):
+ * one candidate per subject, carrying only what the gates, quotas
+ * and ordering read. Deep-sky candidates arrive pre-gated by the
+ * caller's target-pass scan (their [magnitude] is the in-category
+ * order key); constellation and viewpoint candidates are gated here.
+ */
+internal class BoardCandidate(
+    val subject: TonightOverviewUseCase.TonightSubject,
+    val culmination: Instant,
+    val culminationAltitudeDeg: Double,
+    val windowMinutes: Long,
+    val magnitude: Double?,
+    val recommendedStart: Instant?,
+)
+
+/**
+ * The pure board assembly (ui-design §7.8): per-category gates and
+ * quotas with NO cross-category transfer (an under-filled category
+ * leaves its slots empty — the board may be shorter than 10), then
+ * the board order: recommended-interval start ascending, ties by
+ * culmination instant, then subject id (fully deterministic).
+ * Relative-best entries order by their relative-best span's start
+ * like any other — their recommended window is simply the one the
+ * shared definition produced.
+ */
+internal fun assembleBoard(candidates: List<BoardCandidate>): List<BoardCandidate> {
+    val deepSky = candidates
+        .filter { it.subject.category == TonightOverviewUseCase.SubjectCategory.DEEP_SKY }
+        .sortedBy { it.magnitude ?: Double.MAX_VALUE }
+        .take(TonightOverviewUseCase.QUOTA_DEEP_SKY)
+    val constellations = candidates
+        .filter {
+            it.subject.category == TonightOverviewUseCase.SubjectCategory.CONSTELLATION &&
+                it.culminationAltitudeDeg >=
+                TonightOverviewUseCase.CONSTELLATION_MIN_CULMINATION_DEG &&
+                it.windowMinutes >= TonightOverviewUseCase.CONSTELLATION_MIN_WINDOW_MINUTES
+        }
+        .sortedByDescending { it.culminationAltitudeDeg }
+        .take(TonightOverviewUseCase.QUOTA_CONSTELLATION)
+    val viewpoints = candidates
+        .filter {
+            it.subject.category == TonightOverviewUseCase.SubjectCategory.WIDE_FIELD &&
+                it.culminationAltitudeDeg >=
+                TonightOverviewUseCase.VIEWPOINT_MIN_CULMINATION_DEG &&
+                it.windowMinutes >= TonightOverviewUseCase.VIEWPOINT_MIN_WINDOW_MINUTES
+        }
+        .sortedByDescending { it.culminationAltitudeDeg }
+        .take(TonightOverviewUseCase.QUOTA_WIDE_FIELD)
+    return (deepSky + constellations + viewpoints).sortedWith(
+        compareBy(
+            { it.recommendedStart ?: it.culmination },
+            { it.culmination },
+            { it.subject.id },
+        ),
+    )
 }
