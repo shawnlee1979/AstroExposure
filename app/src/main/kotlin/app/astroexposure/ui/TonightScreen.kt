@@ -119,6 +119,8 @@ fun TonightScreen(
     onSaveFavourite: (String) -> Unit,
     onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
+    /** The lens library (built-in + custom), for the detail dialog's framing chart (§7.10). */
+    lenses: List<app.astroexposure.domain.lens.Lens>,
     onEvaluateComposition: (String, Double, Double) ->
         TonightOverviewUseCase.CompositionEvaluation?,
     onOpenTargetCalculator: (CalcCategory, CalcPrefill) -> Unit,
@@ -740,6 +742,8 @@ fun TonightScreen(
                     onEvaluateComposition = { bearingDeg, toleranceDeg ->
                         onEvaluateComposition(id, bearingDeg, toleranceDeg)
                     },
+                    lenses = lenses,
+                    redLight = redLight,
                 )
             } else {
                 DetailDialog(

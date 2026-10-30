@@ -512,6 +512,7 @@ private fun AstroApp(container: AppContainer) {
                         },
                         timeHealth = timeHealth,
                         redLight = redLight,
+                        lenses = lenses.map { it.first },
                         onUseGps = useGps,
                         showGpsSyncDot = site.source == LocationSource.GPS,
                         manualBortle = manualBortle,
@@ -694,6 +695,7 @@ private fun AstroApp(container: AppContainer) {
                         container.eclipseCatalog.dataVersion,
                         container.showerCatalog.dataVersion,
                         container.lensCatalog.dataVersion,
+                        container.starCatalog.dataVersion,
                     ),
                     currentZone = ZoneId.systemDefault(),
                     onAddCamera = { camera ->

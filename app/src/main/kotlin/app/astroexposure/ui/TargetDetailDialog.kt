@@ -29,6 +29,7 @@ import app.astroexposure.R
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ConstellationNames
 import app.astroexposure.domain.catalog.DeepSkyObjectType
+import app.astroexposure.domain.lens.Lens
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.ui.theme.LocalStateColors
@@ -65,6 +66,8 @@ fun TargetDetailDialog(
     siteLatitudeDeg: Double,
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
+    lenses: List<Lens>,
+    redLight: Boolean,
     onDismiss: () -> Unit,
     actionLabel: String?,
     onAction: (() -> Unit)?,
@@ -253,6 +256,38 @@ fun TargetDetailDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+
+                // The framing chart (ui-design §7.10): the grid's
+                // focal advice drawn — a star chart with the
+                // full-frame rectangle over the subject. Deep-sky
+                // objects and constellations get it; a deep-sky
+                // object without a catalogue size gets the honest
+                // one-line statement instead of an empty chart.
+                // Viewpoints and radiants get neither (a radiant is
+                // not a framable subject; viewpoints are out of this
+                // batch's scope). Not the composition section below:
+                // that one is §7.9's time-window geometry, and the
+                // two share neither state nor wording.
+                val chart = detail.framingChart
+                if (chart != null) {
+                    FramingChartSection(
+                        data = chart,
+                        advice = detail.framing,
+                        subjectMajorArcmin =
+                            detail.subject.sizeMajorDeg?.times(60.0) ?: 0.0,
+                        lenses = lenses,
+                        redLight = redLight,
+                    )
+                } else if (
+                    detail.subject is TonightOverviewUseCase.TonightSubject.DeepSky &&
+                    detail.framing is FullFrameFraming.Advice.NoSizeData
+                ) {
+                    Text(
+                        text = stringResource(R.string.framing_no_size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 // The composition section (ui-design §7.9): every
