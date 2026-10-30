@@ -27,8 +27,8 @@ android {
         applicationId = "app.astroexposure"
         minSdk = 26
         targetSdk = 34
-        versionCode = 37
-        versionName = "0.11.3"
+        versionCode = 38
+        versionName = "0.12.0"
     }
 
     signingConfigs {
