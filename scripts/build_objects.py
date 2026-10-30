@@ -165,6 +165,7 @@ def to_object(obj_id, row, name_override=None):
         "magnitude": round(mag, 2) if mag is not None else None,
         "sizeMajorArcmin": fnum(row, "MajAx"),
         "sizeMinorArcmin": fnum(row, "MinAx"),
+        "positionAngleDeg": fnum(row, "PosAng"),
         "type": mapped,
         "constellation": const or None,
         "surfaceBrightness": sb,

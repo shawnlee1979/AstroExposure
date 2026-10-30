@@ -27,8 +27,39 @@ Common rules:
 - Content: all 110 Messier objects (M102 taken as NGC 5866, see script
   header) plus bright NGC/IC deep-sky objects (galaxies mag <= 10.0,
   clusters/nebulae mag <= 10.5), 576 objects total at build time.
+  Carries `positionAngleDeg` from the source PosAng column since
+  0.11.0 (132 of 576 have one; absent is omitted, never 0).
 - Data version record: `dataVersion` field in objects.json +
   [data-sources.md](data-sources.md).
+
+## build_stars.py — HYG bright-star subset (framing chart)
+
+- Source: HYG v4.4 `hyg_v44.csv.gz` from Codeberg astronexus/hyg
+  (Git LFS; CC BY-SA 4.0). The source file is SHA-256-pinned in the
+  script and re-verified on every run.
+- Command: `python3 scripts/build_stars.py` (run before build_lines.py)
+- Outputs: `data/src/main/resources/catalog/stars.bin.gz` (binary:
+  magic `AEST` + int32 count + 14-byte little-endian records
+  [HYG id, RA deg ×10⁴, Dec deg ×10⁴, mag ×100], 8,920 stars at
+  magnitude ≤ 6.5) and `catalog/star-names.json` (proper / Bayer /
+  Chinese names for the named stars).
+- Hard checks: HYG's `ra` column is decimal HOURS and is converted
+  ×15 — pinned by the Betelgeuse check (88.7925° / +7.4071° ±0.01);
+  star count within 8,500–9,500.
+
+## build_lines.py — constellation stick figures (framing chart)
+
+- Source: d3-celestial `constellations.lines.json` (BSD 3-Clause,
+  © Olaf Frohn; figures per the IAU constellation pages). Cached
+  under `scripts/.cache/d3-celestial/` with SHA-256 records.
+- Command: `python3 scripts/build_lines.py` (after build_stars.py)
+- Output: `data/src/main/resources/catalog/constellation-lines.json`
+  — every vertex replaced by the id of the HYG-subset star it
+  coincides with (88 codes, 150 polylines; Serpens' two upstream
+  features merged under one code).
+- Hard checks: code set equals the 88 codes of constellations.json;
+  every vertex matches a subset star within 0.05° (measured max
+  0.0085°); golden vertices (χ¹ in Orion, Albireo in Cygnus).
 
 ## build_eclipses.py — solar / lunar eclipses 2026-2035
 

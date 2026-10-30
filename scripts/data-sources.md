@@ -14,12 +14,53 @@ provenance record.)
 - Retrieved: 2026-10-27
 - Licence: CC BY-SA 4.0 (attribute OpenNGC / Mattia Verga; derivatives
   under the same licence)
-- Notes: M102 is taken as NGC 5866 (OpenNGC's own M102 row is a duplicate
+- Notes: since 0.11.0 the product also carries `positionAngleDeg` from
+  the source `PosAng` column (132 of 576 objects have one; absent is
+  null, never 0). M102 is taken as NGC 5866 (OpenNGC's own M102 row is a duplicate
   placeholder for M101). Seven Messier objects have no magnitude in
   OpenNGC; integrated V magnitudes for those are supplemented from the
   Harris catalogue of globular clusters (2010 edition) and, for the open
   cluster M35, from the WEBDA open-cluster database value. Chinese names
   are included only where a widely used Chinese common name exists.
+
+## stars.bin.gz + star-names.json — HYG v4.4 bright subset
+
+- Source: HYG Database v4.4, https://codeberg.org/astronexus/hyg —
+  `data/hyg/CURRENT/hyg_v44.csv.gz` (Codeberg Git LFS object)
+- Retrieved: 2026-10-30
+- Licence: CC BY-SA 4.0 (attribute Astronexus / David Nash; derivatives
+  under the same licence)
+- Acquisition record: the CSV gzip is 38,728,234 bytes, SHA-256
+  `00b349893b9a53106dd488d8371e8d2fa586043e500bb3cdb8bff3931682197d`,
+  identical to the repository's LFS pointer oid; the pipeline
+  re-verifies this hash on every run.
+- Notes: the subset is magnitude ≤ 6.5 excluding the Sun (HYG id 0):
+  8,920 stars. HYG's `ra` column is decimal hours; the pipeline
+  converts ×15 and pins the conversion with Betelgeuse (lands at
+  88.7929° / +7.4071°). Names: 1,587 stars carry a proper and/or Bayer
+  designation; 110 carry a Chinese name matched from the
+  constellations table's bright-star lists (editorial naming since
+  0.8.5). Two Bayer designations in the source could not be rendered
+  and are omitted (logged by the pipeline). Products:
+  `stars.bin.gz` 88,822 bytes gzipped; `star-names.json`.
+
+## constellation-lines.json — d3-celestial
+
+- Source: d3-celestial, https://github.com/ofrohn/d3-celestial —
+  `data/constellations.lines.json` and the project LICENSE
+- Retrieved: 2026-10-30
+- Licence: BSD 3-Clause (© 2015 Olaf Frohn); licence text kept in the
+  repository at `third-party/d3-celestial-LICENSE.txt`. The figures
+  follow the IAU constellation pages.
+- Acquisition record: `constellations.lines.json` 27,136 bytes,
+  SHA-256 `294f66bef5d5cf50b1e17f16d2efa1d97a15131612c68dd935adef6e7373e13c`;
+  LICENSE 1,498 bytes, SHA-256
+  `a8c79239001ad4bea243d1796b85084e1fc39309c5c5a663930a1b46320254c6`.
+- Notes: 89 GeoJSON features map to the 88 constellation codes —
+  Serpens arrives as two features (head and tail) under one id and is
+  merged. Converted form: 150 polylines, 893 vertex entries, every
+  vertex matched to its HYG-subset star within 0.0085° (assertion
+  bound 0.05°).
 
 ## eclipses.json — NASA GSFC eclipse catalogues
 

@@ -34,19 +34,35 @@ data from there under its original terms.
   CC BY-SA 4.0 as well.** Upstream acknowledgements (NED, HyperLEDA, SIMBAD,
   HEASARC) are preserved in the app's data-sources screen.
 
-## HYG Database — CC BY-SA 4.0 (planned; not yet used)
+## HYG Database — CC BY-SA 4.0
 
-- **Status:** No HYG data ships in the app today — the object catalogue
-  is OpenNGC only (see DEVELOPMENT-RULES.md). This section records the
-  licence terms in advance of the planned integration.
+- **Status:** Used since 0.11.0 (framing chart, UI design spec §7.10).
 - **What:** Star catalogue (Hipparcos + Yale Bright Star + Gliese merge);
-  the plan is to use a bright-star subset only.
+  the app ships a bright-star subset only — `scripts/build_stars.py`
+  cuts hyg_v44.csv at magnitude ≤ 6.5 (8,920 stars) into a compact
+  binary table (`catalog/stars.bin.gz`) plus a names side table
+  (`catalog/star-names.json`).
 - **Source:** https://codeberg.org/astronexus/hyg (Astronexus / David Nash;
-  formerly on GitHub at astronexus/HYG-Database).
+  formerly on GitHub at astronexus/HYG-Database). The v4.4 CSV is
+  SHA-256-pinned in the pipeline (see scripts/data-sources.md).
 - **Licence:** Creative Commons Attribution-ShareAlike 4.0 International
   (CC BY-SA 4.0).
 - **Obligations:** Attribute Astronexus / David Nash. **Derived subsets, if
   distributed, must be shared under CC BY-SA 4.0.**
+
+## d3-celestial constellation lines — BSD 3-Clause
+
+- **What:** Constellation stick figures (the line vertices), converted
+  at build time from d3-celestial's `constellations.lines.json` into
+  `catalog/constellation-lines.json` keyed on HYG star ids by
+  `scripts/build_lines.py`; the figures follow the IAU constellation
+  pages. Used by the framing chart since 0.11.0.
+- **Source:** https://github.com/ofrohn/d3-celestial (© 2015 Olaf Frohn).
+- **Licence:** BSD 3-Clause. The full licence text is kept at
+  `third-party/d3-celestial-LICENSE.txt`.
+- **Obligations:** Retain the copyright notice and licence text in
+  distributions; no endorsement by the author's name. The app's
+  data-sources screen credits d3-celestial accordingly.
 
 ## Falchi World Atlas of Artificial Night Sky Brightness — CC BY-NC 4.0
 
@@ -122,6 +138,7 @@ data from there under its original terms.
 ---
 
 *Summary: code = MIT. OpenNGC & HYG data = CC BY-SA 4.0 (attribute,
-share-alike on derivatives). Light-pollution data = CC BY-NC 4.0
+share-alike on derivatives). Constellation line data = BSD 3-Clause
+(d3-celestial). Light-pollution data = CC BY-NC 4.0
 (attribute, **non-commercial only**). Eclipse and meteor tables = factual
 data with NASA GSFC / IMO attribution retained.*
