@@ -32,15 +32,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astroexposure.R
@@ -50,6 +55,7 @@ import app.astroexposure.domain.catalog.ChartStar
 import app.astroexposure.domain.lens.Lens
 import app.astroexposure.ui.theme.LocalStateColors
 import app.astroexposure.usecase.TonightOverviewUseCase
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.ln
@@ -521,9 +527,12 @@ internal class ChartModel(
  * Filters the catalogues to the chart field and prepares every
  * drawable. The field filter works on true angular separation.
  * Line figures are clipped to the field square at this layer
- * ([clipPolylineToField], 0.11.1), so every coordinate the model
- * hands the canvas is bounded by the field radius; stars and
- * labels are bounded by their separation filters.
+ * ([clipPolylineToField], 0.11.1), so every line coordinate the
+ * model hands the canvas is bounded by the field radius. Label
+ * anchors are NOT bounded this way — the field disc reaches past
+ * the canvas rectangle and out-star labels sit wherever their
+ * vertex falls — so the canvas makes each anchor safe at draw
+ * time instead ([labelDrawDecision], 0.11.2).
  */
 internal fun buildChartModel(
     data: TonightOverviewUseCase.FramingChartData,
@@ -749,6 +758,82 @@ internal fun clipPolylineToField(
 /** Proper-named stars at or below this magnitude carry a chart label (§7.10). */
 private const val LABEL_MAX_MAGNITUDE = 2.5
 
+/**
+ * What the canvas may do with one chart label (0.11.2): draw it
+ * under exactly these text constraints, or skip it.
+ */
+internal sealed interface LabelDrawDecision {
+    data class Draw(val maxWidthPx: Int, val maxHeightPx: Int) : LabelDrawDecision
+    data object Skip : LabelDrawDecision
+}
+
+/**
+ * The label draw decision for one anchor, mirroring the text
+ * constraints Compose's DrawScope.drawText(String) overload
+ * derives from the anchor when no explicit size is given:
+ * maxWidth = round(ceil(canvas width - anchor x)) and maxHeight
+ * likewise (TextPainterKt.textLayoutConstraints in the shipped
+ * compose-ui-text; the integral ceil makes the round exact).
+ * The 0.11.0/0.11.1 device crash was this formula going negative
+ * — a label anchored past the right or bottom canvas edge made
+ * Constraints throw IllegalArgumentException on the draw thread
+ * (proven by the 0.11.1 crash trap's stack). A label whose anchor
+ * leaves no room on either axis starts outside the canvas, so
+ * skipping it changes nothing visible; everywhere else the
+ * decision carries the formula's own positive values, so a drawn
+ * label is measured under exactly the constraints the overload
+ * would have built and looks identical to before.
+ */
+internal fun labelDrawDecision(
+    anchorX: Float,
+    anchorY: Float,
+    canvasWidth: Float,
+    canvasHeight: Float,
+): LabelDrawDecision {
+    val maxWidth = ceil((canvasWidth - anchorX).toDouble()).toInt()
+    val maxHeight = ceil((canvasHeight - anchorY).toDouble()).toInt()
+    return if (maxWidth <= 0 || maxHeight <= 0) {
+        LabelDrawDecision.Skip
+    } else {
+        LabelDrawDecision.Draw(maxWidth, maxHeight)
+    }
+}
+
+/**
+ * The one place chart labels are drawn (0.11.2). Measures with
+ * the [labelDrawDecision] constraints and draws the layout at
+ * the original anchor: the same measurer, style, overflow,
+ * soft-wrap and max-lines the plain drawText(String) call used,
+ * and the layout draw it delegates to — only the constraint
+ * computation is intercepted before it can go negative.
+ */
+private fun DrawScope.drawChartLabel(
+    measurer: TextMeasurer,
+    text: String,
+    style: TextStyle,
+    topLeft: Offset,
+) {
+    when (val decision = labelDrawDecision(topLeft.x, topLeft.y, size.width, size.height)) {
+        LabelDrawDecision.Skip -> Unit
+        is LabelDrawDecision.Draw -> drawText(
+            textLayoutResult = measurer.measure(
+                text = AnnotatedString(text),
+                style = style,
+                overflow = TextOverflow.Clip,
+                softWrap = true,
+                maxLines = Int.MAX_VALUE,
+                constraints = Constraints(
+                    maxWidth = decision.maxWidthPx,
+                    maxHeight = decision.maxHeightPx,
+                ),
+                layoutDirection = layoutDirection,
+                density = this,
+            ),
+            topLeft = topLeft,
+        )
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The chart canvas.
 // ---------------------------------------------------------------------------
@@ -876,8 +961,8 @@ private fun FramingChartCanvas(
 
             for (label in model.labels) {
                 val at = place(label.point)
-                drawText(
-                    textMeasurer = measurer,
+                drawChartLabel(
+                    measurer = measurer,
                     text = label.text,
                     style = labelStyle,
                     topLeft = at + Offset(6.dp.toPx(), -14.dp.toPx()),
