@@ -56,6 +56,7 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.tan
 
 /**
  * The framing-chart section of the target detail dialog
@@ -518,9 +519,11 @@ internal class ChartModel(
 
 /**
  * Filters the catalogues to the chart field and prepares every
- * drawable. The field filter works on true angular separation; the
- * canvas clips what still falls outside its rectangle, so the
- * filter only needs to be a superset of the visible.
+ * drawable. The field filter works on true angular separation.
+ * Line figures are clipped to the field square at this layer
+ * ([clipPolylineToField], 0.11.1), so every coordinate the model
+ * hands the canvas is bounded by the field radius; stars and
+ * labels are bounded by their separation filters.
  */
 internal fun buildChartModel(
     data: TonightOverviewUseCase.FramingChartData,
@@ -529,6 +532,9 @@ internal fun buildChartModel(
     english: Boolean,
 ): ChartModel {
     val radiusDeg = fieldDiagonalDeg / 2.0
+    // The field disc's radius in tangent units; line figures are
+    // clipped to its circumscribed square below.
+    val fieldHalfSide = tan(Math.toRadians(radiusDeg))
     val starById = data.stars.associateBy { it.id }
     fun tangentOf(raDeg: Double, decDeg: Double): FramingChart.TangentPoint? =
         FramingChart.tangentPoint(data.centerRaDeg, data.centerDecDeg, raDeg, decDeg)
@@ -550,8 +556,8 @@ internal fun buildChartModel(
             }
             if (!reaches) continue
             val points = chainStars.mapNotNull { tangentOf(it.raDeg, it.decDeg) }
-            if (points.size >= 2) {
-                lines += LinePlot(points, emphasis = code == data.emphasisCode)
+            for (run in clipPolylineToField(points, fieldHalfSide)) {
+                lines += LinePlot(run, emphasis = code == data.emphasisCode)
             }
         }
     }
@@ -641,6 +647,103 @@ internal fun buildChartModel(
         outStars = outStars,
         labels = labels,
     )
+}
+
+/**
+ * Clips one segment to the chart field's square in tangent units
+ * (Liang–Barsky): the field disc's circumscribed square, half-side
+ * tan(field radius). Returns the clipped endpoints — the ORIGINAL
+ * points when an endpoint survives unclipped, so neighbouring
+ * segments keep sharing their vertex exactly — or null when the
+ * segment misses the square entirely.
+ */
+internal fun clipSegmentToField(
+    from: FramingChart.TangentPoint,
+    to: FramingChart.TangentPoint,
+    halfSide: Double,
+): Pair<FramingChart.TangentPoint, FramingChart.TangentPoint>? {
+    val dx = to.xEast - from.xEast
+    val dy = to.yNorth - from.yNorth
+    var tEnter = 0.0
+    var tLeave = 1.0
+    // The four square boundaries in Liang–Barsky (p, q) form:
+    // p_k * t <= q_k must hold along the kept interval.
+    val ps = doubleArrayOf(-dx, dx, -dy, dy)
+    val qs = doubleArrayOf(
+        from.xEast + halfSide, halfSide - from.xEast,
+        from.yNorth + halfSide, halfSide - from.yNorth,
+    )
+    for (k in 0 until 4) {
+        val p = ps[k]
+        val q = qs[k]
+        if (p == 0.0) {
+            if (q < 0.0) return null
+        } else {
+            val r = q / p
+            if (p < 0.0) {
+                if (r > tEnter) tEnter = r
+            } else {
+                if (r < tLeave) tLeave = r
+            }
+            if (tEnter > tLeave) return null
+        }
+    }
+    val start = if (tEnter == 0.0) {
+        from
+    } else {
+        FramingChart.TangentPoint(from.xEast + tEnter * dx, from.yNorth + tEnter * dy)
+    }
+    val end = if (tLeave == 1.0) {
+        to
+    } else {
+        FramingChart.TangentPoint(from.xEast + tLeave * dx, from.yNorth + tLeave * dy)
+    }
+    return start to end
+}
+
+/**
+ * Clips a line figure's polyline to the chart field, segment by
+ * segment (0.11.1). A chain is included whole when any of its stars
+ * reaches the field, but its far vertices sit at tangent radius
+ * tan(separation) — a vertex near 90 degrees from the centre is
+ * effectively unbounded, and the 0.11.0 model handed the canvas
+ * pixel coordinates past 350,000 px on a ~1,000 px canvas, a
+ * pathological input for the device render pipeline. Clipping
+ * here, in the model, bounds every line point the canvas can
+ * receive: |x| and |y| are at most [halfSide]. Runs split where
+ * the polyline leaves the field; a run needs at least two points
+ * to draw. Judgement never reads these points — [framingVerdict]
+ * works on the unclipped skeleton — so verdicts, counts and
+ * shares are untouched by construction.
+ */
+internal fun clipPolylineToField(
+    points: List<FramingChart.TangentPoint>,
+    halfSide: Double,
+): List<List<FramingChart.TangentPoint>> {
+    if (points.size < 2) return emptyList()
+    val runs = mutableListOf<List<FramingChart.TangentPoint>>()
+    var run = mutableListOf<FramingChart.TangentPoint>()
+    fun flush() {
+        if (run.size >= 2) runs += run.toList()
+        run = mutableListOf()
+    }
+    for (index in 0 until points.size - 1) {
+        val clipped = clipSegmentToField(points[index], points[index + 1], halfSide)
+        if (clipped == null) {
+            flush()
+            continue
+        }
+        val (start, end) = clipped
+        if (start == end) continue
+        if (run.isNotEmpty() && run.last() == start) {
+            run += end
+        } else {
+            flush()
+            run = mutableListOf(start, end)
+        }
+    }
+    flush()
+    return runs
 }
 
 /** Proper-named stars at or below this magnitude carry a chart label (§7.10). */
