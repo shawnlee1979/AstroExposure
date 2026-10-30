@@ -45,6 +45,15 @@ class ObjectCatalogContractTest {
     }
 
     @Test
+    fun `position angle is mapped when present and null when absent`() {
+        // The fixture M31 carries positionAngleDeg 35.0 (the real
+        // OpenNGC value); M42's document has no such key and must
+        // stay null — an absent orientation is never read as 0.
+        assertEquals(35.0, catalog.allObjects().first { it.id == "M31" }.positionAngleDeg!!, 1e-9)
+        assertNull(catalog.allObjects().first { it.id == "M42" }.positionAngleDeg)
+    }
+
+    @Test
     fun `object type strings map to the domain enum`() {
         assertEquals(DeepSkyObjectType.NEBULA, catalog.allObjects().first { it.id == "M42" }.type)
         assertEquals(DeepSkyObjectType.OPEN_CLUSTER, catalog.allObjects().first { it.id == "M45" }.type)

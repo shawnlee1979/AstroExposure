@@ -1,0 +1,15 @@
+{
+ "schemaVersion": 1,
+ "dataVersion": "test-fixture-1",
+ "source": "test fixture",
+ "names": {
+  "1001": {
+   "proper": "Betelgeuse",
+   "bayer": "α",
+   "nameZh": "参宿四"
+  },
+  "1003": {
+   "proper": "Albireo"
+  }
+ }
+}

@@ -11,9 +11,16 @@ the integrating change.
 Fixture facts asserted by the tests:
 
 - `objects.json` — M31 (raHours 0.712, decDeg 41.269, magnitude 3.4,
-  type GALAXY), M42 (NEBULA), M45 (CLUSTER_OPEN), M13 (CLUSTER_GLOBULAR).
+  type GALAXY, positionAngleDeg 35.0), M42 (NEBULA, no positionAngleDeg
+  key), M45 (CLUSTER_OPEN), M13 (CLUSTER_GLOBULAR).
   Coordinates and magnitudes are the well-known catalogue values for
   these Messier objects, rounded to 3 decimals.
+- `stars.bin.gz` + `star-names.json` — three fixture stars in the
+  build_stars.py binary format: 1001 (ra 88.7929, dec 7.4071,
+  mag 0.42; named Betelgeuse / α / 参宿四）, 1002 (unnamed), 1003
+  (Albireo, no Bayer or Chinese name in the side table).
+- `constellation-lines.json` — two fixture figures keyed on the
+  fixture star ids: Ori [[1001, 1002]], Cyg [[1003, 1001]].
 - `eclipses.json` — the four 2026 events of the NASA GSFC catalogue
   (Espenak & Meeus): 2026-02-17 annular solar, 2026-03-03 total lunar,
   2026-08-12 total solar, 2026-08-28 partial lunar. Peak times and

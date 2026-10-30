@@ -1,0 +1,19 @@
+{
+ "schemaVersion": 1,
+ "dataVersion": "test-fixture-1",
+ "source": "test fixture",
+ "lines": {
+  "Ori": [
+   [
+    1001,
+    1002
+   ]
+  ],
+  "Cyg": [
+   [
+    1003,
+    1001
+   ]
+  ]
+ }
+}

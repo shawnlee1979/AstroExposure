@@ -68,6 +68,7 @@ class JsonObjectCatalog(
                 magnitude = o.optionalDouble("magnitude", context),
                 sizeMajorArcmin = o.optionalDouble("sizeMajorArcmin", context),
                 sizeMinorArcmin = o.optionalDouble("sizeMinorArcmin", context),
+                positionAngleDeg = o.optionalDouble("positionAngleDeg", context),
                 type = parseObjectType(o.stringField("type", context), context),
                 constellation = o.optionalString("constellation", context),
                 surfaceBrightness = o.optionalDouble("surfaceBrightness", context),
