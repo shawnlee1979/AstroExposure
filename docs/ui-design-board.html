@@ -259,6 +259,25 @@
 /* 辐射点泳道形态示意（第二轮修订） */
   .specimen {border:1px dashed #3A4A73; border-radius:10px; padding:9px 10px 10px; margin-top:10px;}
 .specimen .spt {font-size:10.5px; color:#96A3BE; line-height:1.55; margin-bottom:7px;}
+
+/* 0.10.0 今晚目标弹窗样张（⑳–㉓）追加样式 */
+.sechead { display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid #22304F; padding:9px 0 1px; margin-top:5px; }
+.sechead.first { border-top:none; margin-top:0; padding-top:4px; }
+.secname { font-size:13.5px; font-weight:700; letter-spacing:.5px; }
+.seccount { font-size:11px; color:#96A3BE; font-variant-numeric:tabular-nums; }
+.seccount b { color:#F2C66D; font-weight:600; }
+.srec { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid #141D36; }
+.srec .name { font-size:14px; font-weight:600; }
+.srec .why { font-size:11.5px; color:#96A3BE; margin-top:2px; font-variant-numeric:tabular-nums; line-height:1.45; }
+.recmark { background:#F2C66D; color:#191203; font-size:9.5px; font-weight:700; border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:2px; white-space:nowrap; }
+.locbtn { border:1px solid #57481F; border-radius:8px; padding:4px 8px; background:#141007; color:#F2C66D; font-size:11.5px; white-space:nowrap; margin-left:8px; flex:none; }
+.remainrow { text-align:center; font-size:11px; color:#5D6C8C; padding:6px 0 2px; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+.syncnote { display:flex; justify-content:space-between; align-items:center; background:#131B31; border:1px solid #22304F; border-radius:10px; padding:8px 11px; font-size:12px; color:#96A3BE; margin:6px 0 2px; line-height:1.5; }
+.syncnote .showall { color:#F2C66D; font-weight:600; white-space:nowrap; margin-left:10px; }
+.frag { border:1px dashed #3A4A73; border-radius:12px; padding:10px 12px; margin-bottom:6px; }
+.frag .ftag { font-size:10.5px; color:#96A3BE; margin-bottom:4px; }
+.annot { display:flex; justify-content:space-between; font-size:10.5px; color:#6EA8FE; padding-top:3px; }
+.downarrow { text-align:center; color:#F2C66D; font-size:12px; margin:4px 0 8px; }
 </style>
 </head>
 <body>
@@ -1261,6 +1280,154 @@
   </div>
 </div>
 <div class="cap">⑲ 时间轴 · 类目筛选（星座关）＋辐射点泳道形态（第二轮修订）<small>筛选为纯显示层：星座关后两条星座泳道直接不占位（面板随之收拢），组榜、配额、行序一概不变，也不从深空回填名额——与「配额只作用于整晚组榜」同一界限。推荐按钮角标随筛选变为 7，弹窗同步只剩 7 条（推荐同步，§7 第 6 条裁定）。筛选不持久化：每次进今晚页默认全开，避免关着的类让明晚目标静默缺席；日／月食是事件不是条目、不入筛选。空态均为事实陈述：关类有小字说明、0 条类筹片降暗在列。辐射点泳道（下方虚线框示意）只在活跃期∩峰值 ±3 天∩辐射点窗口 ≥1h 时出现，走同一 TargetPass／采样口径，不另立窗口定义。</small></div>
+</div>
+<!-- 20 时间轴卡头 · 今晚目标按钮与全量角标 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>20:24</span><span>今晚</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="loc">
+      <div><div class="place">🏠 自家 · Alpharetta</div><div class="date">10 月 29 日 周四 · Bortle 6（图谱）</div></div>
+      <div class="health"><span class="dot"></span>时间正常</div>
+    </div>
+    <div class="daterow"><span class="chev">‹</span><span>10月29日 周四 · 今晚</span><span class="chev">›</span></div>
+    <div class="tlhead"><span class="tltitle">时间轴</span><span class="recbtn">☰ 今晚目标<span class="bdg">82</span></span></div>
+    <div class="chips"><span class="fchip on">深空 5</span><span class="fchip on">广域 3</span><span class="fchip on">星座 2</span><span class="fchip on">流星雨 1</span></div>
+    <div class="tl2">
+      <div class="sunband"><span style="left:11%">黄昏</span><span style="left:50%">天文夜</span><span style="left:88.5%">黎明</span></div>
+      <div class="moonband"></div>
+      <div class="marks">
+        <span style="left:7%">日落 18:45</span><span style="left:17.5%">天文夜始 20:11</span><span style="left:82%">天文夜终 06:30</span><span style="left:93.5%">日出 07:56</span>
+      </div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M0,6 Q35,2.5 60,2 Q140,8 198,20 L198,26 L0,26 Z" fill="#22304F"/><path d="M43,3 Q60,2 78,3.5 L78,26 L43,26 Z" fill="#F2C66D33"/><rect x="43" y="1.5" width="45" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,6 Q35,2.5 60,2 Q140,8 198,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip wf">广域</i>天鹅座银河段</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M0,16 Q28,4 52,2 Q86,5 118,18 L118,26 L0,26 Z" fill="#22304F"/><path d="M33,7 Q52,2 71,7 L71,26 L33,26 Z" fill="#F2C66D33"/><rect x="24" y="1.5" width="56" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,16 Q28,4 52,2 Q86,5 118,18" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip cs">星座</i>天琴座</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M20,20 Q90,6 158,2 Q230,6 296,20 L296,26 L20,26 Z" fill="#22304F"/><path d="M139,8 Q158,2 175,8 L175,26 L139,26 Z" fill="#F2C66D33"/><rect x="128" y="1.5" width="58" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M20,20 Q90,6 158,2 Q230,6 296,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip">深空</i>M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M105,20 Q170,6 226,2 Q290,6 336,10 L336,26 L105,26 Z" fill="#22304F"/><path d="M207,8 Q226,2 264,8 L264,26 L207,26 Z" fill="#F2C66D33"/><rect x="194" y="1.5" width="83" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M105,20 Q170,6 226,2 Q290,6 336,10" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip">深空</i>M45 昴星团</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M30,22 Q140,6 215,2 Q290,6 336,16 L336,26 L30,26 Z" fill="rgba(110,168,254,.16)"/><path d="M30,22 Q140,6 215,2 Q290,6 336,16" fill="none" stroke="#6EA8FE" stroke-width="1.4" stroke-dasharray="5 4"/><polygon points="212,0 216,4.5 212,9 208,4.5" fill="#6EA8FE"/></svg><span class="nm"><i class="catchip cs">流星</i>南金牛座流星雨 · 辐射点</span></div>
+      <div class="axis"><span style="left:1.6%">18:00</span><span style="left:21.3%">21:00</span><span style="left:41.1%">00:00</span><span style="left:60.9%">03:00</span><span style="left:80.6%">06:00</span></div>
+    </div>
+    <div class="card"><h3>本卡的两个计数口径</h3>
+      <div style="font-size:12.5px;color:#96A3BE;line-height:1.75;">按钮角标 <b style="color:#F2C66D;">82</b> ＝ 今晚达标全量（筛选后），点开弹窗将看到的条数；<br>筹片 <b style="color:#E9EEF8;">深空 5 · 广域 3 · 星座 2 · 流星雨 1</b> ＝ 时间轴上的泳道条目数（配额榜＋辐射点）。轴上仍是精选，点开才是全部。</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">⑳ 时间轴卡头 · 「今晚目标」按钮与全量角标<small>按钮改名（原「今晚推荐」），落点与形态不变、不做悬浮；角标由「筛选后榜单条数」改为「筛选后达标总数」——本夜全开态 82，语义是点开将看到多少条。筹片计数纹丝不动，仍是泳道条目数（配额后 5／3／2／1，0.9.1 口径）：两个数字同卡同屏、各表一义，靠「达标／泳道」的措辞与所在位置区分（提案 §2.10）。面板节选精选榜泳道与南金牛座辐射点泳道（虚线弧＋信息蓝填充，形态不变）；标记行时刻为样张夜实算（日落 18:45、天文夜 20:11–06:30、日出 07:56）。</small></div>
+</div>
+
+<!-- 21 今晚目标弹窗 · 整晚态全量分区 -->
+<div class="cell">
+<div class="phone" style="position:relative;">
+  <div class="statusbar"><span>20:24</span><span>今晚</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="loc">
+      <div><div class="place">🏠 自家 · Alpharetta</div><div class="date">10 月 29 日 周四 · Bortle 6（图谱）</div></div>
+      <div class="health"><span class="dot"></span>时间正常</div>
+    </div>
+    <div class="daterow"><span class="chev">‹</span><span>10月29日 周四 · 今晚</span><span class="chev">›</span></div>
+    <div class="tlhead"><span class="tltitle">时间轴</span><span class="recbtn">☰ 今晚目标<span class="bdg">82</span></span></div>
+    <div class="chips"><span class="fchip on">深空 5</span><span class="fchip on">广域 3</span><span class="fchip on">星座 2</span><span class="fchip on">流星雨 1</span></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="bsheet">
+    <div class="grab"></div>
+    <div class="bhead"><div class="btitle">今晚目标<small>10月29日 周四 · 达标 82 · 推荐 10</small></div><div class="bx">✕</div></div>
+    <div class="sechead first"><span class="secname">深空</span><span class="seccount">今晚达标 45 条 · <b>推荐 5</b></span></div>
+    <div class="srec"><div><div class="name">M45 昴星团<span class="recmark">推荐</span></div><div class="why">1.2 等 · 中天 80.1°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">NGC 1980<span class="recmark">推荐</span></div><div class="why">2.5 等 · 中天 50.0°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">M15<span class="recmark">推荐</span></div><div class="why">3.0 等 · 中天 68.2°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">M31 仙女座星系<span class="recmark">推荐</span></div><div class="why">3.4 等 · 中天 82.7°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">NGC 869 双星团<span class="recmark">推荐</span></div><div class="why">3.7 等 · 中天 66.8°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">NGC 884</div><div class="why">3.8 等 · 中天 66.8°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">NGC 2232</div><div class="why">3.9 等 · 中天 51.1°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">NGC 2264 圣诞树星团</div><div class="why">3.9 等 · 中天 65.8°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="remainrow">· · · 余 37 条 · 按星等序续列 · · ·</div>
+    <div class="sechead"><span class="secname">广域</span><span class="seccount">今晚达标 5 条 · <b>推荐 3</b></span></div>
+    <div class="srec"><div><div class="name">天鹅座银河段<span class="recmark">推荐</span></div><div class="why">中天 83.7° · 可拍窗 324 分</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">冬季银河（猎户–金牛）<span class="recmark">推荐</span></div><div class="why">中天 81.0° · 可拍窗 469 分</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="scrollhint">↓ 上滑继续：广域余 3 条 · 星座 31 条 · 流星雨 1 条（整表滚动，无折叠）</div>
+  </div>
+</div>
+<div class="cap">㉑ 今晚目标弹窗 · 整晚态全量分区<small>底部弹层形态不变（可上拖近全屏、下滑即关）。头行双计数「达标 82 · 推荐 10」与角标同口径；四区按筹片序（深空／广域／星座／流星雨），区头带达标计数与推荐子计数。区内序即现行类内推荐序（深空按星等：榜行恰为全序前 5、天然居区首；广域按中天：天鹅段 83.7°、冬季银河 81.0°、仙后段 63.9°）。榜行带金色「推荐」标记（金底深字＋文字，不单靠颜色），非榜行（NGC 884 起）同格式无标记——达标是事实、推荐是精选，两者靠标记区分。行内为关键量行（代原理由模板行），右侧 ⌖ 定位对全量行可用。本张「余 37 条」为样张收尾示意，产品中无此行、整表滚动。</small></div>
+</div>
+
+<!-- 22 今晚目标弹窗 · 筛选同步态（星座关） -->
+<div class="cell">
+<div class="phone" style="position:relative;">
+  <div class="statusbar"><span>20:24</span><span>今晚</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="daterow"><span class="chev">‹</span><span>10月29日 周四 · 今晚</span><span class="chev">›</span></div>
+    <div class="tlhead"><span class="tltitle">时间轴</span><span class="recbtn">☰ 今晚目标<span class="bdg">51</span></span></div>
+    <div class="chips"><span class="fchip on">深空 5</span><span class="fchip on">广域 3</span><span class="fchip off">星座 2</span><span class="fchip on">流星雨 1</span></div>
+    <div class="tl2">
+      <div class="sunband"><span style="left:11%">黄昏</span><span style="left:50%">天文夜</span><span style="left:88.5%">黎明</span></div>
+      <div class="moonband"></div>
+      <div class="marks">
+        <span style="left:7%">日落 18:45</span><span style="left:17.5%">天文夜始 20:11</span><span style="left:82%">天文夜终 06:30</span><span style="left:93.5%">日出 07:56</span>
+      </div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M0,6 Q35,2.5 60,2 Q140,8 198,20 L198,26 L0,26 Z" fill="#22304F"/><path d="M43,3 Q60,2 78,3.5 L78,26 L43,26 Z" fill="#F2C66D33"/><rect x="43" y="1.5" width="45" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M0,6 Q35,2.5 60,2 Q140,8 198,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip wf">广域</i>天鹅座银河段</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M20,20 Q90,6 158,2 Q230,6 296,20 L296,26 L20,26 Z" fill="#22304F"/><path d="M139,8 Q158,2 175,8 L175,26 L139,26 Z" fill="#F2C66D33"/><rect x="128" y="1.5" width="58" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M20,20 Q90,6 158,2 Q230,6 296,20" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip">深空</i>M31 仙女座星系</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M105,20 Q170,6 226,2 Q290,6 336,10 L336,26 L105,26 Z" fill="#22304F"/><path d="M207,8 Q226,2 264,8 L264,26 L207,26 Z" fill="#F2C66D33"/><rect x="194" y="1.5" width="83" height="23" rx="5" fill="none" stroke="#F2C66D" stroke-width="1.5"/><path d="M105,20 Q170,6 226,2 Q290,6 336,10" fill="none" stroke="#96A3BE" stroke-width="1.2"/></svg><span class="nm"><i class="catchip">深空</i>M45 昴星团</span></div>
+      <div class="tllane"><svg viewBox="0 0 336 26" preserveAspectRatio="none"><path d="M30,22 Q140,6 215,2 Q290,6 336,16 L336,26 L30,26 Z" fill="rgba(110,168,254,.16)"/><path d="M30,22 Q140,6 215,2 Q290,6 336,16" fill="none" stroke="#6EA8FE" stroke-width="1.4" stroke-dasharray="5 4"/><polygon points="212,0 216,4.5 212,9 208,4.5" fill="#6EA8FE"/></svg><span class="nm"><i class="catchip cs">流星</i>南金牛座流星雨 · 辐射点</span></div>
+      <div class="axis"><span style="left:1.6%">18:00</span><span style="left:21.3%">21:00</span><span style="left:41.1%">00:00</span><span style="left:60.9%">03:00</span><span style="left:80.6%">06:00</span></div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+  <div class="bsheet">
+    <div class="grab"></div>
+    <div class="bhead"><div class="btitle">今晚目标<small>筛选后 · 达标 51 · 推荐 8</small></div><div class="bx">✕</div></div>
+    <div class="syncnote"><span>已按类目筛选：星座隐藏（达标 31 条）</span><span class="showall">显示全部</span></div>
+    <div class="sechead"><span class="secname">深空</span><span class="seccount">今晚达标 45 条 · <b>推荐 5</b></span></div>
+    <div class="srec"><div><div class="name">M45 昴星团<span class="recmark">推荐</span></div><div class="why">1.2 等 · 中天 80.1°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="srec"><div><div class="name">M31 仙女座星系<span class="recmark">推荐</span></div><div class="why">3.4 等 · 中天 82.7°</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="sechead"><span class="secname">广域</span><span class="seccount">今晚达标 5 条 · <b>推荐 3</b></span></div>
+    <div class="srec"><div><div class="name">天鹅座银河段<span class="recmark">推荐</span></div><div class="why">中天 83.7° · 可拍窗 324 分</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="sechead"><span class="secname">流星雨</span><span class="seccount">今晚达标 1 条</span></div>
+    <div class="srec"><div><div class="name">南金牛座流星雨 · 辐射点</div><div class="why">峰值 11月1日（3 天后）· 辐射点可拍窗 544 分 · ZHR 7</div></div><div class="locbtn">⌖ 定位</div></div>
+    <div class="scrollhint">↓ 上滑继续：深空余 43 条 · 广域余 4 条</div>
+  </div>
+</div>
+<div class="cap">㉒ 今晚目标弹窗 · 筛选同步态（星座关）<small>筛选同步口径由榜单扩及全量集：星座整区缺席（不是区内变空），同步提示行在既有文案上扩被关类的达标计数——用户能分清「被我关了 31 条」与「今晚没有」；「显示全部」一点即四类全开、弹层与角标同刷。角标与头行随之变为 51／推荐 8。背景里星座筹片为关态但计数仍是 2（泳道口径，不随开关变），时间轴上天琴座／三角座泳道已不占位。流星雨区在全开与筛选态都在：南金牛座行带峰值／窗口／ZHR，不带推荐标记——辐射点是事件呈现入选、非配额组榜成员，「推荐」标记只属那 10 条。</small></div>
+</div>
+
+<!-- 23 非榜行行为示意 · 猎户座 -->
+<div class="cell">
+<div class="phone">
+  <div class="statusbar"><span>20:24</span><span>今晚</span><span>5G ▰▰▰</span></div>
+  <div class="content">
+    <div class="frag">
+      <div class="ftag">弹窗 · 星座区节选（整晚态）——一行两个热区</div>
+      <div class="sechead first"><span class="secname">星座</span><span class="seccount">今晚达标 31 条 · <b>推荐 2</b></span></div>
+      <div class="srec"><div><div class="name">三角座<span class="recmark">推荐</span></div><div class="why">中天 88.1° · 可拍窗 619 分</div></div><div class="locbtn">⌖ 定位</div></div>
+      <div class="srec"><div><div class="name">天琴座<span class="recmark">推荐</span></div><div class="why">中天 87.9° · 可拍窗 209 分</div></div><div class="locbtn">⌖ 定位</div></div>
+      <div class="remainrow">· · · 区内序 3 – 24 · · ·</div>
+      <div class="srec"><div><div class="name">猎户座</div><div class="why">中天 57.9° · 可拍窗 379 分</div></div><div class="locbtn">⌖ 定位</div></div>
+      <div class="annot"><span>↑ 点行主体：先定位 → 再开详情</span><span>点 ⌖：只定位 ↑</span></div>
+    </div>
+    <div class="downarrow">↓ 点行结果（整晚态：游标已定位到本行推荐区间起点）</div>
+    <div class="sheet">
+      <div class="dname">猎户座</div>
+      <div class="dmeta">星座 · 区内序 25 / 31 · 非榜单成员——今晚达标，但不在配额榜 10 条内；详情数据按游标时刻评估（与榜行同路径）</div>
+      <div class="dgrid">
+        <div class="kv"><div class="k">中天高度</div><div class="v">57.9°</div></div>
+        <div class="kv"><div class="k">可拍窗（今晚）</div><div class="v">379 分</div></div>
+      </div>
+      <div class="dnote"><b>与榜行唯一的差别：</b>定位后时间轴上没有猎户座的泳道（它不在精选榜内），故无泳道金色高亮，也不补画、不设额外提示——游标落点本身就是反馈。其余全同：整晚态点行先定位（手动接管、跟随关）再开此窗；游标态点行不移游标、直接开窗；点 ⌖ 只定位不开窗。非榜行的存在意义正在于此：榜上没有，照样能定位、能看详情、能进构图窗与计算器。</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◎</span>今晚</div>
+    <div class="tab"><span class="ic">ƒ</span>计算</div>
+    <div class="tab"><span class="ic">▤</span>计划</div>
+    <div class="tab"><span class="ic">⚙</span>设置</div>
+  </div>
+</div>
+<div class="cap">㉓ 非榜行行为示意 · 猎户座（星座区第 25 条）<small>全量行的行为与榜行共用现行弹窗行规则，不因非榜而降级：行主体与 ⌖ 是两个热区——整晚态点行＝先定位再开详情（详情须按游标评估，无游标不开窗的既有约束），游标态点行＝只开详情；⌖ 在两态都只定位。差别只在定位反馈：榜行有对应泳道、约 1.2 秒金色高亮描边；非榜行无泳道可高亮，不强行补画泳道（那会让时间轴变成第二份全量名单，与本批「轴上精选」相悖）。猎户座今晚中天 57.9°、可拍窗 379 分，达标无争议——它缺席时间轴纯粹是配额 2 的结果，这正是全量弹窗要补的视野。</small></div>
 </div>
 <div class="tokens">
   <h2>设计令牌速览（深色主题）</h2>
