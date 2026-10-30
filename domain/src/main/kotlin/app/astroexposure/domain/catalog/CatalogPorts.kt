@@ -57,6 +57,13 @@ data class DeepSkyObject(
     val magnitude: Double?,
     val sizeMajorArcmin: Double?,
     val sizeMinorArcmin: Double?,
+    /**
+     * Position angle of the major axis in degrees (from north through
+     * east, J2000), from OpenNGC's PosAng column; null when the source
+     * lists none — never defaulted to 0, which would state a false
+     * orientation (0.11.0).
+     */
+    val positionAngleDeg: Double? = null,
     val type: DeepSkyObjectType,
     val constellation: String?,
     /** Mean surface brightness, mag/arcsec², when known or estimated. */
@@ -181,4 +188,43 @@ data class WideFieldViewpoint(
 interface WideFieldCatalog {
     val dataVersion: String
     fun viewpoints(): List<WideFieldViewpoint>
+}
+
+/**
+ * One star of the bundled bright-star subset (design §8.3: HYG v4.4,
+ * magnitude <= 6.5), the framing chart's point set (ui-design §7.10).
+ * Coordinates are J2000 degrees — note the domain's other catalogues
+ * speak RA in hours; the star pipeline's product is degrees native
+ * and this type keeps it so, conversion happening in the pipeline,
+ * never silently at read time.
+ */
+data class ChartStar(
+    /** HYG id — the constellation-line chains key on it. */
+    val id: Int,
+    val raDeg: Double,
+    val decDeg: Double,
+    val magnitude: Double,
+    /** IAU proper name ("Betelgeuse"), when the star carries one. */
+    val properName: String?,
+    /** Bayer designation in display form ("χ¹"), when convertible. */
+    val bayerName: String?,
+    /** Chinese common name, when the editorial tables carry one. */
+    val nameZh: String?,
+)
+
+/** Bright-star subset port (ui-design §7.10). */
+interface StarCatalog {
+    fun stars(): List<ChartStar>
+    val dataVersion: String
+}
+
+/**
+ * Constellation line figures as star-id chains (ui-design §7.10):
+ * IAU three-letter code -> polylines -> ordered HYG star ids into
+ * [StarCatalog]. The figures follow the IAU constellation pages via
+ * the d3-celestial line set (BSD 3-Clause, DATA-LICENSES.md).
+ */
+interface ConstellationLines {
+    fun lines(): Map<String, List<List<Int>>>
+    val dataVersion: String
 }

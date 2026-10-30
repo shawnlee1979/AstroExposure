@@ -37,6 +37,9 @@ object FullFrameFraming {
     /** Full-frame long side, mm (36.0 x 24.0 mm). */
     const val FRAME_LONG_MM = 36.0
 
+    /** Full-frame short side, mm. */
+    const val FRAME_SHORT_MM = 24.0
+
     /** Lowest focal length the advice will name, mm. */
     const val MIN_FOCAL_MM = 24.0
 
@@ -79,6 +82,14 @@ object FullFrameFraming {
     /** Long-side field of view in degrees at [focalMm]. */
     fun longSideFovDeg(focalMm: Double): Double =
         Math.toDegrees(2.0 * atan((FRAME_LONG_MM / 2.0) / focalMm))
+
+    /**
+     * Short-side field of view in degrees at [focalMm] — the same
+     * formula on the 24.0 mm side (first stated for the framing
+     * chart's readouts, ui-design §7.10).
+     */
+    fun shortSideFovDeg(focalMm: Double): Double =
+        Math.toDegrees(2.0 * atan((FRAME_SHORT_MM / 2.0) / focalMm))
 
     /** Share of the long side taken by an axis of [sizeArcmin] at [focalMm]. */
     fun shareAtFocal(sizeArcmin: Double, focalMm: Double): Double =
