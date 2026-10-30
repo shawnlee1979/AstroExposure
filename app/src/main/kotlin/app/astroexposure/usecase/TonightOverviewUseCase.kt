@@ -141,6 +141,37 @@ class TonightOverviewUseCase(
     )
 
     /**
+     * One row of the qualified set (ui-design §7.8, 0.10.0): every
+     * subject that clears its category gate tonight, in the board
+     * assembly's in-category order, BEFORE the quota cuts it — the
+     * set the targets sheet renders. [onBoard] marks the quota
+     * prefix: the members that also hold a timeline lane and carry
+     * the sheet's gold pick mark. Every figure is read from the
+     * assembly's own candidate facts, so the sheet can never drift
+     * from the board's gates (the presentation layer derives no
+     * second set). Radiant entries are never on the board (they
+     * hold no quota); their meteor fields carry the peak facts the
+     * sheet's key line shows.
+     */
+    data class QualifiedEntry(
+        val subject: TonightSubject,
+        val onBoard: Boolean,
+        val culmination: Instant,
+        val culminationAltitudeDeg: Double,
+        /** Night-cut ≥20° window total in minutes — the assembly's own figure. */
+        val windowMinutes: Long,
+        /** Catalogue magnitude (deep sky only; its in-category order key). */
+        val magnitude: Double?,
+        val recommended: TimelineCursor.RecommendedWindow?,
+        /** Radiant entries only: the shower's approximate peak date. */
+        val meteorPeakDate: LocalDate? = null,
+        /** Radiant entries only: signed days from the approximate peak (negative = peak still ahead). */
+        val meteorDaysFromPeak: Double? = null,
+        /** Radiant entries only: the shower's peak ZHR. */
+        val meteorZhr: Int? = null,
+    )
+
+    /**
      * One lane on the timeline (ui-design §7.8): a board entry's — or
      * a qualifying radiant's — sampled pass over the axis, in the same
      * shape the cursor-state lanes use, so both states draw from one
@@ -396,6 +427,16 @@ class TonightOverviewUseCase(
         val lanes: List<LaneEntry>,
         /** Meteor radiant lanes, drawn after the board lanes (ui-design §7.8). */
         val radiantLanes: List<LaneEntry>,
+        /**
+         * The qualified set behind the targets sheet (ui-design
+         * §7.8, 0.10.0): the board categories' gate-clearers in
+         * chip order (in-category assembly order within), then the
+         * qualifying radiants by peak proximity. The board
+         * categories' part is empty when a board catalogue failed
+         * to load (see [shortlistAvailable]); the radiant part is
+         * assembled independently and may still be present.
+         */
+        val qualified: List<QualifiedEntry> = emptyList(),
         val moments: List<Moment>,
         val timeline: Timeline,
         /** Null when no light-pollution source is configured or it failed to load. */
@@ -465,7 +506,32 @@ class TonightOverviewUseCase(
 
         val timeline = buildTimeline(location, date, sun, night, gc)
         val board = tonightBoard(location, date, timeline)
-        val radiant = radiantLanes(location, date, timeline)
+        val radiantData = radiantLaneData(location, date, timeline)
+        val radiant = radiantLanes(radiantData, date)
+        // The targets sheet's radiant zone (ui-design §7.8, 0.10.0):
+        // the SAME qualifying radiants as the lanes — one assembly,
+        // two presentations — ordered by peak proximity (nearest
+        // peak first), ties by the longer window, then subject id.
+        val radiantQualified = radiantData.map { data ->
+            QualifiedEntry(
+                subject = data.subject,
+                onBoard = false,
+                culmination = data.culmination.instant,
+                culminationAltitudeDeg = data.culmination.altitudeDeg,
+                windowMinutes = data.windowMinutes,
+                magnitude = null,
+                recommended = null,
+                meteorPeakDate = ShowerDates.approxDate(data.subject.shower.peakLon, date),
+                meteorDaysFromPeak = ShowerDates.daysFromPeak(data.subject.shower, date),
+                meteorZhr = data.subject.shower.peakZhr,
+            )
+        }.sortedWith(
+            compareBy(
+                { kotlin.math.abs(it.meteorDaysFromPeak ?: Double.MAX_VALUE) },
+                { -it.windowMinutes },
+                { it.subject.id },
+            ),
+        )
 
         val moments = buildList {
             sun.sunset?.let { add(Moment(it, MomentKind.SUNSET)) }
@@ -504,6 +570,7 @@ class TonightOverviewUseCase(
             shortlistAvailable = board.available,
             lanes = board.lanes,
             radiantLanes = radiant,
+            qualified = board.qualified + radiantQualified,
             moments = moments,
             timeline = timeline,
             lightPollutionInfo = lightPollutionInfo(location),
@@ -1229,6 +1296,7 @@ class TonightOverviewUseCase(
     private class BoardAssembly(
         val entries: List<ShortlistEntry>,
         val lanes: List<LaneEntry>,
+        val qualified: List<QualifiedEntry>,
         val available: Boolean,
     )
 
@@ -1236,12 +1304,14 @@ class TonightOverviewUseCase(
      * The cross-category tonight board (ui-design §7.8). The deep-sky
      * gate is the pre-0.9.0 rule, unchanged (catalogue magnitude
      * ≤ 6.5, culmination ≥ 40° via the target-pass port), evaluated
-     * brightest-first with the scan stopping at the quota so the
-     * ephemeris cost stays bounded; constellation and viewpoint
+     * brightest-first over EVERY magnitude-eligible object: since
+     * 0.10.0 the qualified set needs every gate-clearer, so the scan
+     * no longer stops at the quota — the gate itself is untouched,
+     * only the early exit is gone. Constellation and viewpoint
      * candidates are gated on their sampled facts. Gates, quotas and
      * the final order are decided by the pure [assembleBoard]; this
-     * function only gathers facts and builds the rows and lanes from
-     * its verdict, so the two can never disagree.
+     * function only gathers facts and builds the rows, lanes and
+     * qualified entries from its verdict, so they can never disagree.
      */
     private fun tonightBoard(
         location: GeoLocation,
@@ -1249,7 +1319,9 @@ class TonightOverviewUseCase(
         timeline: Timeline,
     ): BoardAssembly {
         val load = loadBoardSubjects()
-        if (!load.available) return BoardAssembly(emptyList(), emptyList(), available = false)
+        if (!load.available) {
+            return BoardAssembly(emptyList(), emptyList(), emptyList(), available = false)
+        }
         val span = nightSpan(location, date)
         val spanMinutes = span?.let { Duration.between(it.start, it.end).toMinutes() }
         val factsById = mutableMapOf<String, SubjectFacts>()
@@ -1271,20 +1343,18 @@ class TonightOverviewUseCase(
                 recommendedStart = f.recommended?.interval?.start,
             )
         }
-        // Deep-sky: brightest-first pass scan, stopping at the quota
-        // (the pre-0.9.0 bounded scan with the smaller 0.9.0 quota).
+        // Deep-sky: brightest-first pass scan over every
+        // magnitude-eligible object (0.10.0: the qualified set needs
+        // every gate-clearer; the quota cut happens in the assembly).
         val deepSkySubjects = load.subjects
             .filterIsInstance<TonightSubject.DeepSky>()
             .filter { (it.obj.magnitude ?: Double.MAX_VALUE) <= MAX_MAGNITUDE }
             .sortedBy { it.obj.magnitude }
-        var deepSkyTaken = 0
         for (subject in deepSkySubjects) {
-            if (deepSkyTaken >= QUOTA_DEEP_SKY) break
             val pass = ephemeris.targetPass(
                 location, subject.coordinates, date, Degrees(MIN_CULMINATION_DEG),
             ) ?: continue
             if (pass.culminationAltitude.value < MIN_CULMINATION_DEG) continue
-            deepSkyTaken++
             val f = facts(subject)
             candidates += BoardCandidate(
                 subject = subject,
@@ -1297,7 +1367,8 @@ class TonightOverviewUseCase(
             )
         }
 
-        val selected = assembleBoard(candidates)
+        val selection = assembleBoardDetailed(candidates)
+        val selected = selection.selected
         val entries = selected.map { candidate ->
             val f = facts(candidate.subject)
             val cut = if (span == null) {
@@ -1331,7 +1402,22 @@ class TonightOverviewUseCase(
                 culminationAltitudeDeg = entry.culminationAltitudeDeg,
             )
         }
-        return BoardAssembly(entries, lanes, available = true)
+        // The qualified set (ui-design §7.8, 0.10.0): the assembly's
+        // pre-truncation lists, marked by its own board verdict —
+        // the targets sheet renders exactly these, so its gates can
+        // never drift from the board's.
+        val qualified = selection.qualified.map { candidate ->
+            QualifiedEntry(
+                subject = candidate.subject,
+                onBoard = candidate.subject.id in selection.boardIds,
+                culmination = candidate.culmination,
+                culminationAltitudeDeg = candidate.culminationAltitudeDeg,
+                windowMinutes = candidate.windowMinutes,
+                magnitude = candidate.magnitude,
+                recommended = facts(candidate.subject).recommended,
+            )
+        }
+        return BoardAssembly(entries, lanes, qualified, available = true)
     }
 
     /** Sampled facts for one qualifying radiant (see [radiantLaneData]). */
@@ -1340,6 +1426,8 @@ class TonightOverviewUseCase(
         val samples: List<TimelineCursor.AltitudeSample>,
         val arcIntervals: List<NightTimeline.Interval>,
         val culmination: TimelineCursor.AltitudeSample,
+        /** Night-cut ≥20° window total in minutes — the third entry condition's own figure. */
+        val windowMinutes: Long,
     )
 
     /**
@@ -1374,19 +1462,19 @@ class TonightOverviewUseCase(
             val intervals = TimelineCursor.aboveThresholdIntervals(
                 samples, TimelineCursor.MIN_ALTITUDE_DEG, timeline.axisEnd,
             )
-            if (windowMinutesWithin(intervals, span) < RADIANT_MIN_WINDOW_MINUTES) {
+            val windowMinutes = windowMinutesWithin(intervals, span)
+            if (windowMinutes < RADIANT_MIN_WINDOW_MINUTES) {
                 return@mapNotNull null
             }
-            RadiantLaneData(subject, samples, intervals, peak)
+            RadiantLaneData(subject, samples, intervals, peak, windowMinutes)
         }
     }
 
     /** The radiant lanes themselves, drawn after the board lanes. */
     private fun radiantLanes(
-        location: GeoLocation,
+        data: List<RadiantLaneData>,
         date: LocalDate,
-        timeline: Timeline,
-    ): List<LaneEntry> = radiantLaneData(location, date, timeline).map { data ->
+    ): List<LaneEntry> = data.map { data ->
         LaneEntry(
             subject = data.subject,
             altitudeSamples = data.samples,
@@ -1484,12 +1572,31 @@ internal class BoardCandidate(
  * like any other — their recommended window is simply the one the
  * shared definition produced.
  */
-internal fun assembleBoard(candidates: List<BoardCandidate>): List<BoardCandidate> {
-    val deepSky = candidates
+internal fun assembleBoard(candidates: List<BoardCandidate>): List<BoardCandidate> =
+    assembleBoardDetailed(candidates).selected
+
+/**
+ * The assembly's full verdict (ui-design §7.8; qualified set since
+ * 0.10.0): [selected] is exactly what [assembleBoard] has always
+ * returned; [qualified] holds, per board category in chip order,
+ * EVERY gate-clearing candidate in in-category order — the list
+ * the quota then cuts — and [boardIds] names the selected members
+ * so callers can mark the quota prefix from the assembly's own
+ * verdict instead of re-deriving "the first N" (a category may
+ * legitimately under-fill its quota).
+ */
+internal class BoardSelection(
+    val selected: List<BoardCandidate>,
+    val qualified: List<BoardCandidate>,
+    val boardIds: Set<String>,
+)
+
+internal fun assembleBoardDetailed(candidates: List<BoardCandidate>): BoardSelection {
+    val deepSkyAll = candidates
         .filter { it.subject.category == TonightOverviewUseCase.SubjectCategory.DEEP_SKY }
         .sortedBy { it.magnitude ?: Double.MAX_VALUE }
-        .take(TonightOverviewUseCase.QUOTA_DEEP_SKY)
-    val constellations = candidates
+    val deepSky = deepSkyAll.take(TonightOverviewUseCase.QUOTA_DEEP_SKY)
+    val constellationsAll = candidates
         .filter {
             it.subject.category == TonightOverviewUseCase.SubjectCategory.CONSTELLATION &&
                 it.culminationAltitudeDeg >=
@@ -1497,8 +1604,8 @@ internal fun assembleBoard(candidates: List<BoardCandidate>): List<BoardCandidat
                 it.windowMinutes >= TonightOverviewUseCase.CONSTELLATION_MIN_WINDOW_MINUTES
         }
         .sortedByDescending { it.culminationAltitudeDeg }
-        .take(TonightOverviewUseCase.QUOTA_CONSTELLATION)
-    val viewpoints = candidates
+    val constellations = constellationsAll.take(TonightOverviewUseCase.QUOTA_CONSTELLATION)
+    val viewpointsAll = candidates
         .filter {
             it.subject.category == TonightOverviewUseCase.SubjectCategory.WIDE_FIELD &&
                 it.culminationAltitudeDeg >=
@@ -1506,12 +1613,17 @@ internal fun assembleBoard(candidates: List<BoardCandidate>): List<BoardCandidat
                 it.windowMinutes >= TonightOverviewUseCase.VIEWPOINT_MIN_WINDOW_MINUTES
         }
         .sortedByDescending { it.culminationAltitudeDeg }
-        .take(TonightOverviewUseCase.QUOTA_WIDE_FIELD)
-    return (deepSky + constellations + viewpoints).sortedWith(
+    val viewpoints = viewpointsAll.take(TonightOverviewUseCase.QUOTA_WIDE_FIELD)
+    val selected = (deepSky + constellations + viewpoints).sortedWith(
         compareBy(
             { it.recommendedStart ?: it.culmination },
             { it.culmination },
             { it.subject.id },
         ),
+    )
+    return BoardSelection(
+        selected = selected,
+        qualified = deepSkyAll + viewpointsAll + constellationsAll,
+        boardIds = selected.map { it.subject.id }.toSet(),
     )
 }
