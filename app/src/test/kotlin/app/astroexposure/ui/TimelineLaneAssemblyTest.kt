@@ -99,6 +99,107 @@ class TimelineLaneAssemblyTest {
         assertEquals(1, merged.count { it.category == SubjectCategory.METEOR && it.subjectId == "shower:PER" })
     }
 
+    // --- Targets sheet sets (ui-design §7.8, 0.10.0) -------------------------
+
+    private fun target(
+        id: String,
+        category: SubjectCategory,
+        onBoard: Boolean = false,
+    ): TonightTarget = TonightTarget(
+        subjectId = id,
+        category = category,
+        name = id,
+        tag = "",
+        keyLine = "",
+        onBoard = onBoard,
+        recommendedStart = null,
+        recommendedEnd = null,
+        relativeBest = false,
+        culmination = java.time.Instant.parse("2026-10-29T05:00:00Z"),
+    )
+
+    /** A qualified set in the golden night's shape: 45/5/31/1, board 5/3/2. */
+    private fun goldenTargets(): List<TonightTarget> = buildList {
+        repeat(45) { add(target("dso-$it", SubjectCategory.DEEP_SKY, onBoard = it < 5)) }
+        repeat(5) { add(target("viewpoint-$it", SubjectCategory.WIDE_FIELD, onBoard = it < 3)) }
+        repeat(31) { add(target("constellation-$it", SubjectCategory.CONSTELLATION, onBoard = it < 2)) }
+        add(target("shower:STA", SubjectCategory.METEOR))
+    }
+
+    @Test
+    fun targetsBadgeIsTheFilteredQualifiedTotal() {
+        val all = goldenTargets()
+        // Unfiltered: the badge is the whole qualified set, and the
+        // header line's second number is the board prefix.
+        assertEquals(82, visibleTargets(all, emptySet()).size)
+        assertEquals(10, visibleTargets(all, emptySet()).count { it.onBoard })
+        // One category off: both numbers shrink by that category's
+        // qualified rows and its board members respectively.
+        val filtered = visibleTargets(all, setOf(SubjectCategory.CONSTELLATION))
+        assertEquals(51, filtered.size)
+        assertEquals(8, filtered.count { it.onBoard })
+    }
+
+    @Test
+    fun targetsZonesFollowChipOrderAndHideEmptyCategories() {
+        val zones = targetsZones(goldenTargets())
+        assertEquals(
+            listOf(
+                SubjectCategory.DEEP_SKY, SubjectCategory.WIDE_FIELD,
+                SubjectCategory.CONSTELLATION, SubjectCategory.METEOR,
+            ),
+            zones.map { it.first },
+        )
+        assertEquals(listOf(45, 5, 31, 1), zones.map { it.second.size })
+        // A night with no qualifying radiant has no meteor zone at
+        // all — never an empty header.
+        val noRadiant = goldenTargets().filter { it.category != SubjectCategory.METEOR }
+        assertEquals(3, targetsZones(noRadiant).size)
+        // The filtered-out category's zone is absent as well.
+        val filtered = visibleTargets(noRadiant, setOf(SubjectCategory.WIDE_FIELD))
+        assertEquals(
+            listOf(SubjectCategory.DEEP_SKY, SubjectCategory.CONSTELLATION),
+            targetsZones(filtered).map { it.first },
+        )
+    }
+
+    @Test
+    fun hiddenTargetsCategoriesCarryTheirQualifiedCounts() {
+        val all = goldenTargets()
+        assertEquals(
+            listOf(SubjectCategory.CONSTELLATION to 31),
+            hiddenTargetsCategories(all, setOf(SubjectCategory.CONSTELLATION)),
+        )
+        // A hidden category with nothing qualified tonight is not
+        // named: the notice speaks only of sets the sheet is
+        // actually withholding.
+        val noRadiant = all.filter { it.category != SubjectCategory.METEOR }
+        assertEquals(
+            emptyList<Pair<SubjectCategory, Int>>(),
+            hiddenTargetsCategories(noRadiant, setOf(SubjectCategory.METEOR)),
+        )
+        // Several hidden: chip order, each with its own count.
+        assertEquals(
+            listOf(
+                SubjectCategory.DEEP_SKY to 45,
+                SubjectCategory.METEOR to 1,
+            ),
+            hiddenTargetsCategories(
+                all,
+                setOf(SubjectCategory.METEOR, SubjectCategory.DEEP_SKY),
+            ),
+        )
+    }
+
+    @Test
+    fun onlyLaneOwningRowsCanHighlight() {
+        // Board rows and radiants own lanes; a non-board qualified
+        // row must never light one (and none is drawn for it).
+        assertEquals(true, target("b", SubjectCategory.DEEP_SKY, onBoard = true).hasLane)
+        assertEquals(true, target("r", SubjectCategory.METEOR).hasLane)
+        assertEquals(false, target("q", SubjectCategory.CONSTELLATION).hasLane)
+    }
+
     @Test
     fun cursorAssemblyCollapsesRadiantDuplicatesAndPassesIdlessLanes() {
         val targets = listOf(arc("M45", SubjectCategory.DEEP_SKY))

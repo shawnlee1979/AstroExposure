@@ -68,6 +68,7 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -318,6 +319,11 @@ fun TonightScreen(
     // never of the cursor state's ranked display set above.
     val tonightArcs = (overview.lanes + overview.radiantLanes)
         .map { it.toTimelineArc(null) }
+
+    // The targets sheet's rows (ui-design §7.8, 0.10.0): the use
+    // case's qualified set rendered — the presentation layer counts
+    // and groups these, it never re-derives membership.
+    val targets = overview.qualified.map { entry -> entry.toTonightTarget() }
 
     // The detail dialog's evaluation: runs when a lane tap names a
     // target, against the cursor instant at that moment (the dialog
@@ -660,30 +666,32 @@ fun TonightScreen(
                     }
                 }
             },
-            picks = overview.shortlist.map { entry -> entry.toTonightPick() },
-            picksAvailable = overview.shortlistAvailable,
-            picksDateLabel = date.format(
-                DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM),
-            ),
-            onPickOpen = { pick ->
-                // A picks row opens the entry's detail (ui-design
-                // §7.8) — at the placed cursor in the cursor state;
-                // in the whole-night state the tap locates first,
-                // like a lane tap, so the dialog has a meaningful
-                // instant to evaluate at.
+            targets = targets,
+            targetsAvailable = overview.shortlistAvailable,
+            onTargetOpen = { target ->
+                // A targets row opens the subject's detail
+                // (ui-design §7.8) — at the placed cursor in the
+                // cursor state; in the whole-night state the tap
+                // locates first, like a lane tap, so the dialog has
+                // a meaningful instant to evaluate at. Only a row
+                // that owns a lane lights one up (0.10.0): board
+                // rows and radiants highlight; a non-board row just
+                // places the cursor — no lane is drawn for it.
                 if (!cursorActive) {
-                    placeCursorManually(pick.recommendedStart ?: pick.culmination)
-                    highlightedSubjectId = pick.subjectId
+                    placeCursorManually(target.recommendedStart ?: target.culmination)
+                    if (target.hasLane) highlightedSubjectId = target.subjectId
                 }
-                detailObjectId = pick.subjectId
+                detailObjectId = target.subjectId
             },
-            onPickLocate = { pick ->
+            onTargetLocate = { target ->
                 // The locate chip (ui-design §7.8): the cursor goes
-                // to the entry's recommended start through the
+                // to the row's recommended start (its culmination
+                // when it has no recommended window) through the
                 // existing manual-takeover semantics (follow off,
-                // cursor pinned), and the lane flashes its highlight.
-                placeCursorManually(pick.recommendedStart ?: pick.culmination)
-                highlightedSubjectId = pick.subjectId
+                // cursor pinned); the lane highlight follows the
+                // same lane-ownership rule as the row tap.
+                placeCursorManually(target.recommendedStart ?: target.culmination)
+                if (target.hasLane) highlightedSubjectId = target.subjectId
             },
         )
 
@@ -698,6 +706,7 @@ fun TonightScreen(
         detailObjectId?.let { id ->
             val detail = targetDetail?.takeIf { it.subject.id == id }
             val tappedName = displayArcs.firstOrNull { it.subjectId == id }?.subjectName
+                ?: targets.firstOrNull { it.subjectId == id }?.name
             val category = detail?.let { subjectCalcCategory(it.subject) }
             // The handover prefill is composed here, in composition
             // (its name is UI-language work), and merely captured by
@@ -750,7 +759,7 @@ fun TonightScreen(
             // loading / unavailable strip remains (the status row was
             // deleted in 0.8.4) — target details live in the dialog.
             // The whole-night state shows nothing here since 0.9.0:
-            // the board moved into the timeline card's picks popup
+            // the board moved into the timeline card's targets sheet
             // (ui-design §7.8), so the page order is location card,
             // overview block, timeline card, events card.
             CursorStatusCard(
@@ -1714,31 +1723,71 @@ private fun TonightOverviewUseCase.LaneEntry.toTimelineArc(
 )
 
 /**
- * A board entry as a picks-popup row (ui-design §7.8): the reason
- * line is composed from the entry's own threshold facts — whole
- * night, relative best, or the plain culmination — never a score.
+ * A qualified entry as a targets-sheet row (ui-design §7.8,
+ * 0.10.0): name and tag from the shared presentation source; the
+ * key line carries the category's key quantities — deep sky its
+ * magnitude and culmination, constellation and viewpoint their
+ * culmination and shootable window, a radiant its peak (date and
+ * signed distance), radiant window and ZHR. Every figure is the
+ * use case's own; the row composes text, never numbers.
  */
 @Composable
-private fun TonightOverviewUseCase.ShortlistEntry.toTonightPick(): TonightPick =
-    TonightPick(
+private fun TonightOverviewUseCase.QualifiedEntry.toTonightTarget(): TonightTarget {
+    val culminationText = String.format(java.util.Locale.US, "%.1f", culminationAltitudeDeg)
+    val keyLine = when (subject.category) {
+        TonightOverviewUseCase.SubjectCategory.DEEP_SKY -> stringResource(
+            R.string.targets_key_deep_sky,
+            String.format(java.util.Locale.US, "%.1f", magnitude ?: 0.0),
+            culminationText,
+        )
+        TonightOverviewUseCase.SubjectCategory.CONSTELLATION,
+        TonightOverviewUseCase.SubjectCategory.WIDE_FIELD,
+        -> stringResource(
+            R.string.targets_key_window,
+            culminationText,
+            windowMinutes.toInt(),
+        )
+        TonightOverviewUseCase.SubjectCategory.METEOR -> {
+            val peakDate = meteorPeakDate
+            val days = meteorDaysFromPeak ?: 0.0
+            val peakText = if (peakDate != null) {
+                val english = isEnglishUiLanguage()
+                val dateText = peakDate.format(
+                    DateTimeFormatter.ofPattern(
+                        if (english) "MMM d" else "M月d日",
+                        if (english) java.util.Locale.US else java.util.Locale.CHINA,
+                    ),
+                )
+                val rounded = kotlin.math.abs(days).roundToLong()
+                dateText + when {
+                    rounded == 0L -> stringResource(R.string.targets_peak_today)
+                    days < 0 -> stringResource(R.string.targets_peak_in_days, rounded.toInt())
+                    else -> stringResource(R.string.targets_peak_days_ago, rounded.toInt())
+                }
+            } else {
+                ""
+            }
+            stringResource(
+                R.string.targets_key_meteor,
+                peakText,
+                windowMinutes.toInt(),
+                meteorZhr ?: 0,
+            )
+        }
+    }
+    return TonightTarget(
         subjectId = subject.id,
         category = subject.category,
         name = subject.displayName(),
         tag = subject.category.categoryTag(),
-        reason = stringResource(
-            when {
-                spansWholeNight -> R.string.picks_reason_whole_night
-                recommended?.relativeBest == true ->
-                    R.string.picks_reason_relative_best
-                else -> R.string.picks_reason_culmination
-            },
-            Math.round(culminationAltitudeDeg),
-        ),
+        keyLine = keyLine,
+        onBoard = onBoard,
         recommendedStart = recommended?.interval?.start,
         recommendedEnd = recommended?.interval?.end,
         relativeBest = recommended?.relativeBest == true,
         culmination = culmination,
     )
+}
 
 @Composable
 fun BortleSelector(selected: Int?, onChange: (Int?) -> Unit) {
