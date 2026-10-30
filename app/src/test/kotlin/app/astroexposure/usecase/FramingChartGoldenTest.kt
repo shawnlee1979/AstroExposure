@@ -153,8 +153,9 @@ class FramingChartGoldenTest {
         assertTrue(framingFitsAlsoAfterSwap(plain))
 
         // The chart model names the in-field neighbours for the
-        // conclusion area's row, from the same drawn set that the
-        // canvas labels (§7.10).
+        // chart's accessibility content description — there is no
+        // visible names row (§7.10) — from the same drawn set that
+        // the canvas labels.
         val model = buildChartModel(
             chart, FramingChart.fieldDiagonalDeg(348.0), plain, english = false,
         )

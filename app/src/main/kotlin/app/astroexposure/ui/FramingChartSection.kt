@@ -106,12 +106,15 @@ fun FramingChartSection(
     }
 
     val conclusion = framingConclusionText(verdict, portrait, english)
-    // The in-field neighbours row (§7.10): present only when the
-    // chart actually draws neighbours, named from the same drawn
-    // set the canvas labels — and folded into the chart's
-    // accessibility description below, since canvas labels never
-    // reach the accessibility tree.
-    val neighbourLine = if (model.neighbourNames.isNotEmpty()) {
+    // The in-field neighbours' names (§7.10): the canvas labels
+    // them, but canvas labels never reach the accessibility tree,
+    // so the names — from the same drawn set the canvas labels —
+    // are folded into the chart's content description below.
+    // There is no visible names row: a rich field can hold dozens
+    // of neighbours, and a printed list pushes this section's own
+    // controls (lens picks, focal and rotation sliders) off
+    // screen (0.11.3, on-device feedback).
+    val neighbourDescription = if (model.neighbourNames.isNotEmpty()) {
         stringResource(
             R.string.framing_same_field,
             model.neighbourNames.joinToString(" · "),
@@ -153,7 +156,7 @@ fun FramingChartSection(
                         redLight = redLight,
                         chartWidthDeg = chartWidthDeg,
                         contentDescription = listOfNotNull(
-                            conclusion, quantities, neighbourLine,
+                            conclusion, quantities, neighbourDescription,
                         ).joinToString(" "),
                     )
                     Text(
@@ -167,12 +170,6 @@ fun FramingChartSection(
                         style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
                     )
-                    if (neighbourLine != null) {
-                        Text(
-                            text = neighbourLine,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
                 }
             }
 
@@ -1149,9 +1146,8 @@ private data class StarTier(val maxMag: Double, val diameterDp: Float, val alpha
 
 /**
  * Star point tiers by magnitude: diameter (dp) and opacity per
- * tier, as tabled in the 0.11.0 design draft
- * (ui-design/0.11.0-design-proposal.md, the framing section's
- * element list); ui-design §7.10 carries the same values.
+ * tier, as tabled in the star tier table of docs/ui-design.md
+ * §7.10; the values below match that table entry for entry.
  */
 private val STAR_TIERS = listOf(
     StarTier(0.5, 3.6f, 1.00f),
