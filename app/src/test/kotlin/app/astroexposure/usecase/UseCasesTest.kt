@@ -257,16 +257,34 @@ class UseCasesTest {
         // string in the pipeline output, and the shortlist silently
         // degraded to empty; with the catalogue healthy the rules below
         // must hold on real recommendations.)
-        assertTrue(result.recommendationsAvailable)
+        assertTrue(result.shortlistAvailable)
         assertTrue(
             "healthy catalogue must produce a non-empty shortlist",
-            result.recommendations.isNotEmpty(),
+            result.shortlist.isNotEmpty(),
         )
-        assertTrue(result.recommendations.size <= 10)
-        for (rec in result.recommendations) {
-            assertTrue((rec.obj.magnitude ?: 99.0) <= 6.5)
-            assertTrue(rec.pass.culminationAltitude.value >= 40.0)
+        assertTrue(result.shortlist.size <= 10)
+        for (entry in result.shortlist) {
+            val subject = entry.subject
+            if (subject is TonightOverviewUseCase.TonightSubject.DeepSky) {
+                assertTrue((subject.obj.magnitude ?: 99.0) <= 6.5)
+            }
         }
+        // The cross-category quotas bind (ui-design §7.8).
+        assertTrue(
+            result.shortlist.count {
+                it.subject.category == TonightOverviewUseCase.SubjectCategory.DEEP_SKY
+            } <= TonightOverviewUseCase.QUOTA_DEEP_SKY,
+        )
+        assertTrue(
+            result.shortlist.count {
+                it.subject.category == TonightOverviewUseCase.SubjectCategory.WIDE_FIELD
+            } <= TonightOverviewUseCase.QUOTA_WIDE_FIELD,
+        )
+        assertTrue(
+            result.shortlist.count {
+                it.subject.category == TonightOverviewUseCase.SubjectCategory.CONSTELLATION
+            } <= TonightOverviewUseCase.QUOTA_CONSTELLATION,
+        )
     }
 
     @Test
@@ -467,7 +485,7 @@ class UseCasesTest {
             nyc, date, cursor, overview.timeline, objectId = "M33",
         )
         assertTrue(active != null)
-        assertEquals("M33", active!!.obj.id)
+        assertEquals("M33", active!!.subject.id)
         // M33's catalogue major axis is 62.09 arcminutes: the framing
         // range from the sanctioned formulas is 664.24mm..1328.73mm
         // with the share-1/2 reference at 996.50mm.
@@ -601,9 +619,7 @@ class UseCasesTest {
         val controlEval = control.evaluateCursor(nyc, date, cursor, controlOverview.timeline)
         assertTrue(controlEval.targets.isNotEmpty())
         val chosen = controlEval.targets.first()
-        val chosenCoords = EquatorialCoordinates(
-            chosen.obj.raHours, Degrees(chosen.obj.decDeg),
-        )
+        val chosenCoords = chosen.subject.coordinates
 
         val moonOnTarget = object : EphemerisProvider by ephemeris {
             override fun horizontalPosition(
@@ -630,13 +646,13 @@ class UseCasesTest {
         val excludedEval = excludedUseCase.evaluateCursor(
             nyc, date, cursor, excludedOverview.timeline,
         )
-        assertTrue(excludedEval.targets.none { it.obj.id == chosen.obj.id })
+        assertTrue(excludedEval.targets.none { it.subject.id == chosen.subject.id })
         assertTrue(excludedEval.totalShootable < controlEval.totalShootable)
         val detail = excludedUseCase.evaluateTargetAtCursor(
-            nyc, date, cursor, excludedOverview.timeline, objectId = chosen.obj.id,
+            nyc, date, cursor, excludedOverview.timeline, objectId = chosen.subject.id,
         )
         assertTrue(detail != null)
-        assertEquals(chosen.obj.id, detail!!.obj.id)
+        assertEquals(chosen.subject.id, detail!!.subject.id)
         assertTrue(detail.moonSeparationDeg < 1.0)
         assertEquals(
             app.astroexposure.domain.timeline.TimelineCursor.MoonProximity.EXCLUDED,
@@ -665,7 +681,7 @@ class UseCasesTest {
         )
         val downOverview = downUseCase.execute(nyc, date)
         val downEval = downUseCase.evaluateCursor(nyc, date, cursor, downOverview.timeline)
-        assertTrue(downEval.targets.any { it.obj.id == chosen.obj.id })
+        assertTrue(downEval.targets.any { it.subject.id == chosen.subject.id })
     }
 
     @Test
@@ -816,8 +832,8 @@ class UseCasesTest {
                 objectCatalog = objectCatalogThrowing(failure),
             )
             val result = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
-            assertFalse(result.recommendationsAvailable)
-            assertTrue(result.recommendations.isEmpty())
+            assertFalse(result.shortlistAvailable)
+            assertTrue(result.shortlist.isEmpty())
             // The rest of the overview still assembles.
             assertNotNull(result.sunEvents.sunset)
         }
@@ -835,11 +851,11 @@ class UseCasesTest {
         }
         val useCase = TonightOverviewUseCase(ephemeris = ephemeris, objectCatalog = flaky)
         val first = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
-        assertFalse(first.recommendationsAvailable)
+        assertFalse(first.shortlistAvailable)
         fail = false
         val second = useCase.execute(nyc, LocalDate.of(2026, 8, 12))
-        assertTrue(second.recommendationsAvailable)
-        assertTrue(second.recommendations.isNotEmpty())
+        assertTrue(second.shortlistAvailable)
+        assertTrue(second.shortlist.isNotEmpty())
     }
 
     @Test
