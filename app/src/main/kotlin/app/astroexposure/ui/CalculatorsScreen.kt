@@ -44,7 +44,9 @@ import app.astroexposure.domain.model.DriftModel
 import app.astroexposure.domain.model.EclipseModel
 import app.astroexposure.domain.model.LandscapeModel
 import app.astroexposure.domain.model.MeteorModel
+import android.content.Context
 import app.astroexposure.domain.strictness.Strictness
+import app.astroexposure.domain.timeline.CompositionWindow
 import app.astroexposure.domain.tracking.TrackingKind
 import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.Degrees
@@ -55,6 +57,7 @@ import app.astroexposure.support.obj
 import app.astroexposure.support.quoted
 import app.astroexposure.usecase.DeepSkyUseCase
 import app.astroexposure.usecase.EclipseUseCase
+import app.astroexposure.usecase.TonightOverviewUseCase
 import app.astroexposure.usecase.WideFieldUseCase
 import java.time.Instant
 import java.time.LocalDate
@@ -286,6 +289,10 @@ fun CalculatorsScreen(
                 CalcCategory.LANDSCAPE -> LandscapeCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan, computeSignal,
                     declinationText = declinationText,
+                    onDeclinationFromSubject = { dec ->
+                        declinationText = dec.toString()
+                        declinationError = false
+                    },
                 )
                 CalcCategory.DEEP_SKY -> DeepSkyCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, date, onSavePlan, computeSignal,
@@ -507,6 +514,7 @@ private fun LandscapeCalculator(
     onSavePlan: (String, String, String, String) -> Unit,
     computeSignal: Int,
     declinationText: String,
+    onDeclinationFromSubject: (Double) -> Unit,
 ) {
     var methods by remember {
         mutableStateOf(setOf(LandscapeModel.ForegroundMethod.BLUE_HOUR))
@@ -515,6 +523,169 @@ private fun LandscapeCalculator(
     var skyUnmeasured by remember { mutableStateOf(false) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
+
+    // The composition block (ui-design §7.9): it stands ABOVE the
+    // framing choices — the foreground bearing is a field
+    // measurement the framing then serves. Subject groups mirror
+    // the board's (the galactic-centre viewpoint is its own chip,
+    // fixed); picking a subject also carries its declination into
+    // the sky frame's field (§7.8's carry-in rule, the same one the
+    // tonight handover uses). A failed catalogue degrades the block
+    // to an explicit unavailable line, never to invented subjects.
+    val compositionSubjects = remember(container) { loadCompositionSubjects(container) }
+    var compositionGroup by remember {
+        mutableStateOf(CompositionSubjectGroup.GALACTIC_CENTRE)
+    }
+    var compositionSubject by remember {
+        mutableStateOf<TonightOverviewUseCase.TonightSubject?>(
+            compositionSubjects?.galacticCentre,
+        )
+    }
+    var compositionSnapshot by remember {
+        mutableStateOf<CompositionPlanSnapshot?>(null)
+    }
+    fun selectCompositionSubject(subject: TonightOverviewUseCase.TonightSubject) {
+        compositionSubject = subject
+        onDeclinationFromSubject(subject.coordinates.declination.value)
+    }
+    val compositionSubjectName = compositionSubject?.displayName()
+    val activeCompositionSubject = compositionSubject
+    if (compositionSubjects != null && activeCompositionSubject != null) {
+        CompositionSection(
+            onEvaluate = { bearing, tolerance ->
+                container.tonightOverview.evaluateCompositionForSubject(
+                    location, date, activeCompositionSubject, bearing, tolerance,
+                )
+            },
+            evaluationKey = activeCompositionSubject.id,
+            orientationProvider = container.orientationProvider,
+            siteLatitudeDeg = location.latitude.value,
+            siteLongitudeDeg = location.longitude.value,
+            siteAltitudeMeters = location.heightMeters,
+            zone = location.zone,
+            subjectIsViewpoint =
+                activeCompositionSubject is TonightOverviewUseCase.TonightSubject.Viewpoint,
+            subjectSelector = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            selected = compositionGroup ==
+                                CompositionSubjectGroup.GALACTIC_CENTRE,
+                            onClick = {
+                                compositionGroup = CompositionSubjectGroup.GALACTIC_CENTRE
+                                selectCompositionSubject(compositionSubjects.galacticCentre)
+                            },
+                            label = { Text(stringResource(R.string.composition_group_gc)) },
+                        )
+                        FilterChip(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            selected = compositionGroup == CompositionSubjectGroup.WIDE_FIELD,
+                            onClick = {
+                                compositionGroup = CompositionSubjectGroup.WIDE_FIELD
+                                compositionSubjects.viewpoints.firstOrNull()
+                                    ?.let { selectCompositionSubject(it) }
+                            },
+                            label = {
+                                Text(
+                                    TonightOverviewUseCase.SubjectCategory.WIDE_FIELD
+                                        .categoryName(),
+                                )
+                            },
+                        )
+                        FilterChip(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            selected = compositionGroup ==
+                                CompositionSubjectGroup.CONSTELLATION,
+                            onClick = {
+                                compositionGroup = CompositionSubjectGroup.CONSTELLATION
+                                compositionSubjects.constellations.firstOrNull()
+                                    ?.let { selectCompositionSubject(it) }
+                            },
+                            label = {
+                                Text(
+                                    TonightOverviewUseCase.SubjectCategory.CONSTELLATION
+                                        .categoryName(),
+                                )
+                            },
+                        )
+                        FilterChip(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            selected = compositionGroup == CompositionSubjectGroup.DEEP_SKY,
+                            onClick = {
+                                compositionGroup = CompositionSubjectGroup.DEEP_SKY
+                                compositionSubjects.objects.firstOrNull()
+                                    ?.let { selectCompositionSubject(it) }
+                            },
+                            label = {
+                                Text(
+                                    TonightOverviewUseCase.SubjectCategory.DEEP_SKY
+                                        .categoryName(),
+                                )
+                            },
+                        )
+                    }
+                    when (compositionGroup) {
+                        CompositionSubjectGroup.WIDE_FIELD -> SelectionMenu(
+                            label = stringResource(R.string.composition_subject_label),
+                            items = compositionSubjects.viewpoints
+                                .map { it to it.displayName() },
+                            selected = compositionSubjects.viewpoints
+                                .map { it to it.displayName() }
+                                .firstOrNull { it.first == activeCompositionSubject },
+                            itemLabel = { it.second },
+                            onSelect = { selectCompositionSubject(it.first) },
+                        )
+                        CompositionSubjectGroup.CONSTELLATION -> SelectionMenu(
+                            label = stringResource(R.string.composition_subject_label),
+                            items = compositionSubjects.constellations
+                                .map { it to it.displayName() },
+                            selected = compositionSubjects.constellations
+                                .map { it to it.displayName() }
+                                .firstOrNull { it.first == activeCompositionSubject },
+                            itemLabel = { it.second },
+                            onSelect = { selectCompositionSubject(it.first) },
+                        )
+                        CompositionSubjectGroup.DEEP_SKY -> SelectionMenu(
+                            label = stringResource(R.string.composition_subject_label),
+                            items = compositionSubjects.objects
+                                .map { it to it.displayName() },
+                            selected = compositionSubjects.objects
+                                .map { it to it.displayName() }
+                                .firstOrNull { it.first == activeCompositionSubject },
+                            itemLabel = { it.second },
+                            onSelect = { selectCompositionSubject(it.first) },
+                        )
+                        CompositionSubjectGroup.GALACTIC_CENTRE -> Unit
+                    }
+                }
+            },
+            onStateChange = { bearing, tolerance, evaluation ->
+                compositionSnapshot = evaluation?.let {
+                    CompositionPlanSnapshot(
+                        subjectName = compositionSubjectName ?: "",
+                        bearingDeg = bearing,
+                        toleranceDeg = tolerance,
+                        evaluation = it,
+                    )
+                }
+            },
+        )
+    } else {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                SectionTitle(stringResource(R.string.composition_title))
+                Text(
+                    text = stringResource(R.string.composition_subjects_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 
     LandscapeModel.ForegroundMethod.entries.forEach { method ->
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -655,10 +826,18 @@ private fun LandscapeCalculator(
         )
     }
     SavePlanButton(enabled = true) {
+        // The composition lines ride along when the block produced
+        // an evaluation (ui-design §7.9): subject / bearing /
+        // tolerance, the spans and the best moments — or the one
+        // diagnosis, stated as computed. The payload is unchanged:
+        // the plan layer carries no composition parameters.
+        val compositionLines = compositionSnapshot?.let {
+            compositionPlanLines(context, it, location.zone)
+        } ?: emptyList()
         onSavePlan(
             "LANDSCAPE",
             "${context.getString(R.string.cat_landscape)} · ${focalMm.roundToInt()}mm",
-            lines.joinToString("\n"),
+            (lines + compositionLines).joinToString("\n"),
             obj(
                 "focalMm" to num(focalMm),
                 "aperture" to num(aperture),
@@ -666,6 +845,139 @@ private fun LandscapeCalculator(
             ),
         )
     }
+}
+
+/** The landscape calculator's composition subject groups (ui-design §7.9). */
+private enum class CompositionSubjectGroup {
+    GALACTIC_CENTRE, WIDE_FIELD, CONSTELLATION, DEEP_SKY,
+}
+
+/** The composition selector's catalogue subjects, grouped as the board groups them. */
+private data class CompositionSubjects(
+    val galacticCentre: TonightOverviewUseCase.TonightSubject.Viewpoint,
+    val viewpoints: List<TonightOverviewUseCase.TonightSubject.Viewpoint>,
+    val constellations: List<TonightOverviewUseCase.TonightSubject.Constellation>,
+    val objects: List<TonightOverviewUseCase.TonightSubject.DeepSky>,
+)
+
+/**
+ * Load the composition selector's subjects from the catalogues;
+ * null when any catalogue fails (the block then degrades to its
+ * explicit unavailable line). The galactic-centre chip's subject is
+ * the catalogue's galactic-centre viewpoint — the same anchor the
+ * board's wide-field lanes and the sky frame's default declination
+ * use.
+ */
+private fun loadCompositionSubjects(container: AppContainer): CompositionSubjects? = try {
+    val viewpoints = container.wideFieldCatalog.viewpoints()
+        .map { TonightOverviewUseCase.TonightSubject.Viewpoint(it) }
+    val galacticCentre = viewpoints.firstOrNull { it.viewpoint.id == "galactic-centre" }
+    if (galacticCentre == null) {
+        null
+    } else {
+        CompositionSubjects(
+            galacticCentre = galacticCentre,
+            viewpoints = viewpoints,
+            constellations = container.constellationCatalog.constellations()
+                .map { TonightOverviewUseCase.TonightSubject.Constellation(it) },
+            objects = container.objectCatalog.allObjects()
+                .map { TonightOverviewUseCase.TonightSubject.DeepSky(it) },
+        )
+    }
+} catch (e: Exception) {
+    null
+}
+
+/** What the composition block hands to the plan text on save (ui-design §7.9). */
+private data class CompositionPlanSnapshot(
+    val subjectName: String,
+    val bearingDeg: Double,
+    val toleranceDeg: Double,
+    val evaluation: TonightOverviewUseCase.CompositionEvaluation,
+)
+
+/** A segment's best moment as an instant (an outside-night crossing reports its endpoint). */
+private fun compositionBestInstant(best: CompositionWindow.BestMoment): Instant = when (best) {
+    is CompositionWindow.BestMoment.Crossing -> best.instant
+    is CompositionWindow.BestMoment.ClosestInSegment -> best.instant
+    is CompositionWindow.BestMoment.CrossingOutsideNight -> best.endpoint
+}
+
+/**
+ * The composition block's three plan lines (ui-design §7.9): the
+ * subject / bearing / tolerance header, the spans (or the one
+ * diagnosis, worded from the same string resources the section
+ * renders), and the best moments. Pure text assembly — every number
+ * in it comes from the evaluation, none is recomputed here.
+ */
+private fun compositionPlanLines(
+    context: Context,
+    snapshot: CompositionPlanSnapshot,
+    zone: java.time.ZoneId,
+): List<String> {
+    val result = snapshot.evaluation.result
+    val lines = mutableListOf(
+        context.getString(
+            R.string.composition_plan_line,
+            snapshot.subjectName,
+            snapshot.bearingDeg.roundToInt(),
+            snapshot.toleranceDeg.roundToInt(),
+        ),
+    )
+    val twilightSegments =
+        (result.diagnosis as? CompositionWindow.Diagnosis.TwilightOnly)?.segments
+    val spans = result.segments.ifEmpty { twilightSegments ?: emptyList() }
+    when {
+        spans.isNotEmpty() -> {
+            val spansText = spans.joinToString(" / ") { segment ->
+                "${formatTime(segment.start, zone)}–${formatTime(segment.end, zone)}"
+            }
+            lines += context.getString(
+                R.string.composition_plan_windows,
+                if (twilightSegments != null) {
+                    spansText + " · " + context.getString(R.string.composition_twilight_note)
+                } else {
+                    spansText
+                },
+            )
+            lines += context.getString(
+                R.string.composition_plan_best,
+                spans.joinToString(" / ") { segment ->
+                    formatTime(compositionBestInstant(segment.best), zone)
+                },
+            )
+        }
+        else -> {
+            val diagnosisText = when (val diagnosis = result.diagnosis) {
+                is CompositionWindow.Diagnosis.AltitudeOutsideBand -> when {
+                    diagnosis.azimuthBandMaxAltitudeDeg <
+                        CompositionWindow.MIN_ALTITUDE_DEG -> context.getString(
+                            R.string.composition_empty_below,
+                            diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
+                        )
+                    diagnosis.azimuthBandMinAltitudeDeg >
+                        CompositionWindow.MAX_ALTITUDE_DEG -> context.getString(
+                            R.string.composition_empty_above,
+                            diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
+                        )
+                    else -> context.getString(
+                        R.string.composition_empty_altitude_range,
+                        diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
+                        diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
+                    )
+                }
+                is CompositionWindow.Diagnosis.NeverInAzimuthBand -> context.getString(
+                    R.string.composition_empty_never,
+                    diagnosis.closestDiffDeg.roundToInt(),
+                    formatTime(diagnosis.closestInstant, zone),
+                )
+                else -> ""
+            }
+            lines += context.getString(R.string.composition_plan_windows, diagnosisText)
+            lines += context.getString(R.string.composition_plan_best_none)
+        }
+    }
+    return lines
 }
 
 @Composable

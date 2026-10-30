@@ -118,6 +118,8 @@ fun TonightScreen(
     onSaveFavourite: (String) -> Unit,
     onEvaluateCursor: (Instant) -> TonightOverviewUseCase.CursorEvaluation,
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
+    onEvaluateComposition: (String, Double, Double) ->
+        TonightOverviewUseCase.CompositionEvaluation?,
     onOpenTargetCalculator: (CalcCategory, CalcPrefill) -> Unit,
     orientationProvider: app.astroexposure.domain.orientation.DeviceOrientationProvider,
     siteLatitudeDeg: Double,
@@ -725,6 +727,9 @@ fun TonightScreen(
                         }
                     } else {
                         null
+                    },
+                    onEvaluateComposition = { bearingDeg, toleranceDeg ->
+                        onEvaluateComposition(id, bearingDeg, toleranceDeg)
                     },
                 )
             } else {

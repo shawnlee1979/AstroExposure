@@ -23,6 +23,7 @@ import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.sky.MoonPhaseNames
 import app.astroexposure.domain.sky.SkyBrightness
+import app.astroexposure.domain.timeline.CompositionWindow
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.units.Degrees
@@ -787,6 +788,108 @@ class TonightOverviewUseCase(
                 ShowerDates.approxDate(it.shower.peakLon, date)
             },
             meteorZhr = (subject as? TonightSubject.Radiant)?.shower?.peakZhr,
+        )
+    }
+
+    /**
+     * Composition evaluation behind the detail dialog's and the
+     * landscape calculator's composition sections (ui-design §7.9):
+     * the domain verdict for one subject, one foreground bearing and
+     * one tolerance, plus the axis and the night span it was cut to
+     * (the sections draw their mini time bar from exactly these).
+     */
+    data class CompositionEvaluation(
+        val subject: TonightSubject,
+        /** The foreground bearing the windows were computed for, degrees in [0, 360). */
+        val bearingDeg: Double,
+        val toleranceDeg: Double,
+        val result: CompositionWindow.Result,
+        val axisStart: Instant,
+        val axisEnd: Instant,
+        /**
+         * The span the windows were cut to (the astronomical night,
+         * or sunset→next sunrise when there is no astronomical
+         * night); null when neither exists and the windows stand
+         * uncut — the presentation fallback of [nightSpan].
+         */
+        val nightSpan: NightTimeline.Interval?,
+    )
+
+    /**
+     * Composition windows for one subject by its namespaced id,
+     * against the caller's already-built [timeline] (the detail
+     * dialog's entrance). Returns null for an unknown id or a failed
+     * catalogue — and for a radiant: a radiant is not a framable
+     * subject and never gets a composition section (ui-design §7.8).
+     */
+    fun evaluateComposition(
+        location: GeoLocation,
+        date: LocalDate,
+        timeline: Timeline,
+        objectId: String,
+        bearingDeg: Double,
+        toleranceDeg: Double,
+    ): CompositionEvaluation? {
+        val subject = resolveSubject(objectId, date) ?: return null
+        if (subject is TonightSubject.Radiant) return null
+        return compositionFor(location, date, timeline, subject, bearingDeg, toleranceDeg)
+    }
+
+    /**
+     * Composition windows for a subject the caller already holds
+     * (the landscape calculator's selector entrance): the timeline
+     * is built here, so both entrances share the one axis definition
+     * and the one night-span discipline.
+     */
+    fun evaluateCompositionForSubject(
+        location: GeoLocation,
+        date: LocalDate,
+        subject: TonightSubject,
+        bearingDeg: Double,
+        toleranceDeg: Double,
+    ): CompositionEvaluation {
+        val timeline = buildTimeline(
+            location, date,
+            ephemeris.sunEvents(location, date),
+            ephemeris.astronomicalNight(location, date),
+            ephemeris.galacticCenterWindow(location, date),
+        )
+        return compositionFor(location, date, timeline, subject, bearingDeg, toleranceDeg)
+    }
+
+    /**
+     * The one composition assembly: the subject's azimuth and
+     * altitude sampled on the timeline axis at the shared 5-minute
+     * step (azimuth via the port's existing member — no second
+     * ephemeris route), then the domain's pure function.
+     */
+    private fun compositionFor(
+        location: GeoLocation,
+        date: LocalDate,
+        timeline: Timeline,
+        subject: TonightSubject,
+        bearingDeg: Double,
+        toleranceDeg: Double,
+    ): CompositionEvaluation {
+        val coords = subject.coordinates
+        val samples = NightTimeline.sampleInstants(timeline.axisStart, timeline.axisEnd)
+            .map { t ->
+                CompositionWindow.Sample(
+                    instant = t,
+                    azimuthDeg = ephemeris.azimuthOf(location, coords, t).value,
+                    altitudeDeg = ephemeris.altitudeOf(location, coords, t).value,
+                )
+            }
+        val bearing = ((bearingDeg % 360.0) + 360.0) % 360.0
+        val span = nightSpan(location, date)
+        return CompositionEvaluation(
+            subject = subject,
+            bearingDeg = bearing,
+            toleranceDeg = toleranceDeg,
+            result = CompositionWindow.windows(samples, bearing, toleranceDeg, span),
+            axisStart = timeline.axisStart,
+            axisEnd = timeline.axisEnd,
+            nightSpan = span,
         )
     }
 

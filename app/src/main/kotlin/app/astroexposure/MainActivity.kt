@@ -581,6 +581,12 @@ private fun AstroApp(container: AppContainer) {
                                 objectId,
                             )
                         },
+                        onEvaluateComposition = { objectId, bearingDeg, toleranceDeg ->
+                            container.tonightOverview.evaluateComposition(
+                                location, tonightDate, result.timeline, objectId,
+                                bearingDeg, toleranceDeg,
+                            )
+                        },
                         onOpenTargetCalculator = { category, prefill ->
                             calcCategory = category
                             calcPrefill = prefill
