@@ -12,6 +12,8 @@ import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.ui.FramingVerdict
+import app.astroexposure.ui.buildChartModel
+import app.astroexposure.ui.framingFitsAlsoAfterSwap
 import app.astroexposure.ui.framingSegments
 import app.astroexposure.ui.framingVerdict
 import java.time.Instant
@@ -145,10 +147,49 @@ class FramingChartGoldenTest {
         ) as FramingVerdict.Ellipse
         assertTrue(plain.verdict.fits)
 
+        // Both orientations fit, so both conclusions carry the
+        // equivalence note (§7.10).
+        assertTrue(framingFitsAlsoAfterSwap(aligned))
+        assertTrue(framingFitsAlsoAfterSwap(plain))
+
+        // The chart model names the in-field neighbours for the
+        // conclusion area's row, from the same drawn set that the
+        // canvas labels (§7.10).
+        val model = buildChartModel(
+            chart, FramingChart.fieldDiagonalDeg(348.0), plain, english = false,
+        )
+        assertTrue(model.neighbourNames.contains("M32"))
+        assertTrue(model.neighbourNames.contains("M110"))
+        assertTrue(model.labels.any { it.text.startsWith("M32") })
+        assertTrue(model.labels.any { it.text.startsWith("M110") })
+
         val share = FullFrameFraming.shareAtFocal(177.83, 348.0)
         assertTrue("share $share", share in 0.495..0.505)
         val advice = detail.framing as FullFrameFraming.Advice.Range
         assertEquals(347.7, advice.referenceFocalMm, 1.5)
+    }
+
+    @Test
+    fun orionPortraitFitsAloneCarriesNoEquivalenceNote() {
+        val detail = detail("constellation:Ori")
+        val chart = detail.framingChart
+        assertNotNull(chart)
+        chart!!
+        // Portrait fits the whole figure; landscape cuts it — the
+        // fits conclusion is single-orientation, so no equivalence
+        // note, and the cut conclusion gets the flip hint instead.
+        val portrait = framingVerdict(
+            chart, FramingChart.FrameSpec(50.0, portrait = true, positionAngleDeg = 0.0),
+        ) as FramingVerdict.Skeleton
+        assertTrue(portrait.out.isEmpty())
+        assertFalse(portrait.fitsAfterSwap)
+        assertFalse(framingFitsAlsoAfterSwap(portrait))
+        val landscape = framingVerdict(
+            chart, FramingChart.FrameSpec(50.0, portrait = false, positionAngleDeg = 0.0),
+        ) as FramingVerdict.Skeleton
+        assertFalse(landscape.out.isEmpty())
+        assertTrue(landscape.fitsAfterSwap)
+        assertFalse(framingFitsAlsoAfterSwap(landscape))
     }
 
     @Test
