@@ -11,9 +11,11 @@ import app.astroexposure.domain.camera.FramingChart
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.units.Degrees
+import app.astroexposure.ui.ChartLabelLevel
 import app.astroexposure.ui.LabelDrawDecision
 import app.astroexposure.ui.buildChartModel
 import app.astroexposure.ui.framingVerdict
+import app.astroexposure.ui.labelCandidateOffsetsDip
 import app.astroexposure.ui.labelDrawDecision
 import java.time.Instant
 import java.time.LocalDate
@@ -54,6 +56,23 @@ import org.junit.Test
  * gate is the per-label decision assertion: wherever the legacy
  * formula was legal the decision must draw with its exact values,
  * and wherever it was not, the decision must skip.
+ *
+ * 0.13.1 extension: the canvas no longer draws labels at the
+ * fixed (+6dp, -14dp) anchor the legacy census measures — the
+ * avoidance layout (layoutChartLabels) picks each label's
+ * placement or suppresses it. The legacy assertions above stay
+ * as the decision function's fidelity record; this sweep
+ * additionally runs the shipped layout for every configuration
+ * (fixture measurement injected, on the 360x280 dp geometry both
+ * canvases share) and asserts the layout's invariants: a placed
+ * box lies fully inside the canvas, placed boxes are pairwise
+ * clear, the far ring only serves on-canvas anchors, the safety
+ * decision at every placement is Draw on both canvases, and a
+ * suppressed P0 has no fully-inside candidate at all (checked
+ * independently of the layout's intersection logic). P0
+ * minimum-overlap fallback triggers are counted and printed —
+ * the fallback is a fuse, not a path (§7.10), and its count is
+ * recorded here so any growth is visible.
  */
 class FramingLabelConstraintSweepTest {
 
@@ -103,6 +122,9 @@ class FramingLabelConstraintSweepTest {
     private val defaultStateViolatingSubjects = mutableSetOf<String>()
     private var minLegacyWidth = Int.MAX_VALUE
     private var minLegacyHeight = Int.MAX_VALUE
+    private var layoutPlacements = 0
+    private var layoutSuppressions = 0
+    private var layoutP0Fallbacks = 0
     private val failures = mutableListOf<String>()
 
     @Test
@@ -135,6 +157,9 @@ class FramingLabelConstraintSweepTest {
                 if (minLegacyWidth == Int.MAX_VALUE) "n/a" else "$minLegacyWidth")
             appendLine("min legacy maxHeight: " +
                 if (minLegacyHeight == Int.MAX_VALUE) "n/a" else "$minLegacyHeight")
+            appendLine("layout placements evaluated: $layoutPlacements")
+            appendLine("layout suppressions: $layoutSuppressions")
+            appendLine("P0 min-overlap fallbacks triggered (recorded): $layoutP0Fallbacks")
             appendLine("worst subjects: " +
                 worst.joinToString { "${it.key}=${it.value}" })
             appendLine("decision failures: ${failures.size}")
@@ -169,6 +194,7 @@ class FramingLabelConstraintSweepTest {
                     val model = buildChartModel(chart, field, verdict, english = false)
                     val isDefaultState =
                         focal == defaultFocal && !portrait && rotation == 0.0
+                    evaluateLayout(id, model, field, projection)
                     for (canvas in canvases) {
                         evaluateLabels(
                             id, model, projection, radius, canvas, isDefaultState,
@@ -240,6 +266,112 @@ class FramingLabelConstraintSweepTest {
                     "UNDRAWABLE LABEL NOT SKIPPED: " +
                     "legacy=($legacyW, $legacyH) decision=$decision " +
                     "label='${label.text}' canvas=$canvas"
+            }
+        }
+    }
+
+    /**
+     * The 0.13.1 layout layer's assertions for one configuration,
+     * on the 360x280 dp geometry both swept canvases share (see
+     * the class doc). Sizes come from the fixture measurement —
+     * the invariants asserted here (inside, pairwise clear, gate
+     * respected, safety Draw, P0 suppression justified) are the
+     * layout's contract under ANY measurement.
+     */
+    private fun evaluateLayout(
+        id: String,
+        model: app.astroexposure.ui.ChartModel,
+        fieldDiagonalDeg: Double,
+        projection: FramingChart.Projection,
+    ) {
+        val placements = layoutForModel(model, fieldDiagonalDeg, projection)
+        val placedBoxes = mutableListOf<Pair<FloatArray, String>>()
+        model.labels.forEachIndexed { index, label ->
+            val (anchorX, anchorY) = labelAnchorDip(
+                model, index, fieldDiagonalDeg, projection, 360f, 280f,
+            )
+            val (w, h) = approximateLabelSizeDip(label.text)
+            val placement = placements[index]
+            if (placement == null) {
+                layoutSuppressions++
+                if (label.level == ChartLabelLevel.P0) {
+                    // Independent of the layout's intersection
+                    // logic: a suppressed P0 must have NO
+                    // fully-inside candidate (far ring gated on
+                    // the anchor, as specified).
+                    val anchorInside = anchorX in 0f..360f && anchorY in 0f..280f
+                    val offsets = labelCandidateOffsetsDip(w)
+                    var anyInside = false
+                    for (candidate in offsets.indices) {
+                        if (candidate >= 8 && !anchorInside) break
+                        val x = anchorX + offsets[candidate].first
+                        val y = anchorY + offsets[candidate].second
+                        if (x >= 2f && y >= 2f && x + w <= 358f && y + h <= 278f) {
+                            anyInside = true
+                            break
+                        }
+                    }
+                    if (anyInside) {
+                        failures += "=== $id @ layout ===\n" +
+                            "P0 SUPPRESSED WITH A FULLY-INSIDE CANDIDATE: " +
+                            "label='${label.text}' anchor=($anchorX, $anchorY)"
+                    }
+                }
+                return@forEachIndexed
+            }
+            layoutPlacements++
+            if (placement.minOverlapFallback) layoutP0Fallbacks++
+            if (!(placement.topLeftXDip >= 2f && placement.topLeftYDip >= 2f &&
+                    placement.topLeftXDip + w <= 358f &&
+                    placement.topLeftYDip + h <= 278f)
+            ) {
+                failures += "=== $id @ layout ===\n" +
+                    "PLACED BOX NOT FULLY INSIDE: label='${label.text}' " +
+                    "at (${placement.topLeftXDip}, ${placement.topLeftYDip}) " +
+                    "size ($w, $h)"
+            }
+            if (placement.candidateIndex >= 8 &&
+                !(anchorX in 0f..360f && anchorY in 0f..280f)
+            ) {
+                failures += "=== $id @ layout ===\n" +
+                    "FAR RING USED FOR AN OFF-CANVAS ANCHOR: " +
+                    "label='${label.text}' anchor=($anchorX, $anchorY) " +
+                    "candidate=${placement.candidateIndex}"
+            }
+            for (canvas in canvases) {
+                val decision = labelDrawDecision(
+                    placement.topLeftXDip * canvas.density,
+                    placement.topLeftYDip * canvas.density,
+                    canvas.widthPx.toFloat(),
+                    canvas.heightPx.toFloat(),
+                )
+                if (decision !is LabelDrawDecision.Draw) {
+                    failures += "=== $id @ layout ===\n" +
+                        "PLACED LABEL NOT DRAWN BY THE SAFETY LAYER: " +
+                        "label='${label.text}' canvas=$canvas decision=$decision"
+                }
+            }
+            placedBoxes += floatArrayOf(
+                placement.topLeftXDip, placement.topLeftYDip, w, h,
+            ) to label.text
+        }
+        // Pairwise clearance, x-sorted so the inner loop can stop
+        // once no x-overlap with the current box is possible.
+        val sorted = placedBoxes.sortedBy { it.first[0] }
+        for (i in sorted.indices) {
+            val a = sorted[i].first
+            for (j in i + 1 until sorted.size) {
+                val b = sorted[j].first
+                if (b[0] >= a[0] + a[2] + 2f) break
+                val overlapX = minOf(a[0] + a[2], b[0] + b[2] + 2f) -
+                    maxOf(a[0], b[0] - 2f)
+                val overlapY = minOf(a[1] + a[3], b[1] + b[3] + 2f) -
+                    maxOf(a[1], b[1] - 2f)
+                if (overlapX > 0f && overlapY > 0f) {
+                    failures += "=== $id @ layout ===\n" +
+                        "PLACED BOXES OVERLAP: '${sorted[i].second}' vs " +
+                        "'${sorted[j].second}'"
+                }
             }
         }
     }

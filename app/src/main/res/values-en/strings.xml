@@ -496,7 +496,7 @@
     <string name="framing_cut_total">%1$d in all</string>
     <string name="framing_flip_to_portrait">Switch to portrait to fit it all</string>
     <string name="framing_flip_to_landscape">Switch to landscape to fit it all</string>
-    <string name="framing_quantities">Focal %1$d mm · Field %2$s°×%3$s° · Long-side share %4$d%% · Chart %5$d°</string>
+    <string name="framing_quantities">Focal %1$d mm · Field %2$s°×%3$s° · Long-side share %4$d%% · Chart %5$d° · %6$s projection</string>
     <string name="framing_same_field">Also in this field: %1$s</string>
     <string name="framing_focal_label">Focal length (log)</string>
     <string name="framing_focal_readout_range">%1$d mm · suggested reference %2$d mm (range %3$d–%4$d)</string>
@@ -507,8 +507,6 @@
     <string name="framing_portrait">Portrait</string>
     <string name="framing_footnote">Stars: HYG bright subset, mag ≤ 6.5 (J2000) · Lines: IAU figures (d3-celestial, BSD) · Fit is judged on the full skeleton / outline; the suggested focal follows the target\'s long axis</string>
     <string name="framing_no_pa_note">No position-angle data — the ellipse is drawn with its long axis east–west</string>
-    <string name="framing_corner_north">↑ N · east left</string>
-    <string name="framing_corner_field">Chart %1$d° · %2$s projection</string>
     <string name="framing_projection_gnomonic">gnomonic</string>
     <string name="framing_projection_stereographic">stereographic</string>
     <string name="crash_record_title">Last crash record</string>

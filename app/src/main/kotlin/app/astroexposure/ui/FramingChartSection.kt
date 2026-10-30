@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -199,6 +200,13 @@ fun FramingChartSection(
                     oneDecimal(FullFrameFraming.shortSideFovDeg(focalMm)),
                     percentRounded(FullFrameFraming.shareAtFocal(subjectMajorArcmin, focalMm)),
                     chartWidthDeg.roundToInt(),
+                    stringResource(
+                        if (projection == FramingChart.Projection.STEREOGRAPHIC) {
+                            R.string.framing_projection_stereographic
+                        } else {
+                            R.string.framing_projection_gnomonic
+                        },
+                    ),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     FramingChartCanvas(
@@ -207,7 +215,6 @@ fun FramingChartSection(
                         projection = projection,
                         fieldDiagonal = fieldDiagonal,
                         redLight = redLight,
-                        chartWidthDeg = chartWidthDeg,
                         contentDescription = listOfNotNull(
                             conclusion, quantities, neighbourDescription,
                         ).joinToString(" "),
@@ -629,7 +636,22 @@ internal data class EllipsePlot(
     val positionAngleDeg: Double?,
 )
 
-internal data class ChartLabel(val text: String, val point: FramingChart.TangentPoint)
+/** A chart label's avoidance-layout priority class (§7.10, 0.13.1). */
+internal enum class ChartLabelLevel { P0, P1, P2 }
+
+internal data class ChartLabel(
+    val text: String,
+    val point: FramingChart.TangentPoint,
+    /** Avoidance-layout priority class; a verdict-named out star is P0 even when it also carries a proper name. */
+    val level: ChartLabelLevel,
+    /** P0/P1 intra-level sort key: the star's magnitude, brighter first. */
+    val magnitude: Double = 0.0,
+    /** P2 intra-level sort keys: Messier objects first, then major axis descending. */
+    val messier: Boolean = false,
+    val majorArcmin: Double = 0.0,
+    /** P2 final sort key before the text: angular separation from the chart centre, nearer first. */
+    val separationDeg: Double = 0.0,
+)
 
 internal class ChartModel(
     val stars: List<StarPlot>,
@@ -651,8 +673,12 @@ internal class ChartModel(
  * Neighbour label anchors are clamped to the same square here;
  * star label anchors are NOT bounded this way — the field disc
  * reaches past the canvas rectangle and out-star labels sit
- * wherever their vertex falls — so the canvas makes each anchor
- * safe at draw time instead ([labelDrawDecision], 0.11.2).
+ * wherever their vertex falls. What reaches the canvas is
+ * decided in two layers (§7.10): the avoidance layout
+ * ([layoutChartLabels], 0.13.1) picks each label's placement or
+ * suppresses its on-chart presentation, and the surviving
+ * placements are drawn through the safety helper
+ * ([labelDrawDecision], 0.11.2), which stays the final gate.
  */
 internal fun buildChartModel(
     data: TonightOverviewUseCase.FramingChartData,
@@ -723,7 +749,11 @@ internal fun buildChartModel(
 
     // Labels (§7.10's three classes only): proper-named bright
     // stars, the named stars the conclusion calls out, and the
-    // neighbouring deep-sky objects drawn in the field.
+    // neighbouring deep-sky objects drawn in the field. Each
+    // label also carries its avoidance-layout priority (§7.10,
+    // 0.13.1): a star the verdict names as out is P0 — the out
+    // identity outranks the proper-name identity when both hold.
+    val outStarIds = outStars.mapTo(mutableSetOf()) { it.star.id }
     val labels = mutableListOf<ChartLabel>()
     val labelledStarIds = mutableSetOf<Int>()
     for (plot in stars) {
@@ -733,6 +763,12 @@ internal fun buildChartModel(
             labels += ChartLabel(
                 text = if (english) proper else star.nameZh ?: proper,
                 point = plot.point,
+                level = if (star.id in outStarIds) {
+                    ChartLabelLevel.P0
+                } else {
+                    ChartLabelLevel.P1
+                },
+                magnitude = star.magnitude,
             )
             labelledStarIds += star.id
         }
@@ -745,22 +781,39 @@ internal fun buildChartModel(
             star.nameZh ?: star.properName ?: star.bayerName
         }
         if (name != null && star.id !in labelledStarIds) {
-            labels += ChartLabel(name, plot.point)
+            labels += ChartLabel(
+                text = name,
+                point = plot.point,
+                level = ChartLabelLevel.P0,
+                magnitude = star.magnitude,
+            )
             labelledStarIds += star.id
         }
     }
-    // The label set is the drawn set (§7.10: a drawn neighbour
-    // always carries its label — the two sets used to diverge for
-    // centres in the band between the field radius and the reach,
-    // which left nameless ellipses on the chart). A centre outside
-    // the field square has its anchor clamped onto the square, the
-    // same bound the line figures are clipped to.
+    // The label CANDIDATE set is the drawn set (§7.10, caliber
+    // revised 0.13.1): a drawn neighbour always enters the label
+    // layout — the two sets used to diverge for centres in the
+    // band between the field radius and the reach, which left
+    // nameless ellipses on the chart. Whether a candidate is
+    // actually presented on the chart is the layout layer's
+    // decision (priority and avoidance); a suppressed name is
+    // not lost — the accessibility description's neighbour
+    // segment is generated from the drawn set in full. A centre
+    // outside the field square has its anchor clamped onto the
+    // square, the same bound the line figures are clipped to.
     for ((neighbour, plot) in drawnNeighbours) {
         val anchor = FramingChart.TangentPoint(
             xEast = plot.center.xEast.coerceIn(-fieldHalfSide, fieldHalfSide),
             yNorth = plot.center.yNorth.coerceIn(-fieldHalfSide, fieldHalfSide),
         )
-        labels += ChartLabel(neighbourLabelText(neighbour, english), anchor)
+        labels += ChartLabel(
+            text = neighbourLabelText(neighbour, english),
+            point = anchor,
+            level = ChartLabelLevel.P2,
+            messier = isMessierCatalogueId(neighbour.id),
+            majorArcmin = neighbour.sizeMajorArcmin,
+            separationDeg = separationOf(neighbour.raDeg, neighbour.decDeg),
+        )
     }
 
     return ChartModel(
@@ -777,6 +830,10 @@ internal fun buildChartModel(
 /** A catalogue id with its prefix spaced out for display ("NGC869" -> "NGC 869"). */
 private fun spacedCatalogueId(id: String): String =
     id.replace(Regex("^(NGC|IC)(\\d+)"), "$1 $2")
+
+/** Whether a catalogue id is a Messier id ("M42"); the P2 ordering's first key (§7.10). */
+private fun isMessierCatalogueId(id: String): Boolean =
+    id.length >= 2 && id[0] == 'M' && id[1].isDigit()
 
 /** The chart label text for one neighbouring deep-sky object (§7.10). */
 private fun neighbourLabelText(
@@ -940,10 +997,14 @@ internal fun labelDrawDecision(
 /**
  * The one place chart labels are drawn (0.11.2). Measures with
  * the [labelDrawDecision] constraints and draws the layout at
- * the original anchor: the same measurer, style, overflow,
+ * the given top-left (since 0.13.1, the avoidance layout's
+ * placement for the label): the same measurer, style, overflow,
  * soft-wrap and max-lines the plain drawText(String) call used,
  * and the layout draw it delegates to — only the constraint
- * computation is intercepted before it can go negative.
+ * computation is intercepted before it can go negative. A
+ * placement's box lies fully inside the canvas, so the decision
+ * is always Draw there and the measured layout is the single
+ * line the layout layer measured.
  */
 private fun DrawScope.drawChartLabel(
     measurer: TextMeasurer,
@@ -973,6 +1034,192 @@ private fun DrawScope.drawChartLabel(
 }
 
 // ---------------------------------------------------------------------------
+// Label avoidance layout (0.13.1): which labels appear on the chart,
+// and where. The layout layer decides placement; the safety layer
+// above still gates every draw. Neither substitutes for the other.
+// ---------------------------------------------------------------------------
+
+/**
+ * One label's layout input, all in dp: its priority class and
+ * intra-level sort keys, its anchor on the canvas, and its
+ * measured single-line size (production measures with the real
+ * TextMeasurer, softWrap off; tests inject sizes).
+ */
+internal data class LabelLayoutItem(
+    val text: String,
+    val level: ChartLabelLevel,
+    val magnitude: Double = 0.0,
+    val messier: Boolean = false,
+    val majorArcmin: Double = 0.0,
+    val separationDeg: Double = 0.0,
+    val anchorXDip: Float,
+    val anchorYDip: Float,
+    val widthDip: Float,
+    val heightDip: Float,
+)
+
+/** Where one label goes: the winning candidate and the box's top-left corner, in dp. */
+internal data class LabelPlacement(
+    val candidateIndex: Int,
+    val topLeftXDip: Float,
+    val topLeftYDip: Float,
+    /** True when a P0 label was placed by the minimum-overlap fallback rather than at a free candidate. */
+    val minOverlapFallback: Boolean = false,
+)
+
+/**
+ * The twelve candidate offsets (§7.10): the label box's top-left
+ * corner relative to the label's anchor, for a box of width [w].
+ * Candidates 0–7 are the near ring (box edge within 16 dp of the
+ * anchor), 8–11 the far ring. Candidate 0 is the pre-0.13.1
+ * default placement, so an uncontested label does not move. No
+ * leader lines: even the far ring stays within 30 dp of its
+ * anchor, close enough to read as belonging to it.
+ */
+internal fun labelCandidateOffsetsDip(w: Float): List<Pair<Float, Float>> = listOf(
+    6f to -14f,
+    -6f - w to -14f,
+    6f to 2f,
+    -6f - w to 2f,
+    -w / 2f to -16f,
+    -w / 2f to 4f,
+    6f to -6f,
+    -6f - w to -6f,
+    6f to -30f,
+    -6f - w to -30f,
+    6f to 18f,
+    -6f - w to 18f,
+)
+
+/** The far ring starts at this candidate index (§7.10). */
+private const val LABEL_FAR_RING_START = 8
+
+/**
+ * A placed box keeps this much room, in dp: inside the canvas on
+ * every side, and clear of every other placed box (§7.10).
+ */
+private const val LABEL_CLEARANCE_DIP = 2f
+
+/**
+ * The layout's total order (§7.10): priority class first; within
+ * P0/P1 by magnitude; within P2 Messier first, then major axis
+ * descending, then centre separation ascending; then text, then
+ * anchor — so the output never depends on input order.
+ */
+private val LABEL_LAYOUT_ORDER = Comparator<LabelLayoutItem> { a, b ->
+    var result = a.level.ordinal.compareTo(b.level.ordinal)
+    if (result == 0) {
+        result = if (a.level == ChartLabelLevel.P2) {
+            var c = b.messier.compareTo(a.messier)
+            if (c == 0) c = b.majorArcmin.compareTo(a.majorArcmin)
+            if (c == 0) c = a.separationDeg.compareTo(b.separationDeg)
+            c
+        } else {
+            a.magnitude.compareTo(b.magnitude)
+        }
+    }
+    if (result == 0) result = a.text.compareTo(b.text)
+    if (result == 0) result = a.anchorXDip.compareTo(b.anchorXDip)
+    if (result == 0) result = a.anchorYDip.compareTo(b.anchorYDip)
+    result
+}
+
+/**
+ * Places [items] on a canvas of the given dp size, greedily in
+ * [LABEL_LAYOUT_ORDER] (§7.10, 0.13.1). Each label takes the
+ * first candidate whose box lies fully inside the canvas (a
+ * [LABEL_CLEARANCE_DIP] margin on every side) and clears every
+ * already-placed box (each expanded by the same clearance) with
+ * no positive-area overlap. The far ring (candidates 8–11) is
+ * offered only to labels whose ANCHOR is on the canvas: it
+ * exists for crowded in-canvas fields, and an off-canvas anchor's
+ * referent is not on the chart to be pointed at. A label with no
+ * passing candidate is suppressed (null in the result) — except
+ * P0, which falls back to the fully-inside candidate with the
+ * least total overlap against the placed boxes (ties to the
+ * lower candidate index) and is suppressed only when no
+ * candidate lies fully inside at all. A label wider than the
+ * canvas minus margins therefore always suppresses. The result
+ * aligns with [items] by index; the function is pure and
+ * deterministic — same input, same output.
+ */
+internal fun layoutChartLabels(
+    items: List<LabelLayoutItem>,
+    canvasWidthDip: Float,
+    canvasHeightDip: Float,
+): List<LabelPlacement?> {
+    val placements = arrayOfNulls<LabelPlacement>(items.size)
+    val order = items.indices.sortedWith { x, y ->
+        LABEL_LAYOUT_ORDER.compare(items[x], items[y])
+    }
+    // Placed boxes in placement order: (x, y, width, height), dp.
+    val placed = mutableListOf<FloatArray>()
+
+    fun clearsPlaced(x: Float, y: Float, w: Float, h: Float): Boolean {
+        for (box in placed) {
+            val overlapX = minOf(x + w, box[0] + box[2] + LABEL_CLEARANCE_DIP) -
+                maxOf(x, box[0] - LABEL_CLEARANCE_DIP)
+            val overlapY = minOf(y + h, box[1] + box[3] + LABEL_CLEARANCE_DIP) -
+                maxOf(y, box[1] - LABEL_CLEARANCE_DIP)
+            if (overlapX > 0f && overlapY > 0f) return false
+        }
+        return true
+    }
+
+    fun overlapArea(x: Float, y: Float, w: Float, h: Float): Double {
+        var total = 0.0
+        for (box in placed) {
+            val overlapX = minOf(x + w, box[0] + box[2]) - maxOf(x, box[0])
+            val overlapY = minOf(y + h, box[1] + box[3]) - maxOf(y, box[1])
+            if (overlapX > 0f && overlapY > 0f) {
+                total += overlapX.toDouble() * overlapY.toDouble()
+            }
+        }
+        return total
+    }
+
+    for (index in order) {
+        val item = items[index]
+        val anchorInside = item.anchorXDip in 0f..canvasWidthDip &&
+            item.anchorYDip in 0f..canvasHeightDip
+        val offsets = labelCandidateOffsetsDip(item.widthDip)
+        var fallback: LabelPlacement? = null
+        var fallbackArea = Double.POSITIVE_INFINITY
+        for (candidate in offsets.indices) {
+            if (candidate >= LABEL_FAR_RING_START && !anchorInside) break
+            val x = item.anchorXDip + offsets[candidate].first
+            val y = item.anchorYDip + offsets[candidate].second
+            val fullyInside = x >= LABEL_CLEARANCE_DIP &&
+                y >= LABEL_CLEARANCE_DIP &&
+                x + item.widthDip <= canvasWidthDip - LABEL_CLEARANCE_DIP &&
+                y + item.heightDip <= canvasHeightDip - LABEL_CLEARANCE_DIP
+            if (!fullyInside) continue
+            if (clearsPlaced(x, y, item.widthDip, item.heightDip)) {
+                placements[index] = LabelPlacement(candidate, x, y)
+                break
+            }
+            if (item.level == ChartLabelLevel.P0) {
+                val area = overlapArea(x, y, item.widthDip, item.heightDip)
+                if (area < fallbackArea) {
+                    fallbackArea = area
+                    fallback = LabelPlacement(
+                        candidate, x, y, minOverlapFallback = true,
+                    )
+                }
+            }
+        }
+        if (placements[index] == null) placements[index] = fallback
+        placements[index]?.let { placement ->
+            placed += floatArrayOf(
+                placement.topLeftXDip, placement.topLeftYDip,
+                item.widthDip, item.heightDip,
+            )
+        }
+    }
+    return placements.toList()
+}
+
+// ---------------------------------------------------------------------------
 // The chart canvas.
 // ---------------------------------------------------------------------------
 
@@ -983,7 +1230,6 @@ private fun FramingChartCanvas(
     projection: FramingChart.Projection,
     fieldDiagonal: Double,
     redLight: Boolean,
-    chartWidthDeg: Double,
     contentDescription: String,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -996,11 +1242,55 @@ private fun FramingChartCanvas(
     val starBase = if (redLight) Color(0xFFFF9D8A) else Color.White
     val lineBase = if (redLight) Color(0xFFD64A3E) else stateColors.info
     val dimFill = (if (redLight) Color(0xFF0D0303) else Color.Black).copy(alpha = 0.55f)
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .semantics { this.contentDescription = contentDescription },
     ) {
+        // The label avoidance layout (§7.10, 0.13.1): every label
+        // is measured single-line with the real measurer, its
+        // anchor is placed with the canvas's own place() math in
+        // dp space, and the pure layout decides which labels the
+        // chart presents and where. Only the placed labels are
+        // drawn below, each still through the 0.11.2 safety
+        // helper — a placed box lies fully inside the canvas, so
+        // the safety decision for it is always Draw.
+        val density = LocalDensity.current
+        val canvasWidthDip = maxWidth.value
+        val placedLabels = remember(
+            model, canvasWidthDip, density.density, density.fontScale,
+        ) {
+            val radius = FramingChart.projectedFieldRadius(fieldDiagonal, projection)
+            val scale = hypot(canvasWidthDip, CHART_HEIGHT_DP) / 2.0 / radius
+            val items = model.labels.map { label ->
+                val projected = FramingChart.project(label.point, projection)
+                val measured = measurer.measure(
+                    text = AnnotatedString(label.text),
+                    style = labelStyle,
+                    overflow = TextOverflow.Clip,
+                    softWrap = false,
+                    maxLines = 1,
+                )
+                LabelLayoutItem(
+                    text = label.text,
+                    level = label.level,
+                    magnitude = label.magnitude,
+                    messier = label.messier,
+                    majorArcmin = label.majorArcmin,
+                    separationDeg = label.separationDeg,
+                    anchorXDip = (canvasWidthDip / 2.0 -
+                        projected.xEast * scale).toFloat(),
+                    anchorYDip = (CHART_HEIGHT_DP / 2.0 -
+                        projected.yNorth * scale).toFloat(),
+                    widthDip = measured.size.width / density.density,
+                    heightDip = measured.size.height / density.density,
+                )
+            }
+            layoutChartLabels(items, canvasWidthDip, CHART_HEIGHT_DP)
+                .mapIndexedNotNull { index, placement ->
+                    placement?.let { model.labels[index] to it }
+                }
+        }
         Canvas(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT_DP.dp)) {
             val scale = (hypot(size.width, size.height) / 2.0 /
                 FramingChart.projectedFieldRadius(fieldDiagonal, projection)).toFloat()
@@ -1097,44 +1387,19 @@ private fun FramingChartCanvas(
             drawLine(crossColor, Offset(cx - cross, cy), Offset(cx + cross, cy), 1.dp.toPx())
             drawLine(crossColor, Offset(cx, cy - cross), Offset(cx, cy + cross), 1.dp.toPx())
 
-            for (label in model.labels) {
-                val at = place(label.point)
+            for ((label, placement) in placedLabels) {
                 drawChartLabel(
                     measurer = measurer,
                     text = label.text,
                     style = labelStyle,
-                    topLeft = at + Offset(6.dp.toPx(), -14.dp.toPx()),
+                    topLeft = Offset(
+                        placement.topLeftXDip.dp.toPx(),
+                        placement.topLeftYDip.dp.toPx(),
+                    ),
                 )
             }
 
             drawRect(color = colors.outline, style = Stroke(width = 1.dp.toPx()))
-        }
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
-            Text(
-                text = stringResource(R.string.framing_corner_north),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource(
-                    R.string.framing_corner_field,
-                    chartWidthDeg.roundToInt(),
-                    stringResource(
-                        if (projection == FramingChart.Projection.STEREOGRAPHIC) {
-                            R.string.framing_projection_stereographic
-                        } else {
-                            R.string.framing_projection_gnomonic
-                        },
-                    ),
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

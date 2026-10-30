@@ -498,7 +498,7 @@
     <string name="framing_cut_total">等 %1$d 颗</string>
     <string name="framing_flip_to_portrait">改竖幅可全入框</string>
     <string name="framing_flip_to_landscape">改横幅可全入框</string>
-    <string name="framing_quantities">焦距 %1$d mm · 视场 %2$s°×%3$s° · 长边占比 %4$d%% · 图面 %5$d°</string>
+    <string name="framing_quantities">焦距 %1$d mm · 视场 %2$s°×%3$s° · 长边占比 %4$d%% · 图面 %5$d° · %6$s投影</string>
     <string name="framing_same_field">同图面：%1$s</string>
     <string name="framing_focal_label">焦距（对数）</string>
     <string name="framing_focal_readout_range">%1$d mm · 建议参考 %2$d mm（区间 %3$d–%4$d）</string>
@@ -509,8 +509,6 @@
     <string name="framing_portrait">竖幅</string>
     <string name="framing_footnote">星点：HYG 亮星子集 ≤6.5 等（J2000）· 连线：IAU 图式（d3-celestial，BSD）· 判定按完整骨架/轮廓，建议焦距按目标长轴</string>
     <string name="framing_no_pa_note">无位角数据，椭圆按长轴东西向示意</string>
-    <string name="framing_corner_north">↑ 北 · 东在左</string>
-    <string name="framing_corner_field">图面 %1$d° · %2$s投影</string>
     <string name="framing_projection_gnomonic">切平面</string>
     <string name="framing_projection_stereographic">球极</string>
     <string name="crash_record_title">上次崩溃记录</string>
