@@ -124,3 +124,61 @@ interface LensCatalog {
     fun builtInLenses(): List<Lens>
     val dataVersion: String
 }
+
+/** One representative bright star of a constellation (design §6.1). */
+data class BrightStar(
+    val nameZh: String,
+    val nameEn: String,
+    val magnitude: Double,
+)
+
+/**
+ * One constellation of the built-in 88-entry editorial table (design
+ * §6.1, ui-design §7.8): the geometric centre of the figure and its
+ * approximate angular extent are editorial approximations, used only
+ * for tonight-list membership, lane drawing at the centre point and
+ * the framing derivation — never presented as precise data. The
+ * localised constellation names are NOT stored here; they resolve
+ * through the UI layer's 88-code name table keyed by [code], so the
+ * two can never drift apart (a contract test asserts the alignment).
+ */
+data class ConstellationEntry(
+    /** IAU three-letter code; the primary key. */
+    val code: String,
+    val centerRaHours: Double,
+    val centerDecDeg: Double,
+    val sizeMajorDeg: Int,
+    val sizeMinorDeg: Int,
+    val brightStars: List<BrightStar>,
+    val noteZh: String,
+    val noteEn: String,
+)
+
+interface ConstellationCatalog {
+    val dataVersion: String
+    fun constellations(): List<ConstellationEntry>
+}
+
+/**
+ * One wide-field viewpoint (design §6.1, ui-design §7.8): a Milky-Way
+ * segment anchored on an in-segment landmark, at 20–40° major-axis
+ * scale. Single deep-sky objects and small asterisms are never
+ * viewpoints. Anchor coordinates and extents are editorial
+ * approximations with the same status as the constellation table's.
+ */
+data class WideFieldViewpoint(
+    val id: String,
+    val nameZh: String,
+    val nameEn: String,
+    val anchorRaHours: Double,
+    val anchorDecDeg: Double,
+    val sizeMajorDeg: Int,
+    val sizeMinorDeg: Int,
+    val noteZh: String,
+    val noteEn: String,
+)
+
+interface WideFieldCatalog {
+    val dataVersion: String
+    fun viewpoints(): List<WideFieldViewpoint>
+}

@@ -1,0 +1,2115 @@
+{
+ "schemaVersion": 1,
+ "dataVersion": "Editorial constellation table v1 (2026-10-29); centres and extents are approximations",
+ "source": "Editorial table (this repository); bright-star magnitudes per standard catalogues",
+ "constellations": [
+  {
+   "code": "And",
+   "centerRaHours": 0.75,
+   "centerDecDeg": 38.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "壁宿二",
+     "nameEn": "Alpheratz (α)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "仙女座 β",
+     "nameEn": "Mirach (β)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "仙女座 γ",
+     "nameEn": "Almach (γ)",
+     "magnitude": 2.3
+    }
+   ],
+   "noteZh": "M31 大星系与 M33 都在座内，深空与星座同框的经典目标。",
+   "noteEn": "M31 and M33 both lie here — the classic constellation-and-galaxy frame."
+  },
+  {
+   "code": "Ant",
+   "centerRaHours": 10.2,
+   "centerDecDeg": -33.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "唧筒座 α",
+     "nameEn": "α Antliae",
+     "magnitude": 4.3
+    },
+    {
+     "nameZh": "唧筒座 ι",
+     "nameEn": "ι Antliae",
+     "magnitude": 4.6
+    }
+   ],
+   "noteZh": "全座无亮星，多作星系巡天的背景夜空。",
+   "noteEn": "No bright stars; mostly a backdrop for galaxy fields."
+  },
+  {
+   "code": "Aps",
+   "centerRaHours": 16.1,
+   "centerDecDeg": -75.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "天燕座 α",
+     "nameEn": "α Apodis",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "天燕座 γ",
+     "nameEn": "γ Apodis",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "天燕座 β",
+     "nameEn": "β Apodis",
+     "magnitude": 4.2
+    }
+   ],
+   "noteZh": "贴近南天极的小座，南半球拱极可见。",
+   "noteEn": "A small constellation near the south celestial pole, circumpolar from the southern hemisphere."
+  },
+  {
+   "code": "Aql",
+   "centerRaHours": 19.7,
+   "centerDecDeg": 3.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "河鼓二",
+     "nameEn": "Altair (α)",
+     "magnitude": 0.8
+    },
+    {
+     "nameZh": "天鹰座 γ",
+     "nameEn": "Tarazed (γ)",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "天鹰座 ζ",
+     "nameEn": "ζ Aquilae",
+     "magnitude": 3.0
+    }
+   ],
+   "noteZh": "牛郎星嵌在银河里，是夏季大三角的一角。",
+   "noteEn": "Altair sits in the Milky Way and anchors one corner of the Summer Triangle."
+  },
+  {
+   "code": "Aqr",
+   "centerRaHours": 22.3,
+   "centerDecDeg": -12.0,
+   "sizeMajorDeg": 28,
+   "sizeMinorDeg": 18,
+   "brightStars": [
+    {
+     "nameZh": "宝瓶座 β",
+     "nameEn": "Sadalsuud (β)",
+     "magnitude": 2.9
+    },
+    {
+     "nameZh": "宝瓶座 α",
+     "nameEn": "Sadalmelik (α)",
+     "magnitude": 3.0
+    },
+    {
+     "nameZh": "宝瓶座 δ",
+     "nameEn": "Skat (δ)",
+     "magnitude": 3.3
+    }
+   ],
+   "noteZh": "土司空旁的螺旋星云与土星状星云都在座内。",
+   "noteEn": "Home to the Helix and Saturn Nebulae."
+  },
+  {
+   "code": "Ara",
+   "centerRaHours": 17.4,
+   "centerDecDeg": -53.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "天坛座 α",
+     "nameEn": "α Arae",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "天坛座 β",
+     "nameEn": "β Arae",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "天坛座 ζ",
+     "nameEn": "ζ Arae",
+     "magnitude": 3.1
+    }
+   ],
+   "noteZh": "南天银河亮段北缘，球状星团 NGC 6397 在座内。",
+   "noteEn": "On the northern edge of the bright southern Milky Way; globular NGC 6397 lies here."
+  },
+  {
+   "code": "Ari",
+   "centerRaHours": 2.95,
+   "centerDecDeg": 17.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "娄宿三",
+     "nameEn": "Hamal (α)",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "娄宿一",
+     "nameEn": "Sheratan (β)",
+     "magnitude": 2.6
+    }
+   ],
+   "noteZh": "黄道小座，春分点在两千年前曾位于此座。",
+   "noteEn": "A small zodiacal constellation; the equinox point lay here two millennia ago."
+  },
+  {
+   "code": "Aur",
+   "centerRaHours": 6.1,
+   "centerDecDeg": 38.0,
+   "sizeMajorDeg": 22,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "五车二",
+     "nameEn": "Capella (α)",
+     "magnitude": 0.1
+    },
+    {
+     "nameZh": "五车五",
+     "nameEn": "Menkalinan (β)",
+     "magnitude": 1.9
+    },
+    {
+     "nameZh": "五车四",
+     "nameEn": "θ Aurigae",
+     "magnitude": 2.6
+    }
+   ],
+   "noteZh": "M36、M37、M38 三个疏散星团在座内排成一线。",
+   "noteEn": "Open clusters M36, M37 and M38 line up across the constellation."
+  },
+  {
+   "code": "Boo",
+   "centerRaHours": 14.7,
+   "centerDecDeg": 28.0,
+   "sizeMajorDeg": 24,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "大角",
+     "nameEn": "Arcturus (α)",
+     "magnitude": -0.1
+    },
+    {
+     "nameZh": "牧夫座 ε",
+     "nameEn": "Izar (ε)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "牧夫座 η",
+     "nameEn": "Muphrid (η)",
+     "magnitude": 2.7
+    }
+   ],
+   "noteZh": "大角是北天最亮的恒星，春季大曲线由此起。",
+   "noteEn": "Arcturus is the brightest star of the northern sky and starts the spring curve."
+  },
+  {
+   "code": "Cae",
+   "centerRaHours": 4.7,
+   "centerDecDeg": -38.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "雕具座 α",
+     "nameEn": "α Caeli",
+     "magnitude": 4.4
+    },
+    {
+     "nameZh": "雕具座 γ",
+     "nameEn": "γ Caeli",
+     "magnitude": 4.5
+    }
+   ],
+   "noteZh": "暗弱小座，无亮星看点。",
+   "noteEn": "A faint little constellation with no bright showpiece."
+  },
+  {
+   "code": "Cam",
+   "centerRaHours": 5.8,
+   "centerDecDeg": 68.0,
+   "sizeMajorDeg": 24,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "鹿豹座 β",
+     "nameEn": "β Camelopardalis",
+     "magnitude": 4.0
+    },
+    {
+     "nameZh": "鹿豹座 α",
+     "nameEn": "α Camelopardalis",
+     "magnitude": 4.3
+    }
+   ],
+   "noteZh": "北天拱极区的暗座，隐匿星系 IC 342 在此。",
+   "noteEn": "A dim circumpolar constellation holding the Hidden Galaxy IC 342."
+  },
+  {
+   "code": "Cap",
+   "centerRaHours": 21.0,
+   "centerDecDeg": -18.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "摩羯座 δ",
+     "nameEn": "Deneb Algedi (δ)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "摩羯座 β",
+     "nameEn": "Dabih (β)",
+     "magnitude": 3.1
+    }
+   ],
+   "noteZh": "黄道南段，球状星团 M30 在座内东侧。",
+   "noteEn": "On the southern zodiac; globular cluster M30 lies at its eastern side."
+  },
+  {
+   "code": "Car",
+   "centerRaHours": 8.7,
+   "centerDecDeg": -63.0,
+   "sizeMajorDeg": 26,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "老人星",
+     "nameEn": "Canopus (α)",
+     "magnitude": -0.7
+    },
+    {
+     "nameZh": "船底座 β",
+     "nameEn": "Miaplacidus (β)",
+     "magnitude": 1.7
+    },
+    {
+     "nameZh": "船底座 ε",
+     "nameEn": "Avior (ε)",
+     "magnitude": 1.9
+    }
+   ],
+   "noteZh": "老人星是全天第二亮星；船底座星云（钥匙孔）在座内。",
+   "noteEn": "Canopus is the second-brightest star in the sky; the Carina Nebula lies here."
+  },
+  {
+   "code": "Cas",
+   "centerRaHours": 0.9,
+   "centerDecDeg": 60.0,
+   "sizeMajorDeg": 22,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "王良四",
+     "nameEn": "Schedar (α)",
+     "magnitude": 2.2
+    },
+    {
+     "nameZh": "王良一",
+     "nameEn": "Caph (β)",
+     "magnitude": 2.3
+    },
+    {
+     "nameZh": "仙后座 γ",
+     "nameEn": "γ Cassiopeiae",
+     "magnitude": 2.5
+    }
+   ],
+   "noteZh": "W 形五星极好认，心脏星云与灵魂星云在座内东侧。",
+   "noteEn": "The W of five stars is unmistakable; the Heart and Soul Nebulae lie to the east."
+  },
+  {
+   "code": "Cen",
+   "centerRaHours": 13.0,
+   "centerDecDeg": -47.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 20,
+   "brightStars": [
+    {
+     "nameZh": "南门二",
+     "nameEn": "α Centauri",
+     "magnitude": -0.3
+    },
+    {
+     "nameZh": "马腹一",
+     "nameEn": "Hadar (β)",
+     "magnitude": 0.6
+    },
+    {
+     "nameZh": "半人马座 θ",
+     "nameEn": "Menkent (θ)",
+     "magnitude": 2.1
+    }
+   ],
+   "noteZh": "南门二是最接近太阳的恒星系统，半人马座 ω 球状星团在此座。",
+   "noteEn": "Alpha Centauri is the Sun's nearest stellar system; Omega Centauri lies here."
+  },
+  {
+   "code": "Cep",
+   "centerRaHours": 22.5,
+   "centerDecDeg": 65.0,
+   "sizeMajorDeg": 24,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "仙王座 α",
+     "nameEn": "Alderamin (α)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "仙王座 β",
+     "nameEn": "Alfirk (β)",
+     "magnitude": 3.2
+    },
+    {
+     "nameZh": "仙王座 γ",
+     "nameEn": "Errai (γ)",
+     "magnitude": 3.2
+    }
+   ],
+   "noteZh": "造父一（δ 星）是造父变星的原型，象鼻星云在座内。",
+   "noteEn": "Delta Cephei is the prototype Cepheid; the Elephant's Trunk Nebula lies here."
+  },
+  {
+   "code": "Cet",
+   "centerRaHours": 1.4,
+   "centerDecDeg": -8.0,
+   "sizeMajorDeg": 32,
+   "sizeMinorDeg": 18,
+   "brightStars": [
+    {
+     "nameZh": "鲸鱼座 β",
+     "nameEn": "Deneb Kaitos (β)",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "鲸鱼座 α",
+     "nameEn": "Menkar (α)",
+     "magnitude": 2.5
+    },
+    {
+     "nameZh": "鲸鱼座 ο",
+     "nameEn": "Mira (ο)",
+     "magnitude": 3.0
+    }
+   ],
+   "noteZh": "刍蒿增二（ο 星 Mira）是长周期变星原型，亮度在 2–10 等间变化。",
+   "noteEn": "Mira (ο) is the prototype long-period variable, swinging between magnitudes 2 and 10."
+  },
+  {
+   "code": "Cha",
+   "centerRaHours": 10.6,
+   "centerDecDeg": -79.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "蝘蜓座 α",
+     "nameEn": "α Chamaeleontis",
+     "magnitude": 4.1
+    },
+    {
+     "nameZh": "蝘蜓座 γ",
+     "nameEn": "γ Chamaeleontis",
+     "magnitude": 4.1
+    },
+    {
+     "nameZh": "蝘蜓座 β",
+     "nameEn": "β Chamaeleontis",
+     "magnitude": 4.2
+    }
+   ],
+   "noteZh": "贴着南天极的暗座，南半球拱极不落。",
+   "noteEn": "A faint constellation hugging the south celestial pole."
+  },
+  {
+   "code": "Cir",
+   "centerRaHours": 14.9,
+   "centerDecDeg": -62.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "圆规座 α",
+     "nameEn": "α Circini",
+     "magnitude": 3.2
+    },
+    {
+     "nameZh": "圆规座 β",
+     "nameEn": "β Circini",
+     "magnitude": 4.1
+    }
+   ],
+   "noteZh": "紧邻南门二的小座，处在银河亮段边缘。",
+   "noteEn": "A tiny constellation next to Alpha Centauri, at the edge of the bright Milky Way."
+  },
+  {
+   "code": "CMa",
+   "centerRaHours": 6.8,
+   "centerDecDeg": -22.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "天狼",
+     "nameEn": "Sirius (α)",
+     "magnitude": -1.5
+    },
+    {
+     "nameZh": "大犬座 ε",
+     "nameEn": "Adhara (ε)",
+     "magnitude": 1.5
+    },
+    {
+     "nameZh": "大犬座 δ",
+     "nameEn": "Wezen (δ)",
+     "magnitude": 1.8
+    }
+   ],
+   "noteZh": "天狼是全天最亮的恒星，疏散星团 M41 在其南侧。",
+   "noteEn": "Sirius is the brightest star in the sky; open cluster M41 sits just south of it."
+  },
+  {
+   "code": "CMi",
+   "centerRaHours": 7.7,
+   "centerDecDeg": 3.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "南河三",
+     "nameEn": "Procyon (α)",
+     "magnitude": 0.3
+    },
+    {
+     "nameZh": "小犬座 β",
+     "nameEn": "Gomeisa (β)",
+     "magnitude": 2.9
+    }
+   ],
+   "noteZh": "南河三是冬季大三角的一角。",
+   "noteEn": "Procyon forms one corner of the Winter Triangle."
+  },
+  {
+   "code": "Cnc",
+   "centerRaHours": 8.7,
+   "centerDecDeg": 16.0,
+   "sizeMajorDeg": 16,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "巨蟹座 β",
+     "nameEn": "Altarf (β)",
+     "magnitude": 3.5
+    },
+    {
+     "nameZh": "巨蟹座 δ",
+     "nameEn": "Asellus Australis (δ)",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "巨蟹座 ι",
+     "nameEn": "ι Cancri",
+     "magnitude": 4.0
+    }
+   ],
+   "noteZh": "看点是鬼星团（M44 蜂巢星团），暗处肉眼可见一团雾气。",
+   "noteEn": "The showpiece is the Beehive Cluster M44, a misty patch to the naked eye."
+  },
+  {
+   "code": "Col",
+   "centerRaHours": 5.9,
+   "centerDecDeg": -32.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "天鸽座 α",
+     "nameEn": "Phact (α)",
+     "magnitude": 2.6
+    },
+    {
+     "nameZh": "天鸽座 β",
+     "nameEn": "Wazn (β)",
+     "magnitude": 3.1
+    }
+   ],
+   "noteZh": "球状星团 NGC 1851 在座内西侧。",
+   "noteEn": "Globular cluster NGC 1851 lies at its western side."
+  },
+  {
+   "code": "Com",
+   "centerRaHours": 12.8,
+   "centerDecDeg": 23.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "后发座 β",
+     "nameEn": "β Comae Berenices",
+     "magnitude": 4.3
+    },
+    {
+     "nameZh": "后发座 γ",
+     "nameEn": "γ Comae Berenices",
+     "magnitude": 4.4
+    }
+   ],
+   "noteZh": "北银极在此座，星系密集，是春季星系巡天的门户。",
+   "noteEn": "The north galactic pole lies here; galaxies crowd the field in spring."
+  },
+  {
+   "code": "CrA",
+   "centerRaHours": 18.6,
+   "centerDecDeg": -42.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "南冕座 α",
+     "nameEn": "Meridiana (α)",
+     "magnitude": 4.1
+    },
+    {
+     "nameZh": "南冕座 β",
+     "nameEn": "β Coronae Australis",
+     "magnitude": 4.1
+    }
+   ],
+   "noteZh": "一列小星成弧，贴着银河亮段的南缘。",
+   "noteEn": "A little arc of stars along the southern rim of the bright Milky Way."
+  },
+  {
+   "code": "CrB",
+   "centerRaHours": 15.9,
+   "centerDecDeg": 33.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "北冕座 α",
+     "nameEn": "Alphecca (α)",
+     "magnitude": 2.2
+    },
+    {
+     "nameZh": "北冕座 β",
+     "nameEn": "Nusakan (β)",
+     "magnitude": 3.7
+    }
+   ],
+   "noteZh": "弧形星列好认，再发新星 T 星在座内。",
+   "noteEn": "A neat arc of stars; the recurrent nova T CrB lies here."
+  },
+  {
+   "code": "Crt",
+   "centerRaHours": 11.4,
+   "centerDecDeg": -16.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "巨爵座 δ",
+     "nameEn": "δ Crateris",
+     "magnitude": 3.6
+    },
+    {
+     "nameZh": "巨爵座 α",
+     "nameEn": "Alkes (α)",
+     "magnitude": 4.1
+    }
+   ],
+   "noteZh": "暗弱小座，以星野背景为主。",
+   "noteEn": "A faint little constellation, mostly a star-field backdrop."
+  },
+  {
+   "code": "Cru",
+   "centerRaHours": 12.4,
+   "centerDecDeg": -59.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "十字架二",
+     "nameEn": "Acrux (α)",
+     "magnitude": 0.8
+    },
+    {
+     "nameZh": "南十字座 β",
+     "nameEn": "Mimosa (β)",
+     "magnitude": 1.3
+    },
+    {
+     "nameZh": "南十字座 γ",
+     "nameEn": "Gacrux (γ)",
+     "magnitude": 1.6
+    }
+   ],
+   "noteZh": "南天标志，煤袋暗星云就贴在十字旁边。",
+   "noteEn": "The emblem of the southern sky; the Coalsack dark nebula hugs the cross."
+  },
+  {
+   "code": "Crv",
+   "centerRaHours": 12.4,
+   "centerDecDeg": -22.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "乌鸦座 γ",
+     "nameEn": "Gienah Corvi (γ)",
+     "magnitude": 2.6
+    },
+    {
+     "nameZh": "乌鸦座 β",
+     "nameEn": "Kraz (β)",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "乌鸦座 δ",
+     "nameEn": "Algorab (δ)",
+     "magnitude": 2.9
+    }
+   ],
+   "noteZh": "四颗亮星成四边形，触角星系（NGC 4038/39）在座内。",
+   "noteEn": "Four bright stars form a quadrilateral; the Antennae Galaxies lie here."
+  },
+  {
+   "code": "CVn",
+   "centerRaHours": 13.0,
+   "centerDecDeg": 44.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "猎犬座 α",
+     "nameEn": "Cor Caroli (α)",
+     "magnitude": 2.9
+    },
+    {
+     "nameZh": "猎犬座 β",
+     "nameEn": "β Canum Venaticorum",
+     "magnitude": 4.3
+    }
+   ],
+   "noteZh": "涡状星系 M51 与向日葵星系 M63 都在此座。",
+   "noteEn": "Home to the Whirlpool M51 and the Sunflower M63."
+  },
+  {
+   "code": "Cyg",
+   "centerRaHours": 20.5,
+   "centerDecDeg": 42.0,
+   "sizeMajorDeg": 38,
+   "sizeMinorDeg": 19,
+   "brightStars": [
+    {
+     "nameZh": "天津四",
+     "nameEn": "Deneb (α)",
+     "magnitude": 1.3
+    },
+    {
+     "nameZh": "十字心一",
+     "nameEn": "Sadr (γ)",
+     "magnitude": 2.2
+    },
+    {
+     "nameZh": "天鹅座 β",
+     "nameEn": "Albireo (β)",
+     "magnitude": 3.2
+    }
+   ],
+   "noteZh": "北美洲星云在天津四东侧、面纱星云在翅端，同框可收。",
+   "noteEn": "The North America Nebula east of Deneb and the Veil at the wing tip fit one frame."
+  },
+  {
+   "code": "Del",
+   "centerRaHours": 20.7,
+   "centerDecDeg": 14.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "海豚座 β",
+     "nameEn": "Rotanev (β)",
+     "magnitude": 3.6
+    },
+    {
+     "nameZh": "海豚座 α",
+     "nameEn": "Sualocin (α)",
+     "magnitude": 3.8
+    }
+   ],
+   "noteZh": "小巧的菱形星列，夏秋夜空里很好认。",
+   "noteEn": "A compact diamond of stars, easy to find on summer and autumn evenings."
+  },
+  {
+   "code": "Dor",
+   "centerRaHours": 5.4,
+   "centerDecDeg": -59.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "剑鱼座 α",
+     "nameEn": "α Doradus",
+     "magnitude": 3.3
+    },
+    {
+     "nameZh": "剑鱼座 β",
+     "nameEn": "β Doradus",
+     "magnitude": 3.8
+    }
+   ],
+   "noteZh": "大麦哲伦云主体在此座，蜘蛛星云是其中最亮的星云。",
+   "noteEn": "Most of the Large Magellanic Cloud lies here, with the Tarantula Nebula its brightest jewel."
+  },
+  {
+   "code": "Dra",
+   "centerRaHours": 15.3,
+   "centerDecDeg": 67.0,
+   "sizeMajorDeg": 34,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "天龙座 γ",
+     "nameEn": "Eltanin (γ)",
+     "magnitude": 2.2
+    },
+    {
+     "nameZh": "天龙座 η",
+     "nameEn": "η Draconis",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "天龙座 β",
+     "nameEn": "Rastaban (β)",
+     "magnitude": 2.8
+    }
+   ],
+   "noteZh": "绕北天极蜿蜒，猫眼星云 NGC 6543 在座内。",
+   "noteEn": "It winds around the north celestial pole; the Cat's Eye Nebula NGC 6543 lies here."
+  },
+  {
+   "code": "Equ",
+   "centerRaHours": 21.2,
+   "centerDecDeg": 7.0,
+   "sizeMajorDeg": 6,
+   "sizeMinorDeg": 4,
+   "brightStars": [
+    {
+     "nameZh": "小马座 α",
+     "nameEn": "Kitalpha (α)",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "小马座 δ",
+     "nameEn": "δ Equulei",
+     "magnitude": 4.5
+    }
+   ],
+   "noteZh": "全天第二小的星座，暗弱。",
+   "noteEn": "The second-smallest constellation in the sky, and faint."
+  },
+  {
+   "code": "Eri",
+   "centerRaHours": 3.9,
+   "centerDecDeg": -18.0,
+   "sizeMajorDeg": 34,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "水委一",
+     "nameEn": "Achernar (α)",
+     "magnitude": 0.5
+    },
+    {
+     "nameZh": "波江座 β",
+     "nameEn": "Cursa (β)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "波江座 γ",
+     "nameEn": "Zaurak (γ)",
+     "magnitude": 2.9
+    }
+   ],
+   "noteZh": "从猎户之南蜿蜒到南天的水委一，一条长河横贯南北。",
+   "noteEn": "A long river running from Orion's south to Achernar in the deep south."
+  },
+  {
+   "code": "For",
+   "centerRaHours": 2.8,
+   "centerDecDeg": -28.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "天炉座 α",
+     "nameEn": "α Fornacis",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "天炉座 β",
+     "nameEn": "β Fornacis",
+     "magnitude": 4.5
+    }
+   ],
+   "noteZh": "天炉座星系团所在，亮星系 NGC 1316 在座内。",
+   "noteEn": "Seat of the Fornax Cluster; bright galaxy NGC 1316 lies here."
+  },
+  {
+   "code": "Gem",
+   "centerRaHours": 7.2,
+   "centerDecDeg": 24.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "北河三",
+     "nameEn": "Pollux (β)",
+     "magnitude": 1.1
+    },
+    {
+     "nameZh": "北河二",
+     "nameEn": "Castor (α)",
+     "magnitude": 1.6
+    },
+    {
+     "nameZh": "井宿三",
+     "nameEn": "Alhena (γ)",
+     "magnitude": 1.9
+    }
+   ],
+   "noteZh": "M35 疏散星团在座内西侧，双子座流星雨的辐射点也在此座。",
+   "noteEn": "Open cluster M35 lies to the west; the Geminid radiant is here too."
+  },
+  {
+   "code": "Gru",
+   "centerRaHours": 22.3,
+   "centerDecDeg": -47.0,
+   "sizeMajorDeg": 18,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "天鹤座 α",
+     "nameEn": "Alnair (α)",
+     "magnitude": 1.7
+    },
+    {
+     "nameZh": "天鹤座 β",
+     "nameEn": "Tiaki (β)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "天鹤座 γ",
+     "nameEn": "γ Gruis",
+     "magnitude": 3.0
+    }
+   ],
+   "noteZh": "南天亮星成鹤形，是秋夜南天的主体。",
+   "noteEn": "Bright southern stars trace the crane, the main figure of autumn southern skies."
+  },
+  {
+   "code": "Her",
+   "centerRaHours": 17.4,
+   "centerDecDeg": 28.0,
+   "sizeMajorDeg": 26,
+   "sizeMinorDeg": 18,
+   "brightStars": [
+    {
+     "nameZh": "武仙座 β",
+     "nameEn": "Kornephoros (β)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "武仙座 ζ",
+     "nameEn": "ζ Herculis",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "武仙座 α",
+     "nameEn": "Rasalgethi (α)",
+     "magnitude": 3.1
+    }
+   ],
+   "noteZh": "M13 大球状星团在座内西侧的梯形边上。",
+   "noteEn": "The great globular M13 sits on the western side of the Keystone."
+  },
+  {
+   "code": "Hor",
+   "centerRaHours": 3.2,
+   "centerDecDeg": -48.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "时钟座 α",
+     "nameEn": "α Horologii",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "时钟座 δ",
+     "nameEn": "δ Horologii",
+     "magnitude": 4.4
+    }
+   ],
+   "noteZh": "暗弱的南天小座。",
+   "noteEn": "A faint little southern constellation."
+  },
+  {
+   "code": "Hya",
+   "centerRaHours": 11.0,
+   "centerDecDeg": -12.0,
+   "sizeMajorDeg": 44,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "星宿一",
+     "nameEn": "Alphard (α)",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "长蛇座 γ",
+     "nameEn": "γ Hydrae",
+     "magnitude": 3.0
+    },
+    {
+     "nameZh": "长蛇座 ζ",
+     "nameEn": "ζ Hydrae",
+     "magnitude": 3.1
+    }
+   ],
+   "noteZh": "全天最长的星座，南端的 M83 风车星系是看点。",
+   "noteEn": "The longest constellation in the sky; the Southern Pinwheel M83 lies at its tail."
+  },
+  {
+   "code": "Hyi",
+   "centerRaHours": 2.3,
+   "centerDecDeg": -72.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "水蛇座 β",
+     "nameEn": "β Hydri",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "水蛇座 α",
+     "nameEn": "α Hydri",
+     "magnitude": 2.9
+    },
+    {
+     "nameZh": "水蛇座 γ",
+     "nameEn": "γ Hydri",
+     "magnitude": 3.3
+    }
+   ],
+   "noteZh": "小麦哲伦云近旁的南天小座。",
+   "noteEn": "A little southern constellation beside the Small Magellanic Cloud."
+  },
+  {
+   "code": "Ind",
+   "centerRaHours": 21.2,
+   "centerDecDeg": -65.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "印第安座 α",
+     "nameEn": "α Indi",
+     "magnitude": 3.1
+    },
+    {
+     "nameZh": "印第安座 β",
+     "nameEn": "β Indi",
+     "magnitude": 3.7
+    }
+   ],
+   "noteZh": "暗弱的南天星座。",
+   "noteEn": "A dim southern constellation."
+  },
+  {
+   "code": "Lac",
+   "centerRaHours": 22.5,
+   "centerDecDeg": 46.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "蝎虎座 α",
+     "nameEn": "α Lacertae",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "蝎虎座 β",
+     "nameEn": "β Lacertae",
+     "magnitude": 4.4
+    }
+   ],
+   "noteZh": "银河穿过的小座，疏散星团 NGC 7243 在此。",
+   "noteEn": "The Milky Way crosses this little constellation; open cluster NGC 7243 lies here."
+  },
+  {
+   "code": "Leo",
+   "centerRaHours": 10.7,
+   "centerDecDeg": 13.0,
+   "sizeMajorDeg": 24,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "轩辕十四",
+     "nameEn": "Regulus (α)",
+     "magnitude": 1.4
+    },
+    {
+     "nameZh": "五帝座一",
+     "nameEn": "Denebola (β)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "狮子座 γ",
+     "nameEn": "Algieba (γ)",
+     "magnitude": 2.1
+    }
+   ],
+   "noteZh": "狮子座三重星系（M65、M66、NGC 3628）在座内东侧。",
+   "noteEn": "The Leo Triplet M65, M66 and NGC 3628 lies at its eastern side."
+  },
+  {
+   "code": "Lep",
+   "centerRaHours": 5.6,
+   "centerDecDeg": -19.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "天兔座 α",
+     "nameEn": "Arneb (α)",
+     "magnitude": 2.6
+    },
+    {
+     "nameZh": "天兔座 β",
+     "nameEn": "Nihal (β)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "天兔座 ε",
+     "nameEn": "ε Leporis",
+     "magnitude": 3.2
+    }
+   ],
+   "noteZh": "猎户之南的小座，球状星团 M79 在座内。",
+   "noteEn": "South of Orion; globular cluster M79 lies here."
+  },
+  {
+   "code": "Lib",
+   "centerRaHours": 15.2,
+   "centerDecDeg": -15.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "氐宿四",
+     "nameEn": "Zubeneschamali (β)",
+     "magnitude": 2.6
+    },
+    {
+     "nameZh": "氐宿一",
+     "nameEn": "Zubenelgenubi (α)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "天秤座 σ",
+     "nameEn": "σ Librae",
+     "magnitude": 3.3
+    }
+   ],
+   "noteZh": "黄道星座，原是天蝎的一对螯。",
+   "noteEn": "A zodiacal constellation that was once the Scorpion's claws."
+  },
+  {
+   "code": "LMi",
+   "centerRaHours": 10.5,
+   "centerDecDeg": 27.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "小狮座 ο",
+     "nameEn": "46 Leonis Minoris",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "小狮座 β",
+     "nameEn": "β Leonis Minoris",
+     "magnitude": 4.2
+    }
+   ],
+   "noteZh": "狮子座上方的暗弱小座。",
+   "noteEn": "A faint little constellation above Leo."
+  },
+  {
+   "code": "Lup",
+   "centerRaHours": 15.3,
+   "centerDecDeg": -43.0,
+   "sizeMajorDeg": 18,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "豺狼座 α",
+     "nameEn": "α Lupi",
+     "magnitude": 2.3
+    },
+    {
+     "nameZh": "豺狼座 β",
+     "nameEn": "β Lupi",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "豺狼座 γ",
+     "nameEn": "γ Lupi",
+     "magnitude": 2.8
+    }
+   ],
+   "noteZh": "银河亮段穿过，球状星团 NGC 5986 在此。",
+   "noteEn": "The bright Milky Way crosses it; globular NGC 5986 lies here."
+  },
+  {
+   "code": "Lyn",
+   "centerRaHours": 7.9,
+   "centerDecDeg": 46.0,
+   "sizeMajorDeg": 22,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "天猫座 α",
+     "nameEn": "α Lyncis",
+     "magnitude": 3.1
+    },
+    {
+     "nameZh": "天猫座 38",
+     "nameEn": "38 Lyncis",
+     "magnitude": 3.8
+    }
+   ],
+   "noteZh": "一列暗星拉得长，星系 NGC 2683 在座内。",
+   "noteEn": "A long string of dim stars; galaxy NGC 2683 lies here."
+  },
+  {
+   "code": "Lyr",
+   "centerRaHours": 18.8,
+   "centerDecDeg": 32.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "织女一",
+     "nameEn": "Vega (α)",
+     "magnitude": 0.0
+    },
+    {
+     "nameZh": "天琴座 γ",
+     "nameEn": "Sulafat (γ)",
+     "magnitude": 3.2
+    },
+    {
+     "nameZh": "天琴座 β",
+     "nameEn": "Sheliak (β)",
+     "magnitude": 3.5
+    }
+   ],
+   "noteZh": "织女是夏季大三角一角，环状星云 M57 与双双星都在座内。",
+   "noteEn": "Vega anchors the Summer Triangle; the Ring Nebula M57 and the Double Double lie here."
+  },
+  {
+   "code": "Men",
+   "centerRaHours": 5.2,
+   "centerDecDeg": -79.0,
+   "sizeMajorDeg": 6,
+   "sizeMinorDeg": 4,
+   "brightStars": [
+    {
+     "nameZh": "山案座 α",
+     "nameEn": "α Mensae",
+     "magnitude": 5.1
+    },
+    {
+     "nameZh": "山案座 γ",
+     "nameEn": "γ Mensae",
+     "magnitude": 5.2
+    }
+   ],
+   "noteZh": "全天最暗的星座，大麦哲伦云有一角伸入座内。",
+   "noteEn": "The faintest constellation of all; a corner of the LMC reaches into it."
+  },
+  {
+   "code": "Mic",
+   "centerRaHours": 20.9,
+   "centerDecDeg": -38.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "显微镜座 γ",
+     "nameEn": "γ Microscopii",
+     "magnitude": 4.7
+    },
+    {
+     "nameZh": "显微镜座 ε",
+     "nameEn": "ε Microscopii",
+     "magnitude": 4.8
+    }
+   ],
+   "noteZh": "暗弱小座，无亮星。",
+   "noteEn": "A faint little constellation with no bright stars."
+  },
+  {
+   "code": "Mon",
+   "centerRaHours": 7.0,
+   "centerDecDeg": 1.0,
+   "sizeMajorDeg": 18,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "麒麟座 β",
+     "nameEn": "β Monocerotis",
+     "magnitude": 3.7
+    },
+    {
+     "nameZh": "麒麟座 α",
+     "nameEn": "α Monocerotis",
+     "magnitude": 3.9
+    }
+   ],
+   "noteZh": "玫瑰星云与圣诞树星团所在，冬季银河从中穿过。",
+   "noteEn": "The Rosette and Christmas Tree clusters lie here, on the winter Milky Way."
+  },
+  {
+   "code": "Mus",
+   "centerRaHours": 12.6,
+   "centerDecDeg": -70.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "苍蝇座 α",
+     "nameEn": "α Muscae",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "苍蝇座 β",
+     "nameEn": "β Muscae",
+     "magnitude": 3.1
+    },
+    {
+     "nameZh": "苍蝇座 δ",
+     "nameEn": "δ Muscae",
+     "magnitude": 3.6
+    }
+   ],
+   "noteZh": "南十字之南的小座，贴着银河。",
+   "noteEn": "A little constellation south of the Cross, hugging the Milky Way."
+  },
+  {
+   "code": "Nor",
+   "centerRaHours": 16.0,
+   "centerDecDeg": -47.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "矩尺座 γ",
+     "nameEn": "γ Normae",
+     "magnitude": 4.0
+    },
+    {
+     "nameZh": "矩尺座 ε",
+     "nameEn": "ε Normae",
+     "magnitude": 4.5
+    }
+   ],
+   "noteZh": "银河穿过的小座，疏散星团 NGC 6167 在此。",
+   "noteEn": "The Milky Way crosses this small constellation; open cluster NGC 6167 lies here."
+  },
+  {
+   "code": "Oct",
+   "centerRaHours": 19.5,
+   "centerDecDeg": -82.0,
+   "sizeMajorDeg": 16,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "南极座 ν",
+     "nameEn": "ν Octantis",
+     "magnitude": 3.7
+    },
+    {
+     "nameZh": "南极座 β",
+     "nameEn": "β Octantis",
+     "magnitude": 4.1
+    },
+    {
+     "nameZh": "南极座 δ",
+     "nameEn": "δ Octantis",
+     "magnitude": 4.3
+    }
+   ],
+   "noteZh": "南天极就在此座，σ 星是现今的南极星标。",
+   "noteEn": "The south celestial pole lies here; σ Octantis marks it today."
+  },
+  {
+   "code": "Oph",
+   "centerRaHours": 17.4,
+   "centerDecDeg": -3.0,
+   "sizeMajorDeg": 26,
+   "sizeMinorDeg": 18,
+   "brightStars": [
+    {
+     "nameZh": "蛇夫座 α",
+     "nameEn": "Rasalhague (α)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "蛇夫座 η",
+     "nameEn": "Sabik (η)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "蛇夫座 ζ",
+     "nameEn": "ζ Ophiuchi",
+     "magnitude": 2.6
+    }
+   ],
+   "noteZh": "黄道穿过的第十三座，球状星团众多，蛇夫座 ρ 星云区在此。",
+   "noteEn": "The thirteenth zodiacal constellation, rich in globulars, with the ρ Ophiuchi clouds."
+  },
+  {
+   "code": "Ori",
+   "centerRaHours": 5.58,
+   "centerDecDeg": 2.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "参宿七",
+     "nameEn": "Rigel (β)",
+     "magnitude": 0.1
+    },
+    {
+     "nameZh": "参宿四",
+     "nameEn": "Betelgeuse (α)",
+     "magnitude": 0.5
+    },
+    {
+     "nameZh": "参宿五",
+     "nameEn": "Bellatrix (γ)",
+     "magnitude": 1.6
+    }
+   ],
+   "noteZh": "M42 大星云在腰带之下的宝剑处，是冬季星野的主场。",
+   "noteEn": "The Orion Nebula M42 hangs in the sword below the belt — the heart of winter fields."
+  },
+  {
+   "code": "Pav",
+   "centerRaHours": 20.4,
+   "centerDecDeg": -72.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "孔雀座 α",
+     "nameEn": "Peacock (α)",
+     "magnitude": 1.9
+    },
+    {
+     "nameZh": "孔雀座 β",
+     "nameEn": "β Pavonis",
+     "magnitude": 3.4
+    },
+    {
+     "nameZh": "孔雀座 δ",
+     "nameEn": "δ Pavonis",
+     "magnitude": 3.6
+    }
+   ],
+   "noteZh": "球状星团 NGC 6752 在座内，α 星是南天亮星。",
+   "noteEn": "Globular NGC 6752 lies here; its α star is a southern beacon."
+  },
+  {
+   "code": "Peg",
+   "centerRaHours": 22.8,
+   "centerDecDeg": 19.0,
+   "sizeMajorDeg": 26,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "危宿三",
+     "nameEn": "Enif (ε)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "室宿二",
+     "nameEn": "Scheat (β)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "室宿一",
+     "nameEn": "Markab (α)",
+     "magnitude": 2.5
+    }
+   ],
+   "noteZh": "秋季四边形的主体，M15 球状星团在座内西侧。",
+   "noteEn": "The body of the Great Square of autumn; globular M15 lies to the west."
+  },
+  {
+   "code": "Per",
+   "centerRaHours": 3.5,
+   "centerDecDeg": 45.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "英仙座 α",
+     "nameEn": "Mirfak (α)",
+     "magnitude": 1.8
+    },
+    {
+     "nameZh": "大陵五",
+     "nameEn": "Algol (β)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "英仙座 γ",
+     "nameEn": "γ Persei",
+     "magnitude": 2.9
+    }
+   ],
+   "noteZh": "双星团与加州星云在此座，银河从中穿过。",
+   "noteEn": "The Double Cluster and California Nebula lie here, on the Milky Way."
+  },
+  {
+   "code": "Phe",
+   "centerRaHours": 0.9,
+   "centerDecDeg": -49.0,
+   "sizeMajorDeg": 16,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "凤凰座 α",
+     "nameEn": "Ankaa (α)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "凤凰座 β",
+     "nameEn": "β Phoenicis",
+     "magnitude": 3.3
+    },
+    {
+     "nameZh": "凤凰座 ζ",
+     "nameEn": "ζ Phoenicis",
+     "magnitude": 3.9
+    }
+   ],
+   "noteZh": "南天秋夜的主体星座之一。",
+   "noteEn": "One of the main figures of the autumn southern sky."
+  },
+  {
+   "code": "Pic",
+   "centerRaHours": 5.7,
+   "centerDecDeg": -49.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "绘架座 α",
+     "nameEn": "α Pictoris",
+     "magnitude": 3.3
+    },
+    {
+     "nameZh": "绘架座 β",
+     "nameEn": "β Pictoris",
+     "magnitude": 3.9
+    }
+   ],
+   "noteZh": "β 星有著名的岩屑盘，是南天小座。",
+   "noteEn": "Its β star hosts a famous debris disc; a small southern constellation."
+  },
+  {
+   "code": "PsA",
+   "centerRaHours": 22.3,
+   "centerDecDeg": -31.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "北落师门",
+     "nameEn": "Fomalhaut (α)",
+     "magnitude": 1.2
+    },
+    {
+     "nameZh": "南鱼座 β",
+     "nameEn": "β Piscis Austrini",
+     "magnitude": 4.3
+    }
+   ],
+   "noteZh": "北落师门是秋夜南天的孤亮星，环带行星著名。",
+   "noteEn": "Fomalhaut shines alone in the autumn south, famous for its ringed planet."
+  },
+  {
+   "code": "Psc",
+   "centerRaHours": 0.2,
+   "centerDecDeg": 12.0,
+   "sizeMajorDeg": 26,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "双鱼座 η",
+     "nameEn": "η Piscium",
+     "magnitude": 3.6
+    },
+    {
+     "nameZh": "双鱼座 γ",
+     "nameEn": "γ Piscium",
+     "magnitude": 3.7
+    },
+    {
+     "nameZh": "双鱼座 α",
+     "nameEn": "Alrescha (α)",
+     "magnitude": 3.8
+    }
+   ],
+   "noteZh": "黄道星座，M74 星系在座内，现今春分点位于座内南鱼。",
+   "noteEn": "A zodiacal constellation holding M74; today's equinox point lies in its southern fish."
+  },
+  {
+   "code": "Pup",
+   "centerRaHours": 7.7,
+   "centerDecDeg": -33.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "船尾座 ζ",
+     "nameEn": "Naos (ζ)",
+     "magnitude": 2.3
+    },
+    {
+     "nameZh": "船尾座 π",
+     "nameEn": "π Puppis",
+     "magnitude": 2.7
+    },
+    {
+     "nameZh": "船尾座 ρ",
+     "nameEn": "ρ Puppis",
+     "magnitude": 2.8
+    }
+   ],
+   "noteZh": "银河亮段穿过，M46、M47 星团在此。",
+   "noteEn": "The bright Milky Way crosses it; clusters M46 and M47 lie here."
+  },
+  {
+   "code": "Pyx",
+   "centerRaHours": 8.9,
+   "centerDecDeg": -33.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 5,
+   "brightStars": [
+    {
+     "nameZh": "罗盘座 α",
+     "nameEn": "α Pyxidis",
+     "magnitude": 3.7
+    },
+    {
+     "nameZh": "罗盘座 β",
+     "nameEn": "β Pyxidis",
+     "magnitude": 4.0
+    }
+   ],
+   "noteZh": "船尾旁的小座，再发新星 T 星在此。",
+   "noteEn": "A small constellation beside Puppis, holding recurrent nova T Pyx."
+  },
+  {
+   "code": "Ret",
+   "centerRaHours": 4.2,
+   "centerDecDeg": -62.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "网罟座 α",
+     "nameEn": "α Reticuli",
+     "magnitude": 3.3
+    },
+    {
+     "nameZh": "网罟座 β",
+     "nameEn": "β Reticuli",
+     "magnitude": 3.8
+    }
+   ],
+   "noteZh": "大小麦哲伦云之间的南天小座。",
+   "noteEn": "A small southern constellation between the two Magellanic Clouds."
+  },
+  {
+   "code": "Scl",
+   "centerRaHours": 0.3,
+   "centerDecDeg": -33.0,
+   "sizeMajorDeg": 14,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "玉夫座 α",
+     "nameEn": "α Sculptoris",
+     "magnitude": 4.3
+    },
+    {
+     "nameZh": "玉夫座 β",
+     "nameEn": "β Sculptoris",
+     "magnitude": 4.4
+    }
+   ],
+   "noteZh": "雕刻器星系 NGC 253（银元星系）在座内北缘。",
+   "noteEn": "The Silver Coin galaxy NGC 253 lies at its northern edge."
+  },
+  {
+   "code": "Sco",
+   "centerRaHours": 16.9,
+   "centerDecDeg": -27.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "心宿二",
+     "nameEn": "Antares (α)",
+     "magnitude": 1.1
+    },
+    {
+     "nameZh": "尾宿八",
+     "nameEn": "Shaula (λ)",
+     "magnitude": 1.6
+    },
+    {
+     "nameZh": "天蝎座 β",
+     "nameEn": "Acrab (β)",
+     "magnitude": 2.6
+    }
+   ],
+   "noteZh": "心宿二与银河核心同框，M4、M80 球状星团在座内。",
+   "noteEn": "Antares frames against the galactic core; globulars M4 and M80 lie here."
+  },
+  {
+   "code": "Sct",
+   "centerRaHours": 18.7,
+   "centerDecDeg": -10.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "盾牌座 α",
+     "nameEn": "α Scuti",
+     "magnitude": 3.9
+    },
+    {
+     "nameZh": "盾牌座 β",
+     "nameEn": "β Scuti",
+     "magnitude": 4.2
+    }
+   ],
+   "noteZh": "盾牌座银河亮云与野鸭星团 M11 在此座。",
+   "noteEn": "The Scutum star cloud and the Wild Duck Cluster M11 lie here."
+  },
+  {
+   "code": "Ser",
+   "centerRaHours": 17.0,
+   "centerDecDeg": 4.0,
+   "sizeMajorDeg": 28,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "巨蛇座 α",
+     "nameEn": "Unukalhai (α)",
+     "magnitude": 2.6
+    },
+    {
+     "nameZh": "巨蛇座 η",
+     "nameEn": "η Serpentis",
+     "magnitude": 3.3
+    },
+    {
+     "nameZh": "巨蛇座 μ",
+     "nameEn": "μ Serpentis",
+     "magnitude": 3.5
+    }
+   ],
+   "noteZh": "唯一被蛇夫座分隔成头尾两段的星座，鹰状星云 M16 在尾部。",
+   "noteEn": "The only constellation split in two by Ophiuchus; the Eagle Nebula M16 is in its tail."
+  },
+  {
+   "code": "Sex",
+   "centerRaHours": 10.2,
+   "centerDecDeg": -1.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "六分仪座 α",
+     "nameEn": "α Sextantis",
+     "magnitude": 4.5
+    },
+    {
+     "nameZh": "六分仪座 β",
+     "nameEn": "β Sextantis",
+     "magnitude": 5.0
+    }
+   ],
+   "noteZh": "狮子座之南的暗弱小座。",
+   "noteEn": "A faint little constellation south of Leo."
+  },
+  {
+   "code": "Sge",
+   "centerRaHours": 19.9,
+   "centerDecDeg": 18.0,
+   "sizeMajorDeg": 6,
+   "sizeMinorDeg": 4,
+   "brightStars": [
+    {
+     "nameZh": "天箭座 γ",
+     "nameEn": "γ Sagittae",
+     "magnitude": 3.5
+    },
+    {
+     "nameZh": "天箭座 δ",
+     "nameEn": "δ Sagittae",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "天箭座 α",
+     "nameEn": "α Sagittae",
+     "magnitude": 4.4
+    }
+   ],
+   "noteZh": "小箭形星列，球状星团 M71 在此。",
+   "noteEn": "A little arrow of stars; globular cluster M71 lies here."
+  },
+  {
+   "code": "Sgr",
+   "centerRaHours": 19.0,
+   "centerDecDeg": -29.0,
+   "sizeMajorDeg": 22,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "箕宿三",
+     "nameEn": "Kaus Australis (ε)",
+     "magnitude": 1.8
+    },
+    {
+     "nameZh": "人马座 σ",
+     "nameEn": "Nunki (σ)",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "人马座 ζ",
+     "nameEn": "Ascella (ζ)",
+     "magnitude": 2.6
+    }
+   ],
+   "noteZh": "银心方向所在，礁湖、三裂、欧米茄星云同在这一段。",
+   "noteEn": "The direction of the galactic centre; the Lagoon, Trifid and Omega Nebulae share the field."
+  },
+  {
+   "code": "Tau",
+   "centerRaHours": 4.8,
+   "centerDecDeg": 16.0,
+   "sizeMajorDeg": 22,
+   "sizeMinorDeg": 14,
+   "brightStars": [
+    {
+     "nameZh": "毕宿五",
+     "nameEn": "Aldebaran (α)",
+     "magnitude": 0.9
+    },
+    {
+     "nameZh": "金牛座 β",
+     "nameEn": "Elnath (β)",
+     "magnitude": 1.7
+    },
+    {
+     "nameZh": "金牛座 ζ",
+     "nameEn": "ζ Tauri",
+     "magnitude": 3.0
+    }
+   ],
+   "noteZh": "昴星团 M45 与毕星团在座内，蟹状星云 M1 靠近 ζ 星。",
+   "noteEn": "The Pleiades M45 and Hyades lie here; the Crab Nebula M1 sits near ζ."
+  },
+  {
+   "code": "Tel",
+   "centerRaHours": 18.2,
+   "centerDecDeg": -51.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "望远镜座 α",
+     "nameEn": "α Telescopii",
+     "magnitude": 3.5
+    },
+    {
+     "nameZh": "望远镜座 ζ",
+     "nameEn": "ζ Telescopii",
+     "magnitude": 4.1
+    }
+   ],
+   "noteZh": "人马之南的暗弱小座。",
+   "noteEn": "A dim little constellation south of Sagittarius."
+  },
+  {
+   "code": "TrA",
+   "centerRaHours": 15.8,
+   "centerDecDeg": -63.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "南三角座 α",
+     "nameEn": "Atria (α)",
+     "magnitude": 1.9
+    },
+    {
+     "nameZh": "南三角座 β",
+     "nameEn": "β Trianguli Australis",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "南三角座 γ",
+     "nameEn": "γ Trianguli Australis",
+     "magnitude": 2.9
+    }
+   ],
+   "noteZh": "三颗亮星成三角，贴着南天银河。",
+   "noteEn": "Three bright stars form a triangle beside the southern Milky Way."
+  },
+  {
+   "code": "Tri",
+   "centerRaHours": 2.1,
+   "centerDecDeg": 32.0,
+   "sizeMajorDeg": 8,
+   "sizeMinorDeg": 5,
+   "brightStars": [
+    {
+     "nameZh": "三角座 β",
+     "nameEn": "β Trianguli",
+     "magnitude": 3.0
+    },
+    {
+     "nameZh": "三角座 α",
+     "nameEn": "α Trianguli",
+     "magnitude": 3.4
+    },
+    {
+     "nameZh": "三角座 γ",
+     "nameEn": "γ Trianguli",
+     "magnitude": 4.0
+    }
+   ],
+   "noteZh": "M33 三角座星系在此座，小而好认。",
+   "noteEn": "Home to the Triangulum Galaxy M33; small and easy to recognise."
+  },
+  {
+   "code": "Tuc",
+   "centerRaHours": 23.8,
+   "centerDecDeg": -61.0,
+   "sizeMajorDeg": 12,
+   "sizeMinorDeg": 8,
+   "brightStars": [
+    {
+     "nameZh": "杜鹃座 α",
+     "nameEn": "α Tucanae",
+     "magnitude": 2.9
+    },
+    {
+     "nameZh": "杜鹃座 γ",
+     "nameEn": "γ Tucanae",
+     "magnitude": 4.0
+    }
+   ],
+   "noteZh": "小麦哲伦云与杜鹃座 47 球状星团在此座。",
+   "noteEn": "The Small Magellanic Cloud and globular 47 Tucanae lie here."
+  },
+  {
+   "code": "UMa",
+   "centerRaHours": 11.3,
+   "centerDecDeg": 50.0,
+   "sizeMajorDeg": 30,
+   "sizeMinorDeg": 18,
+   "brightStars": [
+    {
+     "nameZh": "玉衡",
+     "nameEn": "Alioth (ε)",
+     "magnitude": 1.8
+    },
+    {
+     "nameZh": "天璇",
+     "nameEn": "Merak (β)",
+     "magnitude": 2.4
+    },
+    {
+     "nameZh": "天玑",
+     "nameEn": "Phecda (γ)",
+     "magnitude": 2.4
+    }
+   ],
+   "noteZh": "北斗七星的主体，M81、M82 星系对在座内北侧。",
+   "noteEn": "The body of the Plough; the M81/M82 galaxy pair lies to the north."
+  },
+  {
+   "code": "UMi",
+   "centerRaHours": 15.5,
+   "centerDecDeg": 75.0,
+   "sizeMajorDeg": 16,
+   "sizeMinorDeg": 10,
+   "brightStars": [
+    {
+     "nameZh": "勾陈一",
+     "nameEn": "Polaris (α)",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "小熊座 β",
+     "nameEn": "Kochab (β)",
+     "magnitude": 2.1
+    },
+    {
+     "nameZh": "小熊座 γ",
+     "nameEn": "Pherkad (γ)",
+     "magnitude": 3.0
+    }
+   ],
+   "noteZh": "勾陈一就是北极星，小北斗的弧列环绕北天极。",
+   "noteEn": "Polaris is the pole star; the Little Dipper arcs around the north celestial pole."
+  },
+  {
+   "code": "Vel",
+   "centerRaHours": 9.9,
+   "centerDecDeg": -47.0,
+   "sizeMajorDeg": 20,
+   "sizeMinorDeg": 12,
+   "brightStars": [
+    {
+     "nameZh": "船帆座 γ",
+     "nameEn": "Regor (γ)",
+     "magnitude": 1.8
+    },
+    {
+     "nameZh": "船帆座 δ",
+     "nameEn": "δ Velorum",
+     "magnitude": 2.0
+    },
+    {
+     "nameZh": "船帆座 λ",
+     "nameEn": "λ Velorum",
+     "magnitude": 2.2
+    }
+   ],
+   "noteZh": "船帆座超新星遗迹在此，银河亮段穿过。",
+   "noteEn": "The Vela supernova remnant lies here, on a bright stretch of Milky Way."
+  },
+  {
+   "code": "Vir",
+   "centerRaHours": 13.3,
+   "centerDecDeg": -4.0,
+   "sizeMajorDeg": 28,
+   "sizeMinorDeg": 16,
+   "brightStars": [
+    {
+     "nameZh": "角宿一",
+     "nameEn": "Spica (α)",
+     "magnitude": 1.0
+    },
+    {
+     "nameZh": "室女座 ε",
+     "nameEn": "Vindemiatrix (ε)",
+     "magnitude": 2.8
+    },
+    {
+     "nameZh": "室女座 ζ",
+     "nameEn": "ζ Virginis",
+     "magnitude": 3.4
+    }
+   ],
+   "noteZh": "室女座星系团的核心区在此，草帽星系 M104 在座内南侧。",
+   "noteEn": "The core of the Virgo Cluster lies here; the Sombrero M104 is at its southern side."
+  },
+  {
+   "code": "Vol",
+   "centerRaHours": 7.9,
+   "centerDecDeg": -68.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "飞鱼座 γ",
+     "nameEn": "γ Volantis",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "飞鱼座 β",
+     "nameEn": "β Volantis",
+     "magnitude": 3.8
+    },
+    {
+     "nameZh": "飞鱼座 ζ",
+     "nameEn": "ζ Volantis",
+     "magnitude": 3.9
+    }
+   ],
+   "noteZh": "大小麦哲伦云之间的南天小座。",
+   "noteEn": "A small southern constellation between the two Magellanic Clouds."
+  },
+  {
+   "code": "Vul",
+   "centerRaHours": 20.2,
+   "centerDecDeg": 24.0,
+   "sizeMajorDeg": 10,
+   "sizeMinorDeg": 6,
+   "brightStars": [
+    {
+     "nameZh": "狐狸座 α",
+     "nameEn": "Anser (α)",
+     "magnitude": 4.4
+    },
+    {
+     "nameZh": "狐狸座 31",
+     "nameEn": "31 Vulpeculae",
+     "magnitude": 4.6
+    }
+   ],
+   "noteZh": "哑铃星云 M27 在此座，衣架星群也在此。",
+   "noteEn": "The Dumbbell Nebula M27 and the Coathanger asterism lie here."
+  }
+ ]
+}
