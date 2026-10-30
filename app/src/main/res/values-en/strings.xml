@@ -490,6 +490,9 @@
     <string name="framing_corner_field">Chart %1$d° · %2$s projection</string>
     <string name="framing_projection_gnomonic">gnomonic</string>
     <string name="framing_projection_stereographic">stereographic</string>
+    <string name="crash_record_title">Last crash record</string>
+    <string name="crash_record_copy">Copy</string>
+    <string name="crash_record_dismiss">Dismiss</string>
     <string name="settings_data_sources">Data sources and licences</string>
     <string name="data_sources_body">Object catalogue: OpenNGC (CC BY-SA 4.0) · version %1$s\nLight-pollution atlas: Falchi world atlas of night-sky brightness (CC BY-NC 4.0), stored as a full-atlas resampled grid — points outside atlas coverage return no data and fall back to manual Bortle · version %2$s\nEclipse catalogue: NASA GSFC (Espenak &amp; Meeus) · version %3$s\nMeteor shower calendar: IMO Meteor Shower Calendar 2026 · version %4$s\nLens library: compiled from the five manufacturers\' line-ups · version %5$s\nConstellation table: editorial table; centres and extents are approximations\nWide-field viewpoints: editorial list; anchors and extents are approximations\nStar catalogue: HYG Database v4.4 bright subset (mag ≤ 6.5, CC BY-SA 4.0, Astronexus / David Nash) · version %6$s\nConstellation lines: d3-celestial (BSD 3-Clause, © Olaf Frohn); figures follow the IAU constellation pages\nEphemeris engine: Astronomy Engine (MIT)\nShower peak dates are converted from solar longitude with mean solar motion (accurate to a few days), not an exact forecast.</string>
 </resources>

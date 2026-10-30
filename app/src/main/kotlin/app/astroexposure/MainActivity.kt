@@ -53,6 +53,7 @@ import app.astroexposure.location.LocationSource
 import app.astroexposure.persistence.AppRepository
 import app.astroexposure.persistence.SavedPlace
 import app.astroexposure.persistence.SavedPlan
+import app.astroexposure.support.CrashTrap
 import app.astroexposure.support.LibraryTransfer
 import app.astroexposure.support.PlanTextExport
 import app.astroexposure.support.SkyAssembly
@@ -88,6 +89,10 @@ class MainActivity : AppCompatActivity() {
     private val container: AppContainer by lazy { AppContainer(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // First thing, before any content is built: the crash trap
+        // (0.11.1) must already be in place so a startup crash is
+        // recorded like any other.
+        CrashTrap.install(this)
         super.onCreate(savedInstanceState)
         setContent {
             AstroApp(container)

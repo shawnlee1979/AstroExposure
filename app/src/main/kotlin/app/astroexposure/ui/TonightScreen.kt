@@ -36,10 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,7 @@ import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.timeline.TonightDateWindow
+import app.astroexposure.support.CrashTrap
 import app.astroexposure.support.SkyContext
 import app.astroexposure.support.TimeHealthCheck
 import app.astroexposure.usecase.TonightOverviewUseCase
@@ -472,6 +476,11 @@ fun TonightScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // A crash record left by the previous run (0.11.1): pinned
+        // to the very top until the user copies or dismisses it;
+        // renders nothing when no record exists.
+        CrashRecordCard()
+
         // Time-health warnings, stated plainly (design §2.2). There
         // is no standing health marker on the page (ui-design §7.2,
         // 0.8.7): healthy shows nothing at all, and an unhealthy state
@@ -1805,6 +1814,52 @@ fun BortleSelector(selected: Int?, onChange: (Int?) -> Unit) {
                     onClick = { onChange(if (selected == bortle) null else bortle) },
                     label = { Text(bortle.toString()) },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The previous run's crash record (0.11.1), pinned to the top of
+ * the Tonight page until dismissed: the header line and the full
+ * stack trace in monospace, scrollable inside a bounded height,
+ * with copy and dismiss actions (dismiss deletes the record
+ * file). Renders nothing at all when no record exists — in
+ * normal use the page carries no trace of the mechanism.
+ */
+@Composable
+private fun CrashRecordCard() {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var record by remember { mutableStateOf(CrashTrap.read(context)) }
+    val text = record ?: return
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SectionTitle(stringResource(R.string.crash_record_title))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 200.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { clipboard.setText(AnnotatedString(text)) }) {
+                    Text(stringResource(R.string.crash_record_copy))
+                }
+                TextButton(
+                    onClick = {
+                        CrashTrap.clear(context)
+                        record = null
+                    },
+                ) {
+                    Text(stringResource(R.string.crash_record_dismiss))
+                }
             }
         }
     }
