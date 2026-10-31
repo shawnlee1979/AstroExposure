@@ -252,7 +252,7 @@ class LensPickerTest {
         assertEquals(135.0, landing(prime, LensFocalBasis.None, 50.0), 1e-9)
     }
 
-    // -- H1: the calculator landing table ---------------------------
+    // -- the calculator landing table ---------------------------
 
     private fun deepSky(type: DeepSkyObjectType): TonightSubject =
         TonightSubject.DeepSky(
