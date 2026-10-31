@@ -1,7 +1,6 @@
 package app.astroexposure.usecase
 
 import app.astroexposure.domain.camera.FramingChart
-import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ChartStar
 import app.astroexposure.domain.catalog.ConstellationEntry
 import app.astroexposure.domain.catalog.ConstellationCatalog
@@ -974,17 +973,17 @@ class TonightOverviewUseCase(
     /**
      * Landscape composition evaluation behind the detail dialog's
      * composition tool and the landscape calculator's landscape
-     * group (ui-design §7.9, 0.15.0): the domain verdict for one
-     * subject and one site (foreground bearing + foreground-top
-     * altitude), plus the axis and the night span it was cut to
-     * (the sections draw their mini time bar from exactly these)
-     * and the subject's sampled positions at the key moment (the
-     * dialog's landscape snapshot draws from exactly these).
+     * group (ui-design §7.9, 0.16.0): the domain verdict for one
+     * subject and one foreground-top altitude — the subject is the
+     * anchor, its azimuth is derived from its own track and is
+     * never an input — plus the axis and the night span the windows
+     * were cut to (the sections draw their mini time bar from
+     * exactly these) and the subject's positions at the snapshot
+     * instant (the dialog's landscape snapshot draws from exactly
+     * these; see [snapshotInstant] for its definition).
      */
     data class LandscapeEvaluation(
         val subject: TonightSubject,
-        /** The foreground bearing the verdict was computed for, degrees in [0, 360). */
-        val bearingDeg: Double,
         /** The foreground-top sight-line altitude, degrees. */
         val foregroundTopDeg: Double,
         val result: LandscapeComposition.Result,
@@ -997,16 +996,26 @@ class TonightOverviewUseCase(
          * uncut — the presentation fallback of [nightSpan].
          */
         val nightSpan: NightTimeline.Interval?,
-        /** The centre's position at the key moment. */
-        val keyMomentCentre: LandscapeComposition.PointSample,
-        /** The range points' positions at the key moment (empty = centre-only subject). */
-        val keyMomentPoints: List<LandscapeComposition.PointSample>,
         /**
-         * Polylines over [keyMomentPoints] for the snapshot: a
+         * The instant the snapshot positions describe: the best
+         * moment of the longest segment across both orientations —
+         * the night-cut segments, or the geometric segments when no
+         * night-cut segment exists in either orientation. A tie on
+         * duration takes the recommended orientation's segment (the
+         * verdict's orientation for a feasible verdict, landscape
+         * otherwise). With no segment at all, the result's anchor.
+         */
+        val snapshotInstant: Instant,
+        /** The centre's position at [snapshotInstant]. */
+        val snapshotCentre: LandscapeComposition.PointSample,
+        /** The range points' positions at [snapshotInstant] (empty = centre-only subject). */
+        val snapshotPoints: List<LandscapeComposition.PointSample>,
+        /**
+         * Polylines over [snapshotPoints] for the snapshot: a
          * constellation's skeleton chains as index lists; empty for
          * other shapes (a deep-sky rim is drawn as its point ring).
          */
-        val keyMomentChains: List<List<Int>>,
+        val snapshotChains: List<List<Int>>,
     )
 
     /**
@@ -1021,12 +1030,11 @@ class TonightOverviewUseCase(
         date: LocalDate,
         timeline: Timeline,
         objectId: String,
-        bearingDeg: Double,
         foregroundTopDeg: Double,
     ): LandscapeEvaluation? {
         val subject = resolveSubject(objectId, date) ?: return null
         if (subject is TonightSubject.Radiant) return null
-        return landscapeFor(location, date, timeline, subject, bearingDeg, foregroundTopDeg)
+        return landscapeFor(location, date, timeline, subject, foregroundTopDeg)
     }
 
     /**
@@ -1039,7 +1047,6 @@ class TonightOverviewUseCase(
         location: GeoLocation,
         date: LocalDate,
         subject: TonightSubject,
-        bearingDeg: Double,
         foregroundTopDeg: Double,
     ): LandscapeEvaluation {
         val timeline = buildTimeline(
@@ -1048,7 +1055,7 @@ class TonightOverviewUseCase(
             ephemeris.astronomicalNight(location, date),
             ephemeris.galacticCenterWindow(location, date),
         )
-        return landscapeFor(location, date, timeline, subject, bearingDeg, foregroundTopDeg)
+        return landscapeFor(location, date, timeline, subject, foregroundTopDeg)
     }
 
     /** Boundary points sampled on an ellipse's / circle's rim (§7.9). */
@@ -1143,8 +1150,8 @@ class TonightOverviewUseCase(
      * points' azimuth/altitude sampled on the timeline axis at the
      * shared 5-minute step (via the port's existing members — no
      * second ephemeris route), then the domain's pure function.
-     * The key-moment positions are re-read through the port at the
-     * solved key instant, so the snapshot draws port truth, not an
+     * The snapshot positions are re-read through the port at the
+     * snapshot instant, so the snapshot draws port truth, not an
      * interpolation of the samples.
      */
     private fun landscapeFor(
@@ -1152,7 +1159,6 @@ class TonightOverviewUseCase(
         date: LocalDate,
         timeline: Timeline,
         subject: TonightSubject,
-        bearingDeg: Double,
         foregroundTopDeg: Double,
     ): LandscapeEvaluation {
         val coords = subject.coordinates
@@ -1170,29 +1176,61 @@ class TonightOverviewUseCase(
                     points = rangePoints.map { positionOf(it, t) },
                 )
             }
-        val bearing = ((bearingDeg % 360.0) + 360.0) % 360.0
         val span = nightSpan(location, date)
         val result = LandscapeComposition.evaluate(
             samples = samples,
-            bearingDeg = bearing,
             foregroundTopDeg = foregroundTopDeg,
-            advice = FullFrameFraming.advice(subject.sizeMajorDeg?.times(60.0)),
             sizeMajorArcmin = subject.sizeMajorDeg?.times(60.0),
             nightSpan = span,
         )
-        val keyInstant = result.keyMoment.instant
+        val snapshotInstant = snapshotInstantOf(result)
         return LandscapeEvaluation(
             subject = subject,
-            bearingDeg = bearing,
             foregroundTopDeg = foregroundTopDeg,
             result = result,
             axisStart = timeline.axisStart,
             axisEnd = timeline.axisEnd,
             nightSpan = span,
-            keyMomentCentre = positionOf(coords, keyInstant),
-            keyMomentPoints = rangePoints.map { positionOf(it, keyInstant) },
-            keyMomentChains = rangeChains(subject, rangePoints),
+            snapshotInstant = snapshotInstant,
+            snapshotCentre = positionOf(coords, snapshotInstant),
+            snapshotPoints = rangePoints.map { positionOf(it, snapshotInstant) },
+            snapshotChains = rangeChains(subject, rangePoints),
         )
+    }
+
+    /**
+     * The snapshot instant of one solved night (see
+     * [LandscapeEvaluation.snapshotInstant]): the longest segment's
+     * best moment across both orientations — night-cut segments
+     * first, geometric segments when neither orientation has a
+     * night-cut one. Durations compare exactly; a tie takes the
+     * recommended orientation's earliest such segment, then the
+     * other orientation's. No segment at all falls back to the
+     * anchor.
+     */
+    private fun snapshotInstantOf(result: LandscapeComposition.Result): Instant {
+        val recommendedPortrait =
+            (result.verdict as? LandscapeComposition.Verdict.Feasible)
+                ?.recommendedPortrait ?: false
+        val outcomes = listOf(result.landscape, result.portrait)
+        val night = outcomes.map { it.segments }
+        val pool = if (night.any { it.isNotEmpty() }) {
+            night
+        } else {
+            outcomes.map { it.geometricSegments }
+        }
+        val longest = pool.flatten().maxOfOrNull { it.durationMinutes }
+            ?: return result.anchor.instant
+        val ordered = if (recommendedPortrait) {
+            listOf(pool[1], pool[0])
+        } else {
+            listOf(pool[0], pool[1])
+        }
+        for (segments in ordered) {
+            val hit = segments.firstOrNull { it.durationMinutes == longest }
+            if (hit != null) return hit.best.instant
+        }
+        return result.anchor.instant
     }
 
     /**

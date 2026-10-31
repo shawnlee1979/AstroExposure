@@ -647,10 +647,11 @@ private fun LandscapeCalculator(
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
 
-    // The landscape composition block (ui-design §7.9, 0.15.0): it
-    // stands ABOVE the framing choices — the site (foreground
-    // bearing + foreground-top altitude) is a field measurement
-    // the framing then serves. Subject groups mirror
+    // The landscape composition block (ui-design §7.9, 0.16.0): it
+    // stands ABOVE the framing choices — the site (the
+    // foreground-top altitude alone; the subject's azimuth is
+    // derived) is a field measurement the framing then serves.
+    // Subject groups mirror
     // the board's (the galactic-centre viewpoint is its own chip,
     // fixed); picking a subject also carries its declination into
     // the sky frame's field (§7.8's carry-in rule, the same one the
@@ -676,9 +677,9 @@ private fun LandscapeCalculator(
     val activeCompositionSubject = compositionSubject
     if (compositionSubjects != null && activeCompositionSubject != null) {
         CompositionSection(
-            onEvaluate = { bearing, top ->
+            onEvaluate = { top ->
                 container.tonightOverview.evaluateLandscapeForSubject(
-                    location, date, activeCompositionSubject, bearing, top,
+                    location, date, activeCompositionSubject, top,
                 )
             },
             evaluationKey = activeCompositionSubject.id,
@@ -784,11 +785,10 @@ private fun LandscapeCalculator(
                     }
                 }
             },
-            onStateChange = { bearing, top, evaluation ->
+            onStateChange = { top, evaluation ->
                 compositionSnapshot = evaluation?.let {
                     CompositionPlanSnapshot(
                         subjectName = compositionSubjectName ?: "",
-                        bearingDeg = bearing,
                         topDeg = top,
                         evaluation = it,
                     )
@@ -951,8 +951,8 @@ private fun LandscapeCalculator(
     }
     SavePlanButton(enabled = true) {
         // The landscape lines ride along when the block produced
-        // an evaluation (ui-design §7.9): subject / bearing /
-        // foreground top, the focal verdict, the spans and the
+        // an evaluation (ui-design §7.9): subject / foreground
+        // top, the focal verdict, the spans and the
         // best moments — or the one diagnosis, stated as computed.
         // The payload is unchanged: the plan layer carries no
         // landscape parameters.
@@ -1016,26 +1016,23 @@ private fun loadCompositionSubjects(container: AppContainer): CompositionSubject
 /** What the landscape block hands to the plan text on save (ui-design §7.9). */
 private data class CompositionPlanSnapshot(
     val subjectName: String,
-    val bearingDeg: Double,
     val topDeg: Double,
     val evaluation: TonightOverviewUseCase.LandscapeEvaluation,
 )
 
-/** A segment's best moment as an instant (an outside-night crossing reports its endpoint). */
-private fun compositionBestInstant(best: LandscapeComposition.BestMoment): Instant = when (best) {
-    is LandscapeComposition.BestMoment.Crossing -> best.instant
-    is LandscapeComposition.BestMoment.ClosestInSegment -> best.instant
-    is LandscapeComposition.BestMoment.CrossingOutsideNight -> best.endpoint
-}
+/** A segment's best moment as an instant. */
+private fun compositionBestInstant(best: LandscapeComposition.BestMoment): Instant =
+    best.instant
 
 /**
- * The landscape block's four plan lines (ui-design §7.9, 0.15.0):
- * the subject / bearing / foreground-top header, the focal line
- * (the recommended orientation's interval, or "does not fit" with
- * the verdict's short category), the spans (or the diagnosis
- * category, worded from the same string resources the section
- * renders), and the best moments. Pure text assembly — every
- * number in it comes from the evaluation, none is recomputed here.
+ * The landscape block's four plan lines (ui-design §7.9, 0.16.0):
+ * the subject / foreground-top header, the focal line (the
+ * recommended orientation's derived focal and its share, or
+ * "does not fit" with the verdict's short category), the spans
+ * (or the diagnosis category, worded from the same string
+ * resources the section renders), and the best moments. Pure text
+ * assembly — every number in it comes from the evaluation, none
+ * is recomputed here.
  */
 private fun compositionPlanLines(
     context: Context,
@@ -1047,7 +1044,6 @@ private fun compositionPlanLines(
         context.getString(
             R.string.composition_plan_line,
             snapshot.subjectName,
-            snapshot.bearingDeg.roundToInt(),
             snapshot.topDeg.roundToInt(),
         ),
     )
@@ -1064,41 +1060,44 @@ private fun compositionPlanLines(
         is LandscapeComposition.Verdict.Feasible,
         LandscapeComposition.Verdict.WindowTooShort,
         LandscapeComposition.Verdict.AllOutsideNight -> {
-            val low = primary?.feasibleLowMm
-            val high = primary?.feasibleHighMm
-            val recommended = primary?.recommendedFocalMm
-            if (primary != null && low != null && high != null && recommended != null) {
-                lines += context.getString(
-                    R.string.composition_plan_focal,
-                    low.roundToInt(),
-                    high.roundToInt(),
-                    recommended.roundToInt(),
-                    context.getString(
-                        if (primary.portrait) {
-                            R.string.framing_portrait
-                        } else {
-                            R.string.framing_landscape
-                        },
-                    ),
+            val derived = primary?.derivedFocalMm
+            if (primary != null && derived != null) {
+                val orientation = context.getString(
+                    if (primary.portrait) {
+                        R.string.framing_portrait
+                    } else {
+                        R.string.framing_landscape
+                    },
                 )
+                val share = primary.share
+                lines += if (share != null) {
+                    context.getString(
+                        R.string.composition_plan_focal,
+                        derived.roundToInt(),
+                        orientation,
+                        (share * 100).roundToInt(),
+                    )
+                } else {
+                    context.getString(
+                        R.string.composition_plan_focal_no_share,
+                        derived.roundToInt(),
+                        orientation,
+                    )
+                }
             } else {
                 lines += context.getString(
                     R.string.composition_plan_focal_blocked,
-                    context.getString(R.string.composition_plan_blocked_conflict),
+                    context.getString(R.string.composition_plan_blocked_overflow),
                 )
             }
         }
-        LandscapeComposition.Verdict.NeverCrossesBearing -> lines += context.getString(
+        is LandscapeComposition.Verdict.NeverAboveForegroundTop -> lines += context.getString(
             R.string.composition_plan_focal_blocked,
-            context.getString(R.string.composition_plan_blocked_never),
+            context.getString(R.string.composition_plan_blocked_never_top),
         )
-        is LandscapeComposition.Verdict.VerticalOverflow -> lines += context.getString(
+        is LandscapeComposition.Verdict.SpanExceedsWidestFrame -> lines += context.getString(
             R.string.composition_plan_focal_blocked,
             context.getString(R.string.composition_plan_blocked_overflow),
-        )
-        is LandscapeComposition.Verdict.ShareConflict -> lines += context.getString(
-            R.string.composition_plan_focal_blocked,
-            context.getString(R.string.composition_plan_blocked_conflict),
         )
     }
     // Lines 3-4: the spans and their best moments, or the diagnosis.
@@ -1123,12 +1122,10 @@ private fun compositionPlanLines(
         }
         else -> {
             val diagnosisText = when (verdict) {
-                LandscapeComposition.Verdict.NeverCrossesBearing ->
-                    context.getString(R.string.composition_never_title)
-                is LandscapeComposition.Verdict.VerticalOverflow ->
-                    context.getString(R.string.composition_overflow_title)
-                is LandscapeComposition.Verdict.ShareConflict ->
-                    context.getString(R.string.composition_conflict_title)
+                is LandscapeComposition.Verdict.NeverAboveForegroundTop ->
+                    context.getString(R.string.composition_never_top_title)
+                is LandscapeComposition.Verdict.SpanExceedsWidestFrame ->
+                    context.getString(R.string.composition_span_title)
                 else -> ""
             }
             lines += context.getString(R.string.composition_plan_windows, diagnosisText)

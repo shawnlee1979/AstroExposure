@@ -21,25 +21,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Landscape composition on the fixed golden night (ui-design
- * §7.9, 0.15.0): Alpharetta, the night of 2026-10-27 — the same
- * fixture night as the cross-category board tests. The Orion
- * cases are the 0.15.0 design proposal's worked examples (§5),
- * recomputed there with an independent pipeline; the app's own
- * ephemeris reproduces them to within the proposal's stated
- * tolerances (caps and recommended focals to ~1 mm, window bounds
- * to a few minutes — the same sampling-phase difference the old
- * model's golden test recorded). The assertions pin the app's
- * numbers with those tolerances, so a solver change that moves
- * the geometry — not the rounding — fails here.
+ * Landscape composition on fixed nights (ui-design §7.9,
+ * 0.16.0): Alpharetta; Orion on the golden night of 2026-10-27
+ * (the same fixture night as the cross-category board tests) and
+ * Lyra on the night of 2026-10-31 — the 0.16.0 design proposal's
+ * worked examples (§6), recomputed there with an independent
+ * pipeline. The app's own ephemeris reproduces them to within
+ * the proposal's stated tolerances (derived focals to ~1 mm,
+ * window bounds to a few minutes — the same sampling-phase
+ * difference the earlier models' golden tests recorded). The
+ * assertions pin the app's numbers with those tolerances, so a
+ * solver or wiring change that moves the geometry — not the
+ * rounding — fails here.
  *
- * The headline case is the proposal's §5.2 finding: against a
- * 150° foreground the OLD model reported a composition window
- * (03:11–03:46) with no frame anywhere in it; the new model
- * judges the same site a share conflict — at the crossing
- * (03:38:39, altitude 54.2°) Orion's skeleton top reaches ~72°,
- * and no focal inside the advised interval holds both the
- * ground-level foreground and the whole figure.
+ * The model under test is the second revision: the subject is
+ * the anchor, its azimuth is derived from its own track, the
+ * foreground top is the only site input, and the focal length is
+ * derived from the vertical span at the anchor (the night's
+ * greatest centre altitude).
  */
 class LandscapeGoldenNightTest {
 
@@ -51,6 +50,7 @@ class LandscapeGoldenNightTest {
         zone = ZoneId.of("America/New_York"),
     )
     private val date: LocalDate = LocalDate.of(2026, 10, 27)
+    private val lyraDate: LocalDate = LocalDate.of(2026, 10, 31)
 
     private val useCase = TonightOverviewUseCase(
         ephemeris = ephemeris,
@@ -62,9 +62,13 @@ class LandscapeGoldenNightTest {
         constellationLines = JsonConstellationLines(),
     )
     private val overview = useCase.execute(alpharetta, date)
+    private val lyraOverview = useCase.execute(alpharetta, lyraDate)
 
     private fun local(dayOffset: Long, time: LocalTime): Instant =
         date.plusDays(dayOffset).atTime(time).atZone(alpharetta.zone).toInstant()
+
+    private fun lyraLocal(dayOffset: Long, time: LocalTime): Instant =
+        lyraDate.plusDays(dayOffset).atTime(time).atZone(alpharetta.zone).toInstant()
 
     private fun assertNear(expected: Instant, actual: Instant, toleranceMinutes: Long) {
         assertTrue(
@@ -73,141 +77,155 @@ class LandscapeGoldenNightTest {
         )
     }
 
-    private fun orion(bearing: Double, top: Double) =
+    private fun orion(top: Double) =
         useCase.evaluateLandscape(
-            alpharetta, date, overview.timeline, "constellation:Ori", bearing, top,
+            alpharetta, date, overview.timeline, "constellation:Ori", top,
+        )!!
+
+    private fun lyra(top: Double) =
+        useCase.evaluateLandscape(
+            alpharetta, lyraDate, lyraOverview.timeline, "constellation:Lyr", top,
         )!!
 
     @Test
-    fun orionAgainstALowEastForegroundIsFeasible() {
-        // Proposal §5.1: B=100°, T=0° — landscape cap 37.1,
-        // feasible [31.2, 37.1], f* 32.6, window 23:03–00:28
-        // (85 min); portrait window 75 min; recommend landscape.
-        val evaluation = orion(100.0, 0.0)
-        val result = evaluation.result
-        assertNear(local(1, LocalTime.of(0, 7)), result.keyMoment.instant, 3)
-        assertEquals(17.9, result.keyMoment.altitudeDeg, 0.6)
-        assertEquals(31.2, result.adviceLowMm!!, 0.3)
-        assertEquals(67.2, result.adviceHighMm!!, 0.3)
-
+    fun lyraIsFeasibleWithItsAnchorOnTheNightStart() {
+        // Proposal §6.1: Lyra culminates in daylight; inside the
+        // night (20:12–05:29) the centre only descends, so the
+        // anchor sits on the night's start edge.
+        val result = lyra(6.0).result
         val verdict = result.verdict
         assertTrue("was $verdict", verdict is LandscapeComposition.Verdict.Feasible)
-        assertTrue(!(verdict as LandscapeComposition.Verdict.Feasible).recommendedPortrait)
+        assertTrue((verdict as LandscapeComposition.Verdict.Feasible).recommendedPortrait)
+        assertNear(lyraLocal(0, LocalTime.of(20, 12)), result.anchor.instant, 6)
+        assertEquals(59.0, result.anchor.centreAltitudeDeg, 1.5)
+    }
 
-        val landscape = result.landscape
-        assertEquals(37.1, landscape.capFocalMm!!, 0.6)
-        assertEquals(32.6, landscape.recommendedFocalMm!!, 0.8)
-        assertEquals(1, landscape.segments.size)
-        val segment = landscape.segments.single()
-        assertNear(local(0, LocalTime.of(23, 3)), segment.start, 4)
-        assertNear(local(1, LocalTime.of(0, 28)), segment.end, 4)
-        assertEquals(85.0, segment.durationMinutes, 6.0)
-        val best = segment.best as LandscapeComposition.BestMoment.Crossing
-        assertNear(local(1, LocalTime.of(0, 7)), best.instant, 3)
+    @Test
+    fun lyraDerivedFocalsAndShare() {
+        // Proposal §6.1: the closed forms hold under the exact
+        // check in both orientations (portrait = 1.5x landscape).
+        val result = lyra(6.0).result
+        assertEquals(24.1, result.portrait.derivedFocalMm!!, 1.2)
+        assertEquals(16.1, result.landscape.derivedFocalMm!!, 1.2)
+        assertEquals(0.14, result.portrait.share!!, 0.03)
+    }
 
+    @Test
+    fun lyraWindowAndSnapshotInstant() {
+        // Proposal §6.1: the portrait window opens with the night
+        // and closes when the skeleton's lowest point sinks to the
+        // 6° foreground top; its best moment is the snapshot's.
+        val evaluation = lyra(6.0)
+        val portrait = evaluation.result.portrait
+        assertEquals(1, portrait.segments.size)
+        val segment = portrait.segments.single()
+        assertNear(lyraLocal(0, LocalTime.of(20, 12)), segment.start, 8)
+        assertNear(lyraLocal(1, LocalTime.of(0, 54)), segment.end, 8)
+        assertEquals(282.0, segment.durationMinutes, 12.0)
+        assertNear(lyraLocal(0, LocalTime.of(21, 58)), segment.best.instant, 10)
+        assertEquals(38.0, segment.best.centreAltitudeDeg, 2.0)
+        assertNear(segment.best.instant, evaluation.snapshotInstant, 10)
+    }
+
+    @Test
+    fun orionDerivedFocalsAtAZeroForegroundTop() {
+        // Proposal §6.2: the anchor is the culmination; the
+        // portrait closed form (16.8) stands, the landscape one
+        // (11.2) undercuts the widest focal and derives nothing.
+        val result = orion(0.0).result
+        assertNear(local(1, LocalTime.of(4, 45)), result.anchor.instant, 6)
+        assertEquals(57.9, result.anchor.centreAltitudeDeg, 1.0)
+        val verdict = result.verdict
+        assertTrue("was $verdict", verdict is LandscapeComposition.Verdict.Feasible)
+        assertTrue((verdict as LandscapeComposition.Verdict.Feasible).recommendedPortrait)
+        assertEquals(16.8, result.portrait.derivedFocalMm!!, 0.8)
+        assertNull(result.landscape.derivedFocalMm)
+        assertEquals(11.2, result.landscape.closedFormFocalMm, 0.8)
+    }
+
+    @Test
+    fun orionWindowAndShare() {
+        // Proposal §6.2: the window opens when the skeleton's
+        // lowest point rises past 0° and runs to the night's end.
+        val result = orion(0.0).result
         val portrait = result.portrait
-        assertEquals(35.2, portrait.capFocalMm!!, 0.6)
-        assertEquals(75.0, portrait.totalWindowMinutes, 6.0)
+        assertEquals(1, portrait.segments.size)
+        val segment = portrait.segments.single()
+        assertNear(local(0, LocalTime.of(23, 22)), segment.start, 8)
+        assertNear(local(1, LocalTime.of(6, 26)), segment.end, 8)
+        assertEquals(423.0, segment.durationMinutes, 12.0)
+        assertNear(local(1, LocalTime.of(2, 1)), segment.best.instant, 10)
+        assertEquals(0.21, portrait.share!!, 0.03)
+    }
+
+    @Test
+    fun orionSnapshotCarriesTheSkeletonPoints() {
         // The skeleton really is the judged range: 23 unique
         // vertices, with chains for the snapshot.
-        assertEquals(23, evaluation.keyMomentPoints.size)
-        assertTrue(evaluation.keyMomentChains.isNotEmpty())
+        val evaluation = orion(0.0)
+        assertEquals(23, evaluation.snapshotPoints.size)
+        assertTrue(evaluation.snapshotChains.isNotEmpty())
     }
 
     @Test
-    fun orionAgainstTheGoldenForegroundIsAShareConflict() {
-        // Proposal §5.2: B=150°, T=0° — caps 15.0 / 22.5, both
-        // under the 31.2 advised floor; the live fact rides the
-        // portrait cap: 47 minutes at ~26% share.
-        val result = orion(150.0, 0.0).result
-        assertNear(local(1, LocalTime.of(3, 39)), result.keyMoment.instant, 3)
-        assertEquals(54.2, result.keyMoment.altitudeDeg, 0.6)
-        assertEquals(15.0, result.landscape.capFocalMm!!, 0.6)
-        assertEquals(22.5, result.portrait.capFocalMm!!, 0.6)
-
+    fun orionUnderAHighForegroundTopNeverRisesPastIt() {
+        // Proposal §6.3: at T=60° the skeleton's lowest point
+        // peaks at 46.3° — the subject passes behind the
+        // foreground all night and no focal length can change
+        // that (the first verdict).
+        val result = orion(60.0).result
         val verdict = result.verdict
-        assertTrue("was $verdict", verdict is LandscapeComposition.Verdict.ShareConflict)
-        val live = (verdict as LandscapeComposition.Verdict.ShareConflict).liveFact!!
-        assertTrue(live.portrait)
-        assertEquals(22.5, live.capFocalMm, 0.6)
-        assertEquals(0.26, live.share, 0.02)
-        assertEquals(1, live.segments.size)
-        assertNear(local(1, LocalTime.of(2, 51)), live.segments.single().start, 4)
-        assertNear(local(1, LocalTime.of(3, 38)), live.segments.single().end, 4)
-        // Independent check through the port: at the key instant
-        // the centre's azimuth is the bearing itself.
-        val azimuth = ephemeris.azimuthOf(
-            alpharetta,
-            TonightOverviewUseCase.TonightSubject.Constellation(
-                JsonConstellationCatalog().constellations().first { it.code == "Ori" },
-            ).coordinates,
-            result.keyMoment.instant,
-        ).value
-        assertEquals(150.0, azimuth, 0.5)
+        assertTrue(
+            "was $verdict",
+            verdict is LandscapeComposition.Verdict.NeverAboveForegroundTop,
+        )
+        verdict as LandscapeComposition.Verdict.NeverAboveForegroundTop
+        assertEquals(46.3, verdict.maxBottomAltitudeDeg, 1.2)
+        assertNear(local(1, LocalTime.of(5, 0)), verdict.atInstant, 12)
+        assertEquals(60.0, verdict.foregroundTopDeg, 0.0)
     }
 
     @Test
-    fun aTenDegreeForegroundTopStaysAShareConflict() {
-        // Proposal §5.2: T=10° lifts the caps to 18.4 / 27.7 —
-        // still under the advised floor.
-        val result = orion(150.0, 10.0).result
-        assertTrue(result.verdict is LandscapeComposition.Verdict.ShareConflict)
-        assertEquals(18.4, result.landscape.capFocalMm!!, 0.6)
-        assertEquals(27.7, result.portrait.capFocalMm!!, 0.6)
-    }
-
-    @Test
-    fun aHighForegroundTopMakesTheSameBearingFeasible() {
-        // Proposal §5.2: T=35° — landscape feasible with a
-        // 95-minute window; portrait's cap is 47.1 but its f*
-        // lands at ~32, not on the pinched cap.
-        val result = orion(150.0, 35.0).result
-        val verdict = result.verdict
-        assertTrue("was $verdict", verdict is LandscapeComposition.Verdict.Feasible)
-        assertTrue(!(verdict as LandscapeComposition.Verdict.Feasible).recommendedPortrait)
-        assertEquals(34.5, result.landscape.capFocalMm!!, 0.6)
-        assertEquals(95.0, result.landscape.totalWindowMinutes, 6.0)
-        assertEquals(47.1, result.portrait.capFocalMm!!, 0.6)
-        assertEquals(32.3, result.portrait.recommendedFocalMm!!, 0.8)
-        assertEquals(80.0, result.portrait.totalWindowMinutes, 6.0)
-    }
-
-    @Test
-    fun theConstructedCaseClassifiesAsShareConflictNotOverflow() {
-        // Proposal §5.3: B=150°, T=-15° — the landscape frame
-        // cannot reach the skeleton top even at 14mm (no cap),
-        // but the portrait frame's 104° vertical field just can
-        // (cap 16.8). The classification order therefore lands
-        // on share conflict, not vertical overflow: overflow
-        // requires BOTH orientations cap-less.
-        val result = orion(150.0, -15.0).result
-        assertTrue("was ${result.verdict}", result.verdict is LandscapeComposition.Verdict.ShareConflict)
-        assertNull(result.landscape.capFocalMm)
-        assertEquals(16.8, result.portrait.capFocalMm!!, 0.6)
-    }
-
-    @Test
-    fun galacticCentreAgainstASouthWestForegroundIsTwilightBound() {
-        // The galactic centre crosses 210° at 19:08:46 (altitude
-        // 19.9°) — the old sample's object-side figures — but
-        // astronomical dusk is 20:13, so only a sub-10-minute
-        // sliver of the landscape window survives the night cut:
-        // the honest verdict is the too-short window, with the
-        // portrait window lying wholly in twilight.
+    fun galacticCentreOnTheGoldenNightIsAllOutsideNight() {
+        // The galactic-centre viewpoint under the new model
+        // (measured on this fixture, 0.16.0): the subject only
+        // descends inside the night, so the anchor sits on the
+        // night's start edge (20:13, centre altitude ~12°). Both
+        // orientations derive a focal — the exact check shortens
+        // both closed forms for the wide anchor circle (landscape
+        // ~25.9 from 41.0, portrait ~37.6 from 61.6) — and the
+        // geometric window (17:48–19:35, ~107 min) is real, but
+        // it closes before astronomical dusk: cut to the night it
+        // leaves nothing, so the verdict is the third category,
+        // all outside night. (The old fixed-bearing model called
+        // this same site a too-short window on a sub-10-minute
+        // night sliver; with the azimuth following the subject
+        // the window itself is longer and wholly twilight.)
         val evaluation = useCase.evaluateLandscape(
-            alpharetta, date, overview.timeline, "viewpoint:galactic-centre", 210.0, 0.0,
+            alpharetta, date, overview.timeline, "viewpoint:galactic-centre", 0.0,
         )!!
         val result = evaluation.result
-        assertNear(local(0, LocalTime.of(19, 9)), result.keyMoment.instant, 3)
-        assertEquals(19.9, result.keyMoment.altitudeDeg, 0.6)
         assertTrue(
             "was ${result.verdict}",
-            result.verdict is LandscapeComposition.Verdict.WindowTooShort,
+            result.verdict is LandscapeComposition.Verdict.AllOutsideNight,
         )
+        assertNear(local(0, LocalTime.of(20, 13)), result.anchor.instant, 6)
+        assertEquals(12.0, result.anchor.centreAltitudeDeg, 1.0)
+        assertEquals(25.9, result.landscape.derivedFocalMm!!, 1.2)
+        assertEquals(37.6, result.portrait.derivedFocalMm!!, 1.5)
+        assertTrue(result.landscape.segments.isEmpty())
         assertTrue(result.portrait.segments.isEmpty())
-        assertTrue(result.portrait.geometricSegments.isNotEmpty())
+        assertEquals(1, result.landscape.geometricSegments.size)
+        val geometric = result.landscape.geometricSegments.single()
+        assertNear(local(0, LocalTime.of(17, 48)), geometric.start, 8)
+        assertNear(local(0, LocalTime.of(19, 35)), geometric.end, 8)
+        assertEquals(107.0, geometric.durationMinutes, 10.0)
+        // The snapshot falls back to the geometric segments (no
+        // night-cut segment exists); the tie between the two
+        // orientations' equal geometric spans takes landscape.
+        assertNear(local(0, LocalTime.of(18, 43)), evaluation.snapshotInstant, 10)
         // A viewpoint's range is its anchor circle rim.
-        assertEquals(48, evaluation.keyMomentPoints.size)
+        assertEquals(48, evaluation.snapshotPoints.size)
     }
 
     @Test
@@ -216,7 +234,7 @@ class LandscapeGoldenNightTest {
         assertNull(
             useCase.evaluateLandscape(
                 alpharetta, date, overview.timeline,
-                "shower:${shower.iauCode}", 210.0, 0.0,
+                "shower:${shower.iauCode}", 0.0,
             ),
         )
     }
