@@ -3,15 +3,17 @@ package app.astroexposure.ui
 import app.astroexposure.domain.lens.Lens
 
 /**
- * Facets for the framing chart's all-lenses panel (ui-design
- * §7.10, 0.13.0). The lens data model has no brand field — brand
- * exists only in the built-in entries' id prefixes (sony- /
- * canon- / nikon- / sigma- / tamron-) — so brand is a
- * PRESENTATION-layer derivation used only to group the panel;
- * it is never written back to the data. A custom lens (id
- * "custom-…", minted by the settings form) and any id with no
- * known brand prefix fall into the custom bucket: their brand
- * cannot be derived, and the panel says so instead of guessing.
+ * Facets for the calculators' lens picker (ui-design §4,
+ * 0.14.0; the derivation was introduced for the framing chart's
+ * panel in 0.13.0 and moved with the picker). The lens data
+ * model has no brand field — brand exists only in the built-in
+ * entries' id prefixes (sony- / canon- / nikon- / sigma- /
+ * tamron-) — so brand is a PRESENTATION-layer derivation used
+ * only to group the picker; it is never written back to the
+ * data. A custom lens (id "custom-…", minted by the settings
+ * form) and any id with no known brand prefix fall into the
+ * custom bucket: their brand cannot be derived, and the picker
+ * says so instead of guessing.
  */
 internal enum class LensBrand {
     SONY, CANON, NIKON, SIGMA, TAMRON, CUSTOM;
@@ -48,7 +50,7 @@ private val brandOrder = listOf(
 )
 
 /**
- * The mount facet values the panel offers: the mounts actually
+ * The mount facet values the picker offers: the mounts actually
  * present in the library — the three built-in mounts in their
  * standing order, then any other (custom-entered) mount in
  * library order of first appearance.
@@ -60,15 +62,21 @@ internal fun lensMountFacets(lenses: List<Lens>): List<String> {
         presentInLibraryOrder.filter { it !in canonicalMounts }
 }
 
-/** The brand facet values present in the library, in standing order. */
+/** The brand facet values present in the given lenses, in standing order. */
 internal fun lensBrandFacets(lenses: List<Lens>): List<LensBrand> =
     brandOrder.filter { brand -> lenses.any { lensBrand(it) == brand } }
 
-/** The panel's list under the two facets (null = facet unset), in library order. */
-internal fun filterLensPanel(
+/** The lenses under the two facets (null = facet unset), in input order. */
+internal fun filterLensFacets(
     lenses: List<Lens>,
     mount: String?,
     brand: LensBrand?,
 ): List<Lens> = lenses
     .filter { (mount == null || it.mount == mount) && (brand == null || lensBrand(it) == brand) }
-    .sortedWith(lensLibraryOrder)
+
+/** The facet-filtered list in library order (the picker's no-basis ordering). */
+internal fun filterLensPanel(
+    lenses: List<Lens>,
+    mount: String?,
+    brand: LensBrand?,
+): List<Lens> = filterLensFacets(lenses, mount, brand).sortedWith(lensLibraryOrder)

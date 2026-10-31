@@ -69,28 +69,68 @@ enum class CalcCategory { LANDSCAPE, WIDE_FIELD, DEEP_SKY, ECLIPSE, METEOR }
  * A target handed over from the tonight page's detail dialog
  * (ui-design §7.5, §7.8): the display name and the declination the
  * receiving calculators accept, plus — for the meteor calculator —
- * the shower to select. One handover shape for every tonight
- * subject category, so the tonight page keeps a single jump
- * contract whatever the entry's category.
+ * the shower to select. Since 0.14.0 it also carries the subject's
+ * recommended focal range — the reference focal length and the
+ * suggested interval, the same numbers the detail dialog's step-1
+ * grid prints, derived from the same framing advice through the
+ * same candidate selection — and the calculators' lens picker
+ * filters by that range (see [LensFocalBasis]). All three focal
+ * fields are null for a subject with no size data (a radiant, a
+ * size-less catalogue entry): the handover then behaves exactly
+ * as before, with no focal basis. One handover shape for every
+ * tonight subject category, so the tonight page keeps a single
+ * jump contract whatever the entry's category.
  */
 data class CalcPrefill(
     val name: String,
     val declinationDeg: Double,
     val showerCode: String? = null,
+    val referenceFocalMm: Double? = null,
+    val focalIntervalLowMm: Double? = null,
+    val focalIntervalHighMm: Double? = null,
 ) {
     companion object {
-        /** The prefill for a tonight subject, named in the caller's UI language. */
+        /**
+         * The prefill for a tonight subject, named in the caller's
+         * UI language. The focal triple comes from the subject's
+         * framing [advice] and catalogue major axis: the reference
+         * is the framing chart's own default focal derivation, and
+         * the interval is [FramingLensCandidates]' selection over
+         * the chart slider's domain — the same selection the grid's
+         * printed range comes from, so the two can never disagree.
+         */
         @Composable
         fun fromSubject(
             subject: app.astroexposure.usecase.TonightOverviewUseCase.TonightSubject,
-        ): CalcPrefill = CalcPrefill(
-            name = subject.displayName(),
-            declinationDeg = subject.coordinates.declination.value,
-            showerCode = (
-                subject as? app.astroexposure.usecase.TonightOverviewUseCase
-                    .TonightSubject.Radiant
-                )?.shower?.iauCode,
-        )
+            advice: app.astroexposure.domain.camera.FullFrameFraming.Advice,
+            sizeMajorArcmin: Double?,
+            lenses: List<Lens>,
+        ): CalcPrefill {
+            val reference = app.astroexposure.domain.camera.FramingChart
+                .defaultFocalMm(advice)
+            val selection = if (reference != null && sizeMajorArcmin != null) {
+                app.astroexposure.domain.lens.FramingLensCandidates.select(
+                    sizeMajorArcmin = sizeMajorArcmin,
+                    referenceFocalMm = reference,
+                    sliderMinMm = FOCAL_MIN_MM,
+                    sliderMaxMm = FOCAL_MAX_MM,
+                    lenses = lenses,
+                )
+            } else {
+                null
+            }
+            return CalcPrefill(
+                name = subject.displayName(),
+                declinationDeg = subject.coordinates.declination.value,
+                showerCode = (
+                    subject as? app.astroexposure.usecase.TonightOverviewUseCase
+                        .TonightSubject.Radiant
+                    )?.shower?.iauCode,
+                referenceFocalMm = reference,
+                focalIntervalLowMm = selection?.intervalLowMm,
+                focalIntervalHighMm = selection?.intervalHighMm,
+            )
+        }
     }
 }
 
@@ -131,7 +171,21 @@ fun CalculatorsScreen(
 ) {
     var camera by remember(cameras) { mutableStateOf(cameras.firstOrNull()) }
     var lens by remember(lenses) { mutableStateOf(lenses.firstOrNull()) }
-    var focalMm by remember(lens) { mutableStateOf(lens?.focalMinMm ?: 50.0) }
+    // The focal length is NOT keyed on the lens (0.14.0): a lens
+    // pick carries its landing focal with it (the basis focal
+    // clamped into the lens), and a remember(lens) reset would
+    // silently replace that landing with the zoom's wide end.
+    // It starts at the first lens's wide end, exactly as before.
+    var focalMm by remember { mutableStateOf(lenses.firstOrNull()?.focalMinMm ?: 50.0) }
+    // The lens picker's state (ui-design §4, 0.14.0): the focal
+    // basis and the two facets, screen-level like the rest of
+    // the equipment block — the five calculators share the one
+    // picker, and leaving the screen drops all of it. The basis
+    // is set by a handover, by the basis chips, or by the note
+    // row's clear action; nothing else writes it.
+    var focalBasis by remember { mutableStateOf<LensFocalBasis>(LensFocalBasis.None) }
+    var mountFacet by remember { mutableStateOf<String?>(null) }
+    var brandFacet by remember { mutableStateOf<LensBrand?>(null) }
     val maxAperture = lens?.maxApertureAt(focalMm) ?: 2.8
     val apertureScale = remember(maxAperture) { ApertureStops.scaleFrom(maxAperture) }
     var aperture by remember(apertureScale) { mutableStateOf(apertureScale.first()) }
@@ -157,11 +211,14 @@ fun CalculatorsScreen(
     var declinationError by remember { mutableStateOf(false) }
     // One-time handover hint (ui-design §7.5): when a target arrives
     // from the tonight page's detail dialog, the landing shows where
-    // it came from and what was prefilled — target name to the
-    // declination text as landed. It is dismissed by a manual
-    // category switch and never persisted, so leaving the screen
-    // drops it too; nothing about it is resident UI.
-    var handoverHint by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // it came from and what was prefilled — the receipt line under
+    // the category chips. It is dismissed by a manual category
+    // switch and never persisted, so leaving the screen drops it
+    // too; nothing about it is resident UI. The lens picker's
+    // focal basis (above) is the resident counterpart: it survives
+    // the receipt, and its source note row keeps the handover's
+    // focal payload visible inside the picker.
+    var handoverHint by remember { mutableStateOf<CalcPrefill?>(null) }
     // The meteor handover's shower selection: the screen-level
     // prefill is consumed (and cleared by the caller) at once, so the
     // shower code is held here until the meteor calculator — which
@@ -171,8 +228,30 @@ fun CalculatorsScreen(
         val handed = prefill ?: return@LaunchedEffect
         declinationText = handed.declinationDeg.toString()
         declinationError = false
-        handoverHint = handed.name to declinationText
+        handoverHint = handed
         meteorPrefillCode = handed.showerCode
+        // The focal handover (ui-design §4, 0.14.0): a subject
+        // with a full range puts the picker into the recommended
+        // state; a reference without a range (the range sits
+        // wholly past the slider domain) degrades to point
+        // coverage of the reference; no focal payload clears
+        // the basis — a previous subject's range never keeps
+        // filtering for a subject that has none. The facets
+        // restart at "all" either way. The current lens and
+        // focal length are NOT touched: the handover informs
+        // the picker, it does not pick.
+        val low = handed.focalIntervalLowMm
+        val high = handed.focalIntervalHighMm
+        val reference = handed.referenceFocalMm
+        focalBasis = when {
+            reference != null && low != null && high != null ->
+                LensFocalBasis.Recommended(handed.name, reference, low, high)
+            reference != null ->
+                LensFocalBasis.Point(reference, subjectName = handed.name)
+            else -> LensFocalBasis.None
+        }
+        mountFacet = null
+        brandFacet = null
         onPrefillConsumed()
     }
 
@@ -216,9 +295,32 @@ fun CalculatorsScreen(
             }
         }
 
-        handoverHint?.let { (targetName, decText) ->
+        handoverHint?.let { handed ->
+            // The receipt names no calculator (0.14.0): the
+            // landing category is the chips' own state, and the
+            // line only reports what arrived and what was
+            // prefilled — name, declination, and, when the
+            // subject carried one, its recommended focal range.
+            val low = handed.focalIntervalLowMm
+            val high = handed.focalIntervalHighMm
+            val reference = handed.referenceFocalMm
             Text(
-                text = stringResource(R.string.calc_handover_hint, targetName, decText),
+                text = if (low != null && high != null && reference != null) {
+                    stringResource(
+                        R.string.calc_handover_hint_focal,
+                        handed.name,
+                        handed.declinationDeg.toString(),
+                        reference.roundToInt(),
+                        low.roundToInt(),
+                        high.roundToInt(),
+                    )
+                } else {
+                    stringResource(
+                        R.string.calc_handover_hint,
+                        handed.name,
+                        handed.declinationDeg.toString(),
+                    )
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -230,11 +332,32 @@ fun CalculatorsScreen(
             camera = camera,
             lens = lens,
             focalMm = focalMm,
+            focalBasis = focalBasis,
+            mountFacet = mountFacet,
+            brandFacet = brandFacet,
             onCamera = { camera = it },
-            onLens = {
-                lens = it
-                focalMm = it.focalMinMm
+            onLensPick = { picked, landingFocalMm ->
+                lens = picked
+                focalMm = landingFocalMm
             },
+            onBasisChange = { focalBasis = it },
+            onMountFacet = { picked ->
+                mountFacet = picked
+                // A brand the new mount does not offer falls
+                // back to "all" at once (§5.3 of the design):
+                // the list's immediate change is the feedback,
+                // no notice is raised.
+                val brand = brandFacet
+                if (brand != null) {
+                    val offered = lensBrandFacets(
+                        filterLensFacets(
+                            lensCandidateUniverse(lenses, focalBasis), picked, null,
+                        ),
+                    )
+                    if (brand !in offered) brandFacet = null
+                }
+            },
+            onBrandFacet = { brandFacet = it },
             onFocal = { focalMm = it },
         )
         if (lens != null) {

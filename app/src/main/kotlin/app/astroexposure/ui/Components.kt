@@ -211,16 +211,31 @@ fun FocalControl(
     }
 }
 
-/** Camera-then-lens equipment selection, shared by all five calculators. */
+/**
+ * Camera-then-lens equipment selection, shared by all five
+ * calculators: the camera menu, then the lens picker block
+ * (ui-design §4, 0.14.0 — a focal-basis facet picker, not a flat
+ * menu), then the focal control inside the picked zoom's range.
+ * A lens pick reports its landing focal length with it: the
+ * pick lands on the basis focal clamped into the lens (the one
+ * landing rule, both picker states), never silently on the
+ * zoom's wide end.
+ */
 @Composable
-fun EquipmentPicker(
+internal fun EquipmentPicker(
     cameras: List<Camera>,
     lenses: List<Lens>,
     camera: Camera?,
     lens: Lens?,
     focalMm: Double,
+    focalBasis: LensFocalBasis,
+    mountFacet: String?,
+    brandFacet: LensBrand?,
     onCamera: (Camera) -> Unit,
-    onLens: (Lens) -> Unit,
+    onLensPick: (lens: Lens, landingFocalMm: Double) -> Unit,
+    onBasisChange: (LensFocalBasis) -> Unit,
+    onMountFacet: (String?) -> Unit,
+    onBrandFacet: (LensBrand?) -> Unit,
     onFocal: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -232,21 +247,21 @@ fun EquipmentPicker(
             itemLabel = { it.displayName },
             onSelect = onCamera,
         )
-        SelectionMenu(
-            label = stringResource(R.string.calc_lens),
-            items = lenses,
-            selected = lens,
-            itemLabel = { "${it.name} (${it.mount})" },
-            onSelect = onLens,
+        LensPickerBlock(
+            lenses = lenses,
+            lens = lens,
+            focalBasis = focalBasis,
+            currentFocalMm = focalMm,
+            mountFacet = mountFacet,
+            brandFacet = brandFacet,
+            onBasisChange = onBasisChange,
+            onMountFacet = onMountFacet,
+            onBrandFacet = onBrandFacet,
+            onPick = onLensPick,
         )
         if (lens != null) {
             FocalControl(lens = lens, focalMm = focalMm, onChange = onFocal)
         }
-        Text(
-            text = stringResource(R.string.calc_lens_missing),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
