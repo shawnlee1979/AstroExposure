@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0.15.0 样张板（暂定）· 构图模型重构：先框目标、再包地景</title>
+<style>
+  :root{
+    --bg:#05070D; --card:#0C1120; --surface2:#131B31; --border:#22304F;
+    --text:#E9EEF8; --sub:#96A3BE; --dim:#5D6C8C;
+    --gold:#F2C66D; --info:#6EA8FE; --ok:#4CC38A; --warn:#F5A524; --bad:#E5484D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#020409; color:var(--text); font-family:"Source Han Sans SC","Noto Sans CJK SC","PingFang SC",sans-serif; padding:28px 20px 60px;}
+  h1{font-size:22px; font-weight:700; margin-bottom:6px;}
+  .lead{color:var(--sub); font-size:13.5px; line-height:1.75; max-width:1080px; margin-bottom:8px;}
+  .lead b{color:var(--text);}
+  .note{border:1px solid var(--border); border-left:3px solid var(--gold); background:var(--card); border-radius:8px; padding:12px 16px; font-size:13px; line-height:1.8; color:var(--sub); max-width:1080px; margin:14px 0 8px;}
+  .note b{color:var(--gold);}
+  h2.sec{font-size:16px; margin:30px 0 4px;}
+  p.secsub{color:var(--sub); font-size:13px; line-height:1.7; max-width:1080px; margin-bottom:14px;}
+  .row{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
+  .cell{width:384px; flex:none;}
+  .cap{font-size:13px; color:var(--sub); line-height:1.7; margin-top:10px; width:384px;}
+  .cap b{color:var(--text);}
+  .phone{background:var(--bg); border:1px solid var(--border); border-radius:18px; padding:14px 14px 16px; min-height:640px; display:flex; flex-direction:column; gap:10px;}
+  .dlg{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
+  .dlghead{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .dlghead .t{font-size:16px; font-weight:600;}
+  .dlghead .x{margin-left:auto; color:var(--sub); font-size:15px;}
+  .steps{display:flex; gap:6px; margin-bottom:10px;}
+  .step{flex:1; text-align:center; font-size:12px; padding:7px 0; border-radius:999px; border:1px solid var(--border); color:var(--sub); background:var(--surface2);}
+  .step.on{color:#0B0F1A; background:var(--gold); border-color:var(--gold); font-weight:600;}
+  .secT{font-size:13.5px; font-weight:600; margin-bottom:8px;}
+  .lab{font-size:12px; color:var(--sub);}
+  .num{font-variant-numeric:tabular-nums;}
+  .chart{position:relative; background:#070B16; border:1px solid var(--border); border-radius:10px; overflow:hidden;}
+  .readout{display:flex; gap:8px; align-items:baseline; margin-top:8px;}
+  .readout .big{font-size:15px; font-weight:600;}
+  .readout .rest{font-size:12px; color:var(--sub);}
+  .slider{margin-top:10px;}
+  .slider .lab{display:flex; justify-content:space-between;}
+  .track{height:4px; border-radius:2px; background:var(--surface2); margin:8px 0 2px; position:relative;}
+  .track .fill{position:absolute; left:0; top:0; bottom:0; border-radius:2px; background:var(--info);}
+  .track .knob{position:absolute; top:50%; width:16px; height:16px; border-radius:50%; background:var(--text); transform:translate(-50%,-50%);}
+  .seg{display:flex; gap:6px;}
+  .seg .opt{flex:1; text-align:center; font-size:12.5px; padding:9px 0; border-radius:8px; border:1px solid var(--border); color:var(--sub); background:var(--surface2);}
+  .seg .opt.on{color:var(--text); border-color:var(--info); background:#182747;}
+  .switchrow{display:flex; align-items:center; gap:10px; min-height:48px; border-top:1px solid var(--border); padding-top:10px; margin-top:12px;}
+  .switchrow .st{font-size:14px; font-weight:600;}
+  .switchrow .sd{font-size:11.5px; color:var(--sub); line-height:1.5;}
+  .sw{margin-left:auto; flex:none; width:46px; height:26px; border-radius:13px; background:var(--surface2); border:1px solid var(--border); position:relative;}
+  .sw::after{content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--sub);}
+  .sw.on{background:#3A2E12; border-color:var(--gold);}
+  .sw.on::after{left:22px; background:var(--gold);}
+  .inrow{display:flex; align-items:center; gap:8px; min-height:48px;}
+  .inrow .nm{font-size:13px; width:74px; flex:none;}
+  .stepper{margin-left:auto; display:flex; align-items:center; gap:6px;}
+  .sbtn{width:40px; height:40px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:16px; text-align:center; line-height:40px;}
+  .sval{font-size:16px; font-weight:600; min-width:52px; text-align:center;}
+  .capbtn{display:flex; align-items:center; justify-content:center; gap:8px; min-height:48px; border:1px solid var(--info); color:var(--info); border-radius:10px; font-size:13.5px; background:#101D38;}
+  .goldline{font-size:15px; font-weight:600; color:var(--gold); line-height:1.55;}
+  .rowline{font-size:13px; line-height:1.75;}
+  .small{font-size:12px; color:var(--sub); line-height:1.7;}
+  .tiny{font-size:11px; color:var(--dim); line-height:1.6;}
+  .diagT{font-size:14.5px; font-weight:600; color:var(--warn); line-height:1.55;}
+  .band{position:relative; height:14px; border-radius:4px; background:#1A2338; margin:8px 0 2px;}
+  .band .night{position:absolute; top:0; bottom:0; background:#2A3B63; border-radius:2px;}
+  .band .win{position:absolute; top:0; bottom:0; background:var(--gold); border-radius:2px;}
+  .band .tick{position:absolute; top:-3px; bottom:-3px; width:2px; background:#FFE9B0;}
+  .bandlab{display:flex; justify-content:space-between; font-size:10.5px; color:var(--dim);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{font-size:12px; padding:7px 11px; border-radius:999px; border:1px solid var(--border); color:var(--sub); background:var(--surface2);}
+  .chip.on{color:var(--text); border-color:var(--info); background:#182747;}
+  .drop{display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:var(--surface2); padding:10px 12px; font-size:13.5px; min-height:48px;}
+  .drop .arr{margin-left:auto; color:var(--sub);}
+  .plan{background:#070B16; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.85; color:var(--sub); white-space:pre-wrap;}
+  .plan b{color:var(--text); font-weight:600;}
+  .btnrow{display:flex; gap:8px;}
+  .btn{flex:1; text-align:center; padding:11px 0; border-radius:10px; font-size:13.5px; border:1px solid var(--border); color:var(--text); background:var(--surface2); min-height:48px;}
+  .btn.pri{background:var(--gold); color:#0B0F1A; border-color:var(--gold); font-weight:600;}
+  .kbd{color:var(--info);}
+  svg text{font-family:inherit;}
+</style>
+</head>
+<body>
+
+<h1>0.15.0 样张板（暂定版本号）· 构图模型重构：先框目标、再包地景</h1>
+<p class="lead">本板四张样张对应提案 §4 的呈现设计。数值全部来自提案 §5 的对照复算（金样本夜 2026-10-27 · Alpharetta · 天文夜 20:13–06:29；管线与 App 同源引擎、骨架顶点取自仓库目录）——不是示意数字。样张 (b)(d) 用正例：猎户座 · 地景方位 100° · 地景顶 0°；样张 (c) 用金样本对：猎户座 · 地景方位 150° · 地景顶 0°。</p>
+<div class="note"><b>模型一句话：</b>构图先框目标（焦距/横竖/摆角，取景图既有）；开「带地景」后，工具按机位（地景方位＋地景顶仰角）把画框对死地景安放，算出包容地景的焦距可行区间与目标漂移出入画框的时间窗——容差与高度带退役。</div>
+
+<h2 class="sec">样张 (a) · 详情弹窗第二步「构图」——合并工具 · 纯目标态</h2>
+<p class="secsub">一张卡：上部取景图本体（沿 0.13.2 无标题呈现），下部一行「带地景」开关。开关关时第二步与现行取景区一致，只多这一行——先框目标，是否带地景由用户决定何时展开。</p>
+<div class="row">
+  <div>
+    <div class="phone">
+      <div class="dlg">
+        <div class="dlghead"><span class="t">蝎虎座</span><span class="x">✕</span></div>
+        <div class="steps"><span class="step">1 目标信息</span><span class="step on">2 构图</span><span class="step">3 指向</span></div>
+        <div class="chart">
+          <svg width="100%" height="238" viewBox="0 0 328 238">
+            <rect x="0" y="0" width="328" height="238" fill="#070B16"/>
+            <g fill="#3D4E75"><circle cx="30" cy="26" r="1.4"/><circle cx="86" cy="14" r="1.1"/><circle cx="150" cy="30" r="1.6"/><circle cx="232" cy="18" r="1.2"/><circle cx="300" cy="40" r="1.4"/><circle cx="52" cy="90" r="1.1"/><circle cx="312" cy="120" r="1.2"/><circle cx="20" cy="170" r="1.3"/><circle cx="286" cy="200" r="1.1"/><circle cx="120" cy="216" r="1.2"/><circle cx="210" cy="224" r="1.4"/></g>
+            <rect x="64" y="42" width="200" height="140" fill="none" stroke="#F2C66D" stroke-width="1.6"/>
+            <polyline points="96,150 128,118 158,126 186,100 214,110 236,84" fill="none" stroke="#6EA8FE" stroke-width="1.4"/>
+            <g fill="#E9EEF8"><circle cx="96" cy="150" r="2.6"/><circle cx="128" cy="118" r="2.2"/><circle cx="158" cy="126" r="2.8"/><circle cx="186" cy="100" r="2.2"/><circle cx="214" cy="110" r="2.4"/><circle cx="236" cy="84" r="2"/><circle cx="112" cy="160" r="1.7"/><circle cx="200" cy="128" r="1.7"/></g>
+          </svg>
+        </div>
+        <div class="readout"><span class="big num">104 mm</span><span class="rest num">视场 19.6° × 13.2° · 建议 67–137 · 参考 102</span></div>
+        <div class="slider"><div class="lab"><span>焦距</span><span class="num">104 mm</span></div><div class="track"><div class="fill" style="width:46%"></div><div class="knob" style="left:46%"></div></div></div>
+        <div class="slider"><div class="lab"><span>摆角</span><span class="num">0°</span></div><div class="track"><div class="fill" style="width:2%"></div><div class="knob" style="left:2%"></div></div></div>
+        <div style="margin-top:10px" class="seg"><span class="opt on">横幅</span><span class="opt">竖幅</span></div>
+        <div class="switchrow">
+          <div><div class="st">带地景</div><div class="sd">把前景装进画面：算包容地景的焦距与可拍时段</div></div>
+          <div class="sw"></div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>读法：</b>取景图、焦距/摆角滑杆、横竖幅开关全部原样（0.13.2 起图区无标题、结论走无障碍描述，本批不动）。新增只有卡尾的开关行（≥48dp）：构图工具自此是一件东西——框目标是它的常态，带地景是它的展开态。</p>
+  </div>
+</div>
+
+<h2 class="sec">样张 (b) · 带地形态——机位输入＋焦距结论＋时间窗（正例）</h2>
+<p class="secsub">猎户座 · 地景方位 100° · 地景顶 0°（远山脊）。开关开启后：取景图换成地景快照（最佳时刻安放、地景顶线以下压暗为剪影带），摆角行注明不参与；结果组给出可行区间、推荐焦距、幅向对照、时段与最佳——数字为提案 §5.1 实算。</p>
+<div class="row">
+  <div>
+    <div class="phone">
+      <div class="dlg">
+        <div class="dlghead"><span class="t">猎户座</span><span class="x">✕</span></div>
+        <div class="steps"><span class="step">1 目标信息</span><span class="step on">2 构图</span><span class="step">3 指向</span></div>
+        <div class="chart">
+          <svg width="100%" height="216" viewBox="0 0 328 216">
+            <rect x="0" y="0" width="328" height="216" fill="#070B16"/>
+            <g fill="#3D4E75"><circle cx="26" cy="22" r="1.3"/><circle cx="96" cy="12" r="1.1"/><circle cx="238" cy="16" r="1.2"/><circle cx="306" cy="30" r="1.4"/><circle cx="40" cy="80" r="1.1"/><circle cx="316" cy="96" r="1.2"/></g>
+            <rect x="40" y="24" width="248" height="168" fill="none" stroke="#F2C66D" stroke-width="1.6"/>
+            <polyline points="118,96 146,74 168,84 190,66 214,78 232,58" fill="none" stroke="#6EA8FE" stroke-width="1.4"/>
+            <g fill="#E9EEF8"><circle cx="118" cy="96" r="2.5"/><circle cx="146" cy="74" r="2.1"/><circle cx="168" cy="84" r="2.7"/><circle cx="190" cy="66" r="2.1"/><circle cx="214" cy="78" r="2.3"/><circle cx="232" cy="58" r="1.9"/><circle cx="160" cy="112" r="1.8"/><circle cx="182" cy="118" r="1.8"/><circle cx="172" cy="126" r="1.8"/></g>
+            <path d="M40,175 L96,168 L150,173 L214,166 L262,171 L288,169 L288,192 L40,192 Z" fill="#0A0F1E" stroke="#5D6C8C" stroke-width="1"/>
+            <text x="48" y="162" fill="#96A3BE" font-size="10.5">地景顶 0°</text>
+          </svg>
+        </div>
+        <div class="small" style="margin-top:6px">带地景时相机按水平安放，摆角不参与。</div>
+        <div class="switchrow" style="margin-top:6px">
+          <div><div class="st">带地景</div><div class="sd">机位：对准地景顶端捕获，或步进填入</div></div>
+          <div class="sw on"></div>
+        </div>
+        <div class="inrow"><span class="nm">地景方位</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">100°</span><span class="sbtn">＋</span></div></div>
+        <div class="inrow"><span class="nm">地景顶仰角</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">0°</span><span class="sbtn">＋</span></div></div>
+        <div class="capbtn">◎ 罗盘捕获（方位＋俯仰一并定住）</div>
+        <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:2px">
+          <div class="goldline num">可用 31–37 mm · 推荐 33 mm（横幅）</div>
+          <div class="small num">竖幅：可用 31–35 mm · 窗 75 分——横幅窗更长，故荐横幅</div>
+          <div class="rowline num" style="margin-top:4px">23:03 – 00:28 · 1 小时 25 分</div>
+          <div class="band"><div class="night" style="left:21.5%; width:68.4%"></div><div class="win" style="left:40.3%; width:9.5%"></div><div class="tick" style="left:47.4%"></div></div>
+          <div class="bandlab"><span>17:00</span><span>天文夜 20:13–06:29</span><span>08:00</span></div>
+          <div class="goldline num" style="margin-top:6px; font-size:14px">最佳 00:07 · 高度 18°</div>
+          <div class="small num">窗内中心高度 5°–22°</div>
+          <div class="tiny" style="margin-top:4px">按骨架顶点计 · 地景顶贴近画框下沿（画高 1/10）· 与天文夜取交</div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>读法：</b>结论一眼三件——焦距（金）、时段、最佳（金）。推荐 33mm 不是参考焦距 49.5 的钳入值：49.5mm 在此机位根本装不下地景＋骨架（上限 37.1mm），工具如实给可行区间并在其中取「窗不缩水的最大焦距」。捕获一键双写两字段（俯仰捕获，提案 §3.1）；步进是无传感器/预演时的兜底正道。</p>
+  </div>
+</div>
+
+<h2 class="sec">样张 (c) · 「装不下」呈现——包容与占比互斥（金样本对）</h2>
+<p class="secsub">猎户座 · 地景方位 150° · 地景顶 0°。旧口径在此给出时段 03:11–03:46、穿越 03:38/54.2°；新模型如实判装不下：中心穿越时骨架顶约 72°，两幅向全入上限都够不到建议区间下限。结论不改口，但附最宽可行实况行——接受小占比的用户仍有可执行方案。</p>
+<div class="row">
+  <div>
+    <div class="phone">
+      <div class="dlg">
+        <div class="dlghead"><span class="t">猎户座</span><span class="x">✕</span></div>
+        <div class="steps"><span class="step">1 目标信息</span><span class="step on">2 构图</span><span class="step">3 指向</span></div>
+        <div class="chart">
+          <svg width="100%" height="216" viewBox="0 0 328 216">
+            <rect x="0" y="0" width="328" height="216" fill="#070B16"/>
+            <rect x="104" y="10" width="120" height="182" fill="none" stroke="#F2C66D" stroke-width="1.6"/>
+            <polyline points="128,120 148,84 164,94 182,66 202,80 218,44" fill="none" stroke="#6EA8FE" stroke-width="1.4"/>
+            <g fill="#E9EEF8"><circle cx="128" cy="120" r="2.5"/><circle cx="148" cy="84" r="2.1"/><circle cx="164" cy="94" r="2.7"/><circle cx="182" cy="66" r="2.1"/><circle cx="202" cy="80" r="2.3"/><circle cx="160" cy="140" r="1.8"/><circle cx="176" cy="146" r="1.8"/></g>
+            <g fill="#E5484D"><circle cx="218" cy="44" r="3" fill="none" stroke="#E5484D" stroke-width="1.4"/><circle cx="112" cy="30" r="3" fill="none" stroke="#E5484D" stroke-width="1.4"/></g>
+            <circle cx="112" cy="30" r="1.8" fill="#E9EEF8"/>
+            <path d="M104,175 L140,170 L176,174 L204,169 L224,172 L224,192 L104,192 Z" fill="#0A0F1E" stroke="#5D6C8C" stroke-width="1"/>
+            <text x="112" y="162" fill="#96A3BE" font-size="10.5">地景顶 0° · 快照按竖幅上限 23 mm</text>
+          </svg>
+        </div>
+        <div class="switchrow" style="margin-top:6px">
+          <div><div class="st">带地景</div><div class="sd">机位：对准地景顶端捕获，或步进填入</div></div>
+          <div class="sw on"></div>
+        </div>
+        <div class="inrow"><span class="nm">地景方位</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">150°</span><span class="sbtn">＋</span></div></div>
+        <div class="inrow"><span class="nm">地景顶仰角</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">0°</span><span class="sbtn">＋</span></div></div>
+        <div class="capbtn">◎ 罗盘捕获（方位＋俯仰一并定住）</div>
+        <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:2px">
+          <div class="diagT">装不下：包容地景与目标占比不可兼得</div>
+          <div class="rowline num">全入上限 横 15 mm / 竖 23 mm · 建议区间自 31 mm 起</div>
+          <div class="small num">若接受占比约 26%：竖幅 23 mm 可拍 02:51–03:38 · 47 分（窗止于穿越，目标升出画框顶）</div>
+          <div class="small">穿越 03:38 时中心高度 54°、骨架顶约 72°——目标过高是主因；它低悬时（如方位 100° 一带）同机位可拍，见样张 (b)。</div>
+          <div class="tiny" style="margin-top:4px">按骨架顶点计 · 地景顶贴近画框下沿（画高 1/10）· 与天文夜取交</div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>读法：</b>诊断两行制——类别句＋数字句，金色不用（金只给成立的结论）。快照按上限焦距呈现、红圈点名出框星（沿取景图既有点名口径）：用户看得见溢出在哪、差多少。地景顶抬到 35°（近景高脊）时同方位即变可行（横幅窗 95 分）——成因在几何，不在参数。</p>
+  </div>
+</div>
+
+<h2 class="sec">样张 (d) · 带地景计算器落点——主体选择＋新存计划四行</h2>
+<p class="secsub">计算器落点无快照、地景组常开；主体四组可选（选主体同步带入赤纬，沿现行）。存计划由旧三行变四行——走的仍是「文本附入计划正文」通道，计划载荷结构零改动（提案 §4.4）。</p>
+<div class="row">
+  <div>
+    <div class="phone">
+      <div class="card">
+        <div class="secT">地景构图</div>
+        <div class="chips"><span class="chip">银心</span><span class="chip">广域看点</span><span class="chip on">星座</span><span class="chip">深空</span></div>
+        <div class="drop" style="margin-top:8px">猎户座<span class="arr">▾</span></div>
+        <div class="inrow" style="margin-top:4px"><span class="nm">地景方位</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">100°</span><span class="sbtn">＋</span></div></div>
+        <div class="inrow"><span class="nm">地景顶仰角</span><div class="stepper"><span class="sbtn">−</span><span class="sval num">0°</span><span class="sbtn">＋</span></div></div>
+        <div class="capbtn">◎ 罗盘捕获（方位＋俯仰一并定住）</div>
+        <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:10px">
+          <div class="goldline num">可用 31–37 mm · 推荐 33 mm（横幅）</div>
+          <div class="small num">竖幅：可用 31–35 mm · 窗 75 分</div>
+          <div class="rowline num" style="margin-top:4px">23:03 – 00:28 · 1 小时 25 分</div>
+          <div class="band"><div class="night" style="left:21.5%; width:68.4%"></div><div class="win" style="left:40.3%; width:9.5%"></div><div class="tick" style="left:47.4%"></div></div>
+          <div class="bandlab"><span>17:00</span><span>天文夜 20:13–06:29</span><span>08:00</span></div>
+          <div class="goldline num" style="margin-top:6px; font-size:14px">最佳 00:07 · 高度 18°</div>
+          <div class="tiny" style="margin-top:4px">按骨架顶点计 · 地景顶贴近画框下沿（画高 1/10）· 与天文夜取交</div>
+        </div>
+        <div class="btnrow" style="margin-top:12px"><span class="btn pri">存入计划</span></div>
+        <div class="plan" style="margin-top:10px">…（曝光行略）
+<b>地景构图：猎户座 · 地景方位 100° · 地景顶 0°</b>
+<b>构图焦距：31–37 mm · 推荐 33 mm（横幅）</b>
+<b>构图时段：23:03–00:28</b>
+<b>构图最佳：00:07</b></div>
+      </div>
+    </div>
+    <p class="cap"><b>读法：</b>计划四行自带机位两值——历史机位日后可从计划找回，这也是「机位不落盘」可行的缓解通道。装不下时第二行写「构图焦距：装不下——包容地景与目标占比不可兼得」，第三、四行写诊断与「—」，不留假数字。</p>
+  </div>
+</div>
+
+</body>
+</html>
