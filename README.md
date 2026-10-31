@@ -97,7 +97,7 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 项目状态
 
-**已实现并持续迭代（当前版本 0.14.0）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
+**已实现并持续迭代（当前版本 0.14.1）。** 完整三层代码（domain / data / app）已在本仓库，预发布 APK 在 [Releases](https://github.com/shawnlee1979/AstroExposure/releases) 页提供下载。完整设计方案见 [docs/design.md](docs/design.md)。
 
 ## 功能概览
 
