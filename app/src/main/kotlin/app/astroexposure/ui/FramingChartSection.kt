@@ -2,24 +2,14 @@ package app.astroexposure.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -49,18 +39,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import app.astroexposure.R
 import app.astroexposure.domain.camera.FramingChart
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ChartStar
-import app.astroexposure.domain.lens.FramingLensCandidates
-import app.astroexposure.domain.lens.Lens
 import app.astroexposure.ui.theme.LocalStateColors
 import app.astroexposure.usecase.TonightOverviewUseCase
 import kotlin.math.ceil
@@ -89,25 +75,17 @@ import kotlin.math.tan
  * nothing is persisted, and a new subject resets them — the same
  * discipline as the composition tolerance.
  *
- * The lens pick row (0.13.0) is a CANDIDATE row, not the whole
- * library: [FramingLensCandidates] keeps the lenses that reach
- * the subject's suggested focal range, ordered by closeness to
- * the reference; the row carries no header, and when none reach
- * it, an explicit empty line takes the row's place instead of
- * silently refilling with the whole library. The full library
- * stays one tap away in the all-lenses panel (mount / brand
- * facets, same screen — see [AllLensesPanel]). A pick lands a
- * zoom on the reference clamped into its segment, not on its
- * wide end. Nothing here touches the calculators' lens choice:
- * the detail dialog's pick is a focal-length what-if, and the
- * two are deliberately not synchronised (§7.10, 0.13.0).
+ * The section carries no lens picking (0.14.0): it is a pure
+ * composition what-if over focal length, rotation and
+ * orientation. Lens choice lives on the calculators page, whose
+ * picker receives this subject's recommended focal range
+ * through the detail dialog's calculator handover (§4).
  */
 @Composable
 fun FramingChartSection(
     data: TonightOverviewUseCase.FramingChartData,
     advice: FullFrameFraming.Advice,
     subjectMajorArcmin: Double,
-    lenses: List<Lens>,
     redLight: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -115,7 +93,6 @@ fun FramingChartSection(
     var focalMm by remember(data) { mutableStateOf(defaultFocal) }
     var rotationDeg by remember(data) { mutableStateOf(0.0) }
     var portrait by remember(data) { mutableStateOf(false) }
-    var selectedLensId by remember(data) { mutableStateOf<String?>(null) }
 
     val english = isEnglishUiLanguage()
     val spec = FramingChart.FrameSpec(focalMm, portrait, rotationDeg)
@@ -143,36 +120,6 @@ fun FramingChartSection(
     } else {
         null
     }
-    val selectedLens = lenses.firstOrNull { it.id == selectedLensId }
-
-    // The candidate set for the pick row (§7.10, 0.13.0): the
-    // lenses that reach this subject's suggested focal range,
-    // ordered by closeness to the reference — the row's content
-    // comes from the same advice the step-1 grid prints.
-    val selection = remember(data, lenses) {
-        FramingLensCandidates.select(
-            sizeMajorArcmin = subjectMajorArcmin,
-            referenceFocalMm = defaultFocal,
-            sliderMinMm = FOCAL_MIN_MM,
-            sliderMaxMm = FOCAL_MAX_MM,
-            lenses = lenses,
-        )
-    }
-    var showAllLenses by remember(data) { mutableStateOf(false) }
-    // One pick semantic for both entrances (candidate row and
-    // all-lenses panel): tapping the selected lens deselects it;
-    // any other tap selects it and lands the focal slider on the
-    // domain's pick focal (a zoom lands on the reference clamped
-    // into its segment).
-    val onLensTap: (Lens) -> Unit = { lens ->
-        if (lens.id == selectedLensId) {
-            selectedLensId = null
-        } else {
-            selectedLensId = lens.id
-            focalMm = FramingLensCandidates.pickFocalMm(lens, defaultFocal)
-        }
-    }
-
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -221,10 +168,10 @@ fun FramingChartSection(
             }
 
             // Focal length: a log-scale slider (the wide end needs
-            // the same travel as the telephoto end), the candidate
-            // chips below it. A prime sets its focal length; a zoom
-            // lands on the reference clamped into its segment and
-            // marks its band on the scale.
+            // the same travel as the telephoto end) over the
+            // scale's tick labels. Which lens to shoot with is
+            // not decided here (0.14.0) — the slider is a pure
+            // what-if over the number.
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -233,7 +180,7 @@ fun FramingChartSection(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        text = focalReadout(advice, focalMm, selectedLens),
+                        text = focalReadout(advice, focalMm),
                         style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
                     )
@@ -243,43 +190,7 @@ fun FramingChartSection(
                     onValueChange = { focalMm = sliderToFocal(it) },
                     valueRange = 0f..1f,
                 )
-                FocalScaleTicks(selectedLens = selectedLens)
-            }
-            if (lenses.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // No header line (0.13.2, on-device feedback):
-                    // the chips speak for themselves. When no lens
-                    // reaches the suggested range, an explicit
-                    // empty line takes the row's place instead —
-                    // the candidate set never refills silently
-                    // from the whole library.
-                    if (selection.candidates.isEmpty()) {
-                        Text(
-                            text = candidateEmptyText(advice, selection, subjectMajorArcmin),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        selection.candidates.forEach { candidate ->
-                            FilterChip(
-                                selected = candidate.lens.id == selectedLensId,
-                                onClick = { onLensTap(candidate.lens) },
-                                label = { Text(candidate.lens.name) },
-                            )
-                        }
-                        AssistChip(
-                            onClick = { showAllLenses = true },
-                            label = { Text(stringResource(R.string.framing_all_lenses)) },
-                            trailingIcon = { Text("▸") },
-                        )
-                    }
-                }
+                FocalScaleTicks()
             }
 
             // Rotation: a stepped slider, never a drag on the chart
@@ -339,27 +250,15 @@ fun FramingChartSection(
         }
     }
 
-    if (showAllLenses) {
-        AllLensesPanel(
-            lenses = lenses,
-            selectedLensId = selectedLensId,
-            onPick = { lens ->
-                onLensTap(lens)
-                showAllLenses = false
-            },
-            onDismiss = { showAllLenses = false },
-        )
-    }
 }
 
-/** The focal readout beside the slider: value, advice reference, lens suffix. */
+/** The focal readout beside the slider: the value and the advice reference. */
 @Composable
 private fun focalReadout(
     advice: FullFrameFraming.Advice,
     focalMm: Double,
-    selectedLens: Lens?,
 ): String {
-    val base = if (advice is FullFrameFraming.Advice.Range) {
+    return if (advice is FullFrameFraming.Advice.Range) {
         stringResource(
             R.string.framing_focal_readout_range,
             focalMm.roundToInt(),
@@ -370,34 +269,13 @@ private fun focalReadout(
     } else {
         stringResource(R.string.framing_focal_readout, focalMm.roundToInt())
     }
-    val lens = selectedLens ?: return base
-    return if (focalMm >= lens.focalMinMm && focalMm <= lens.focalMaxMm) {
-        "$base · ${lens.name}"
-    } else {
-        base
-    }
 }
 
-/** The log scale's tick labels, plus the selected zoom's band under the slider. */
+/** The log scale's tick labels under the slider. */
 @Composable
-private fun FocalScaleTicks(selectedLens: Lens?) {
+private fun FocalScaleTicks() {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(18.dp)) {
         val widthPx = maxWidth
-        val zoom = selectedLens?.takeIf { !it.isPrime }
-        if (zoom != null) {
-            val from = focalToSlider(zoom.focalMinMm)
-            val to = focalToSlider(zoom.focalMaxMm)
-            Box(
-                modifier = Modifier
-                    .offset(x = widthPx * from)
-                    .width(widthPx * (to - from))
-                    .height(4.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        RoundedCornerShape(2.dp),
-                    ),
-            )
-        }
         FOCAL_TICKS_MM.forEach { tick ->
             val frac = focalToSlider(tick.toDouble())
             Text(
@@ -1491,8 +1369,8 @@ private fun starTier(magnitude: Double): StarTier =
 
 private const val CHART_HEIGHT_DP = 280f
 
-private const val FOCAL_MIN_MM = 14.0
-private const val FOCAL_MAX_MM = 2000.0
+internal const val FOCAL_MIN_MM = 14.0
+internal const val FOCAL_MAX_MM = 2000.0
 
 private val FOCAL_TICKS_MM = listOf(14, 24, 50, 85, 135, 300, 600, 2000)
 
@@ -1506,246 +1384,3 @@ private fun sliderToFocal(position: Float): Double =
 
 private fun oneDecimal(value: Double): String =
     String.format(java.util.Locale.US, "%.1f", value)
-
-/** The candidate row's empty line, worded by why the set is empty (§7.10). */
-@Composable
-private fun candidateEmptyText(
-    advice: FullFrameFraming.Advice,
-    selection: FramingLensCandidates.Selection,
-    subjectMajorArcmin: Double,
-): String = when {
-    advice is FullFrameFraming.Advice.CappedAtMaxFocal -> stringResource(
-        R.string.framing_candidates_empty_capped_max,
-        percentRounded(advice.shareAtMaxFocal),
-    )
-    advice is FullFrameFraming.Advice.CappedAtMinFocal &&
-        selection.intervalLowMm == null -> stringResource(
-            R.string.framing_candidates_empty_capped_min,
-            percentRounded(FullFrameFraming.shareAtFocal(subjectMajorArcmin, FOCAL_MIN_MM)),
-        )
-    else -> stringResource(
-        R.string.framing_candidates_empty_range,
-        selection.intervalLowMm!!.roundToInt(),
-        selection.intervalHighMm!!.roundToInt(),
-    )
-}
-
-/**
- * The all-lenses panel (§7.10, 0.13.0): the whole library behind
- * the candidate row's "all lenses" entry, in the tonight-targets
- * sheet's morphology (a bottom-anchored dialog surface). Mount
- * and brand are same-screen FACETS — two chip rows, both visible,
- * narrowing one list — not a cascade of pages: the "mount, then
- * brand, then lens" path takes two taps with the current level
- * always in view. Facet state is the panel's own session state;
- * a pick applies the section's one pick semantic and closes the
- * panel, returning to step 2 at its existing scroll position
- * (the detail dialog underneath is never disposed).
- */
-@Composable
-private fun AllLensesPanel(
-    lenses: List<Lens>,
-    selectedLensId: String?,
-    onPick: (Lens) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var mountFacet by remember { mutableStateOf<String?>(null) }
-    var brandFacet by remember { mutableStateOf<LensBrand?>(null) }
-    val mounts = remember(lenses) { lensMountFacets(lenses) }
-    val brands = remember(lenses) { lensBrandFacets(lenses) }
-    val visible = remember(lenses, mountFacet, brandFacet) {
-        filterLensPanel(lenses, mountFacet, brandFacet)
-    }
-    val customLabel = stringResource(R.string.settings_custom_badge)
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        MaterialTheme.colorScheme.surface,
-                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .width(36.dp)
-                        .height(4.dp)
-                        .background(
-                            MaterialTheme.colorScheme.outlineVariant,
-                            RoundedCornerShape(50),
-                        ),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.framing_all_lenses),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(48.dp)
-                            .height(48.dp)
-                            .clickable { onDismiss() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "✕",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                }
-                LensFacetRow(
-                    label = stringResource(R.string.framing_all_lenses_mount),
-                    values = mounts,
-                    selected = mountFacet,
-                    valueLabel = { it },
-                    onSelect = { mountFacet = it },
-                )
-                LensFacetRow(
-                    label = stringResource(R.string.framing_all_lenses_brand),
-                    values = brands,
-                    selected = brandFacet,
-                    valueLabel = { it.displayName(customLabel) },
-                    onSelect = { brandFacet = it },
-                )
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 320.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    visible.forEach { lens ->
-                        LensPanelRow(
-                            lens = lens,
-                            selected = lens.id == selectedLensId,
-                            custom = lensBrand(lens) == LensBrand.CUSTOM,
-                            customLabel = customLabel,
-                            onClick = { onPick(lens) },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * One facet row of the all-lenses panel: an "all" chip plus one
- * chip per value. The row is generic over the facet's value type
- * so the selection state stays in that type end to end — the
- * brand facet in particular is keyed by the [LensBrand] enum
- * itself, never by looking a display name back up (0.13.1);
- * [valueLabel] is the
- * only place a value becomes display text.
- */
-@Composable
-private fun <T> LensFacetRow(
-    label: String,
-    values: List<T>,
-    selected: T?,
-    valueLabel: (T) -> String,
-    onSelect: (T?) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-        )
-        FilterChip(
-            selected = selected == null,
-            onClick = { onSelect(null) },
-            label = { Text(stringResource(R.string.framing_facet_all)) },
-        )
-        values.forEach { value ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelect(value) },
-                label = { Text(valueLabel(value)) },
-            )
-        }
-    }
-}
-
-/** One lens row of the all-lenses panel: name, focal/aperture line, custom mark. */
-@Composable
-private fun LensPanelRow(
-    lens: Lens,
-    selected: Boolean,
-    custom: Boolean,
-    customLabel: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable { onClick() }
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = lens.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            )
-            Text(
-                text = lensSpecText(lens) + if (custom) " · $customLabel" else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (selected) {
-            Text(
-                text = "✓",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-/**
- * The panel row's focal/aperture line: "135 mm · f/1.8",
- * "35–150 mm · f/2–2.8". The aperture numbers come from the
- * shared [formatApertureValue] — the panel has no aperture
- * formatting of its own (0.13.1; §7.10).
- */
-@Composable
-private fun lensSpecText(lens: Lens): String {
-    val wide = formatApertureValue(lens.maxAperture)
-    if (lens.isPrime) {
-        return stringResource(
-            R.string.framing_lens_spec_prime, lens.focalMinMm.roundToInt(), wide,
-        )
-    }
-    val tele = lens.maxApertureAtMaxFocal
-    return if (tele != null && tele != lens.maxAperture) {
-        stringResource(
-            R.string.framing_lens_spec_zoom_range,
-            lens.focalMinMm.roundToInt(), lens.focalMaxMm.roundToInt(),
-            wide, formatApertureValue(tele),
-        )
-    } else {
-        stringResource(
-            R.string.framing_lens_spec_zoom,
-            lens.focalMinMm.roundToInt(), lens.focalMaxMm.roundToInt(), wide,
-        )
-    }
-}

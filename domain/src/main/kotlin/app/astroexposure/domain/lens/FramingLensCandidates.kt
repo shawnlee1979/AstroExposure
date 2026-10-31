@@ -5,12 +5,11 @@ import kotlin.math.abs
 import kotlin.math.log2
 
 /**
- * Candidate lenses for the framing chart's pick row (ui-design
- * §7.10, 0.13.0): the library filtered to the lenses that can
- * actually reach the subject's suggested focal range, ordered by
- * closeness to the reference focal length. This replaces the
- * whole-library row, which listed every lens however irrelevant
- * to the subject at hand.
+ * Candidate lenses for a subject's suggested focal range
+ * (ui-design §7.10, 0.13.0; consumed by the calculators' lens
+ * picker since 0.14.0): the library filtered to the lenses that
+ * can actually reach the range, ordered by closeness to the
+ * reference focal length.
  *
  * The effective interval is NOT a new band. It is the geometric
  * focal segment whose long-side share runs over
@@ -106,12 +105,12 @@ object FramingLensCandidates {
     }
 
     /**
-     * The focal length a pick lands on (§7.10, 0.13.0): a prime
-     * lands on its own focal length; a zoom lands on the
-     * reference clamped into its segment — a zoom picked for
-     * covering the reference lands on the reference, not on its
-     * wide end; an endpoint-only zoom lands on the nearer
-     * endpoint.
+     * The focal length a pick lands on (§7.10, 0.13.0; the
+     * calculators' picker landing since 0.14.0): a prime lands
+     * on its own focal length; a zoom lands on the reference
+     * clamped into its segment — a zoom picked for covering the
+     * reference lands on the reference, not on its wide end; an
+     * endpoint-only zoom lands on the nearer endpoint.
      */
     fun pickFocalMm(lens: Lens, referenceFocalMm: Double): Double =
         if (lens.isPrime) {

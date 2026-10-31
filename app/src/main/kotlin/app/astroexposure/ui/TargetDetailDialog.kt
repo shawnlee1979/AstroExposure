@@ -42,7 +42,6 @@ import app.astroexposure.R
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ConstellationNames
 import app.astroexposure.domain.catalog.DeepSkyObjectType
-import app.astroexposure.domain.lens.Lens
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.ui.theme.LocalStateColors
@@ -123,7 +122,6 @@ fun TargetDetailDialog(
     siteLatitudeDeg: Double,
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
-    lenses: List<Lens>,
     redLight: Boolean,
     onDismiss: () -> Unit,
     actionLabel: String?,
@@ -384,7 +382,6 @@ fun TargetDetailDialog(
                                         advice = detail.framing,
                                         subjectMajorArcmin =
                                             detail.subject.sizeMajorDeg?.times(60.0) ?: 0.0,
-                                        lenses = lenses,
                                         redLight = redLight,
                                     )
                                 } else if (
