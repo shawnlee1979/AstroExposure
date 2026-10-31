@@ -158,6 +158,10 @@ object LandscapeComposition {
      * the exact check there); [closedFormFocalMm] and
      * [requiredVerticalFovDeg] are reported regardless, as the
      * honest size of the span that was asked for.
+     * [requiredVerticalFovDeg] is null when the span at the anchor
+     * is not positive — the placement formula then has no required
+     * field to state, and printing a number would invent one
+     * (0.17.0).
      * [focalCappedAtMax] marks a closed form beyond the slider
      * domain, solved at [MAX_FOCAL_MM]. [share] is the subject's
      * share of the long side at the derived focal, null without
@@ -169,7 +173,7 @@ object LandscapeComposition {
         val portrait: Boolean,
         val derivedFocalMm: Double?,
         val closedFormFocalMm: Double,
-        val requiredVerticalFovDeg: Double,
+        val requiredVerticalFovDeg: Double?,
         val focalCappedAtMax: Boolean,
         val share: Double?,
         val segments: List<Segment>,
@@ -201,17 +205,30 @@ object LandscapeComposition {
          * At the anchor, neither orientation yields a derived
          * focal: the vertical span needs [requiredVerticalFovDeg]
          * of vertical field, more than the widest frame holds.
+         * [requiredVerticalFovDeg] is null when the span at the
+         * anchor is not positive (the subject top does not rise
+         * past the placement the foreground asks for there): no
+         * required field exists to state.
          */
         data class SpanExceedsWidestFrame(
             val anchorInstant: Instant,
-            val requiredVerticalFovDeg: Double,
+            val requiredVerticalFovDeg: Double?,
         ) : Verdict
 
-        /** Windows exist geometrically but every one lies outside the night span. */
-        data object AllOutsideNight : Verdict
+        /**
+         * Windows exist geometrically but every one lies outside
+         * the night span. Carries the recommended orientation —
+         * the same domain recommendation [Feasible] carries — so
+         * no caller re-derives it (0.17.0).
+         */
+        data class AllOutsideNight(val recommendedPortrait: Boolean) : Verdict
 
-        /** Solvable, but the recommended orientation's longest night window is under the usable floor. */
-        data object WindowTooShort : Verdict
+        /**
+         * Solvable, but the recommended orientation's longest
+         * night window is under the usable floor. Carries the
+         * recommended orientation, like [Feasible] (0.17.0).
+         */
+        data class WindowTooShort(val recommendedPortrait: Boolean) : Verdict
     }
 
     /** The full evaluation of one night, one subject, one foreground top. */
@@ -257,13 +274,14 @@ object LandscapeComposition {
 
         // The vertical span at the anchor and the closed forms it
         // fixes. A non-positive frame height (the subject top does
-        // not rise past the placement the foreground asks for) is
-        // stated as a zero required field and an infinite closed
-        // form, which then walks the capped-at-maximum path below.
+        // not rise past the placement the foreground asks for)
+        // leaves the required field not applicable (null — never a
+        // printed zero) and the closed form infinite, which then
+        // walks the capped-at-maximum path below.
         val span = series.verticalSpanAt(anchorMs, foregroundTopDeg)
         val frameHeight = span / (1.0 - FOREGROUND_TOP_FRACTION)
         val requiredVerticalFovDeg =
-            if (frameHeight <= 0.0) 0.0 else Math.toDegrees(2.0 * atan(frameHeight / 2.0))
+            if (frameHeight <= 0.0) null else Math.toDegrees(2.0 * atan(frameHeight / 2.0))
         fun closedFormFor(portrait: Boolean): Double =
             if (frameHeight <= 0.0) {
                 Double.POSITIVE_INFINITY
@@ -376,8 +394,9 @@ object LandscapeComposition {
 
         val verdict = when {
             recommended.segments.isEmpty() && recommended.geometricSegments.isNotEmpty() ->
-                Verdict.AllOutsideNight
-            recommended.longestSegmentMinutes < MIN_WINDOW_MINUTES -> Verdict.WindowTooShort
+                Verdict.AllOutsideNight(recommendedPortrait = recommended.portrait)
+            recommended.longestSegmentMinutes < MIN_WINDOW_MINUTES ->
+                Verdict.WindowTooShort(recommendedPortrait = recommended.portrait)
             else -> Verdict.Feasible(recommendedPortrait = recommended.portrait)
         }
         return Result(

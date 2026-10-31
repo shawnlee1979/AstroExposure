@@ -497,6 +497,7 @@
     <string name="composition_never_top_note">Unrelated to focal length — the subject stays behind the foreground throughout. Moving position, or facing a lower foreground top, is the only way.</string>
     <string name="composition_span_title">Does not fit: the span exceeds the widest frame</string>
     <string name="composition_span_detail">At the anchor (%1$s) the span needs a vertical field of %2$d° · 14 mm at its widest — landscape %3$d° / portrait %4$d°</string>
+    <string name="composition_span_detail_nonpositive">At the anchor (%1$s) the subject top does not rise past where the foreground top would sit, so the span is not positive · 14 mm at its widest — landscape %2$d° / portrait %3$d°</string>
     <string name="composition_caliber_no_frame">Judged on the skeleton vertices · azimuth follows the subject · foreground top is a representative value along the subject\'s direction</string>
     <string name="composition_caliber_no_frame_anchor">Judged on the anchor (circle diameter = long axis) · azimuth follows the subject · foreground top is a representative value along the subject\'s direction</string>
     <string name="composition_plan_focal_no_share">Composition focal: %1$d mm (%2$s)</string>

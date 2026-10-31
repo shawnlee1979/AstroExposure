@@ -1209,9 +1209,16 @@ class TonightOverviewUseCase(
      * anchor.
      */
     private fun snapshotInstantOf(result: LandscapeComposition.Result): Instant {
-        val recommendedPortrait =
-            (result.verdict as? LandscapeComposition.Verdict.Feasible)
-                ?.recommendedPortrait ?: false
+        // The recommended orientation comes from the verdict —
+        // every feasible-family verdict carries the domain's one
+        // recommendation (0.17.0); the blocking verdicts have no
+        // segments to tie-break and fall back to landscape order.
+        val recommendedPortrait = when (val verdict = result.verdict) {
+            is LandscapeComposition.Verdict.Feasible -> verdict.recommendedPortrait
+            is LandscapeComposition.Verdict.WindowTooShort -> verdict.recommendedPortrait
+            is LandscapeComposition.Verdict.AllOutsideNight -> verdict.recommendedPortrait
+            else -> false
+        }
         val outcomes = listOf(result.landscape, result.portrait)
         val night = outcomes.map { it.segments }
         val pool = if (night.any { it.isNotEmpty() }) {

@@ -364,26 +364,22 @@ internal fun orientationWord(portrait: Boolean): String = stringResource(
 
 /**
  * The outcome the primary lines describe when the caller names no
- * orientation: for a feasible verdict, the verdict's own
- * orientation; otherwise, among the orientations that derived a
- * focal, the one with the longer longest segment (landscape on a
- * tie). Null when neither orientation derived a focal.
+ * orientation: the domain verdict's own recommended orientation —
+ * every feasible-family verdict carries it (§7.9's rule lives in
+ * the domain alone; this function only reads it). Null for the two
+ * blocking verdicts, where neither orientation derived a focal.
  */
 internal fun recommendedOutcome(
     result: LandscapeComposition.Result,
 ): LandscapeComposition.OrientationOutcome? {
-    val verdict = result.verdict
-    if (verdict is LandscapeComposition.Verdict.Feasible) {
-        return if (verdict.recommendedPortrait) result.portrait else result.landscape
+    val recommendedPortrait = when (val verdict = result.verdict) {
+        is LandscapeComposition.Verdict.Feasible -> verdict.recommendedPortrait
+        is LandscapeComposition.Verdict.WindowTooShort -> verdict.recommendedPortrait
+        is LandscapeComposition.Verdict.AllOutsideNight -> verdict.recommendedPortrait
+        is LandscapeComposition.Verdict.NeverAboveForegroundTop,
+        is LandscapeComposition.Verdict.SpanExceedsWidestFrame -> return null
     }
-    val landscape = result.landscape
-    val portrait = result.portrait
-    return when {
-        landscape.derivedFocalMm == null -> portrait.takeIf { it.derivedFocalMm != null }
-        portrait.derivedFocalMm == null -> landscape
-        landscape.longestSegmentMinutes >= portrait.longestSegmentMinutes -> landscape
-        else -> portrait
-    }
+    return if (recommendedPortrait) result.portrait else result.landscape
 }
 
 /**
@@ -447,9 +443,9 @@ fun LandscapeResults(
 
         when (val verdict = result.verdict) {
             is LandscapeComposition.Verdict.Feasible,
-            LandscapeComposition.Verdict.WindowTooShort,
-            LandscapeComposition.Verdict.AllOutsideNight -> {
-                val outsideNight = verdict == LandscapeComposition.Verdict.AllOutsideNight
+            is LandscapeComposition.Verdict.WindowTooShort,
+            is LandscapeComposition.Verdict.AllOutsideNight -> {
+                val outsideNight = verdict is LandscapeComposition.Verdict.AllOutsideNight
                 val segments = if (outsideNight) primary.geometricSegments else primary.segments
                 val derived = primary.derivedFocalMm
                 if (derived != null) {
@@ -549,7 +545,7 @@ fun LandscapeResults(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (verdict == LandscapeComposition.Verdict.WindowTooShort) {
+                if (verdict is LandscapeComposition.Verdict.WindowTooShort) {
                     val longest = segments.maxByOrNull { it.durationMinutes }
                     if (longest != null) {
                         Text(
@@ -598,18 +594,35 @@ fun LandscapeResults(
                     text = stringResource(R.string.composition_span_title),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                // A null required field means the span at the
+                // anchor is not positive: the sentence states that
+                // instead of printing a number (0.17.0).
+                val required = verdict.requiredVerticalFovDeg
                 Text(
-                    text = stringResource(
-                        R.string.composition_span_detail,
-                        formatTime(verdict.anchorInstant, zone),
-                        verdict.requiredVerticalFovDeg.roundToInt(),
-                        LandscapeComposition.verticalFovDeg(
-                            LandscapeComposition.MIN_FOCAL_MM, portrait = false,
-                        ).roundToInt(),
-                        LandscapeComposition.verticalFovDeg(
-                            LandscapeComposition.MIN_FOCAL_MM, portrait = true,
-                        ).roundToInt(),
-                    ),
+                    text = if (required != null) {
+                        stringResource(
+                            R.string.composition_span_detail,
+                            formatTime(verdict.anchorInstant, zone),
+                            required.roundToInt(),
+                            LandscapeComposition.verticalFovDeg(
+                                LandscapeComposition.MIN_FOCAL_MM, portrait = false,
+                            ).roundToInt(),
+                            LandscapeComposition.verticalFovDeg(
+                                LandscapeComposition.MIN_FOCAL_MM, portrait = true,
+                            ).roundToInt(),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.composition_span_detail_nonpositive,
+                            formatTime(verdict.anchorInstant, zone),
+                            LandscapeComposition.verticalFovDeg(
+                                LandscapeComposition.MIN_FOCAL_MM, portrait = false,
+                            ).roundToInt(),
+                            LandscapeComposition.verticalFovDeg(
+                                LandscapeComposition.MIN_FOCAL_MM, portrait = true,
+                            ).roundToInt(),
+                        )
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -705,7 +718,7 @@ private fun LandscapeMiniBar(
 ) {
     val result = evaluation.result
     val primary = if (primaryPortrait) result.portrait else result.landscape
-    val outsideNight = result.verdict == LandscapeComposition.Verdict.AllOutsideNight
+    val outsideNight = result.verdict is LandscapeComposition.Verdict.AllOutsideNight
     val description = stringResource(R.string.composition_minibar_cd)
     val gold = MaterialTheme.colorScheme.primary
     val twilightColor = MaterialTheme.colorScheme.outline

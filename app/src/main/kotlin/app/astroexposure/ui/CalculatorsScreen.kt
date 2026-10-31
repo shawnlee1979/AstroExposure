@@ -1049,7 +1049,7 @@ private fun compositionPlanLines(
     )
     val verdict = result.verdict
     val primary = recommendedOutcome(result)
-    val outsideNight = verdict == LandscapeComposition.Verdict.AllOutsideNight
+    val outsideNight = verdict is LandscapeComposition.Verdict.AllOutsideNight
     val segments = when {
         primary == null -> emptyList()
         outsideNight -> primary.geometricSegments
@@ -1058,8 +1058,8 @@ private fun compositionPlanLines(
     // Line 2: the focal verdict.
     when (verdict) {
         is LandscapeComposition.Verdict.Feasible,
-        LandscapeComposition.Verdict.WindowTooShort,
-        LandscapeComposition.Verdict.AllOutsideNight -> {
+        is LandscapeComposition.Verdict.WindowTooShort,
+        is LandscapeComposition.Verdict.AllOutsideNight -> {
             val derived = primary?.derivedFocalMm
             if (primary != null && derived != null) {
                 val orientation = context.getString(
@@ -1109,7 +1109,7 @@ private fun compositionPlanLines(
             if (outsideNight) {
                 spansText += " · " + context.getString(R.string.composition_twilight_note)
             }
-            if (verdict == LandscapeComposition.Verdict.WindowTooShort) {
+            if (verdict is LandscapeComposition.Verdict.WindowTooShort) {
                 spansText += " · " + context.getString(R.string.composition_too_short_short)
             }
             lines += context.getString(R.string.composition_plan_windows, spansText)

@@ -145,8 +145,8 @@ fun FramingChartSection(
         val eval = landscapeEvaluation
         when (eval?.result?.verdict) {
             is LandscapeComposition.Verdict.Feasible,
-            LandscapeComposition.Verdict.WindowTooShort,
-            LandscapeComposition.Verdict.AllOutsideNight -> {
+            is LandscapeComposition.Verdict.WindowTooShort,
+            is LandscapeComposition.Verdict.AllOutsideNight -> {
                 val outcome = if (portrait) {
                     eval?.result?.portrait
                 } else {

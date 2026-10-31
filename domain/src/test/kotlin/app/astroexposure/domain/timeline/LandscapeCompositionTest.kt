@@ -145,8 +145,8 @@ class LandscapeCompositionTest {
         verdict as LandscapeComposition.Verdict.SpanExceedsWidestFrame
         assertEquals(result.anchor.instant, verdict.anchorInstant)
         assertEquals(at(0), verdict.anchorInstant)
-        assertEquals(128.5, verdict.requiredVerticalFovDeg, 3.0)
-        assertEquals(128.5, result.landscape.requiredVerticalFovDeg, 3.0)
+        assertEquals(128.5, verdict.requiredVerticalFovDeg!!, 3.0)
+        assertEquals(128.5, result.landscape.requiredVerticalFovDeg!!, 3.0)
         assertNull(result.landscape.derivedFocalMm)
         assertNull(result.portrait.derivedFocalMm)
     }
@@ -187,6 +187,12 @@ class LandscapeCompositionTest {
         assertTrue(result.landscape.geometricSegments.isNotEmpty())
         assertTrue(result.landscape.segments.isEmpty())
         assertTrue(result.portrait.segments.isEmpty())
+        // The verdict carries the domain recommendation (0.17.0):
+        // both night windows are empty (a tie), so the larger
+        // derived focal — portrait's — recommends portrait.
+        val verdict = result.verdict as LandscapeComposition.Verdict.AllOutsideNight
+        assertTrue(result.portrait.derivedFocalMm!! > result.landscape.derivedFocalMm!!)
+        assertTrue(verdict.recommendedPortrait)
     }
 
     @Test
@@ -205,6 +211,41 @@ class LandscapeCompositionTest {
         val segment = result.landscape.segments.single()
         assertEquals(6.0, segment.durationMinutes, 0.1)
         assertEquals(600.0, result.landscape.geometricSegments.single().durationMinutes, 1.0)
+        // The verdict carries the domain recommendation (0.17.0):
+        // both orientations hold the same 6-minute night slice, so
+        // the larger derived focal — portrait's — is recommended.
+        val verdict = result.verdict as LandscapeComposition.Verdict.WindowTooShort
+        assertTrue(verdict.recommendedPortrait)
+    }
+
+    @Test
+    fun aNonPositiveSpanAtTheAnchorStatesNoRequiredField() {
+        // The axis crosses the 20° foreground top while the centre
+        // rides at 30° (so the first verdict does not fire), but
+        // inside the night span the centre sits at 5° — more than
+        // the widest frame's reach below the top — so at the
+        // anchor the span is not positive, no focal derives in
+        // either orientation, and the second verdict must state
+        // NO required field rather than a numeric zero (0.17.0).
+        val samples = series(
+            centre = { m -> point(180.0, if (m < 300) 30.0 else 5.0) },
+        )
+        val result = runEval(
+            samples, foregroundTopDeg = 20.0,
+            nightSpan = NightTimeline.Interval(at(300), at(600)),
+        )
+        val verdict = result.verdict
+        assertTrue("was $verdict",
+            verdict is LandscapeComposition.Verdict.SpanExceedsWidestFrame)
+        verdict as LandscapeComposition.Verdict.SpanExceedsWidestFrame
+        assertNull(verdict.requiredVerticalFovDeg)
+        assertNull(result.landscape.requiredVerticalFovDeg)
+        assertNull(result.portrait.requiredVerticalFovDeg)
+        assertEquals(
+            Double.POSITIVE_INFINITY, result.landscape.closedFormFocalMm, 0.0,
+        )
+        assertNull(result.landscape.derivedFocalMm)
+        assertNull(result.portrait.derivedFocalMm)
     }
 
     @Test

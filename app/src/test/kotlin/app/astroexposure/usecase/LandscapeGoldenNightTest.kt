@@ -220,9 +220,21 @@ class LandscapeGoldenNightTest {
         assertNear(local(0, LocalTime.of(17, 48)), geometric.start, 8)
         assertNear(local(0, LocalTime.of(19, 35)), geometric.end, 8)
         assertEquals(107.0, geometric.durationMinutes, 10.0)
+        // The verdict carries the domain recommendation (0.17.0):
+        // both night windows are 0 minutes (a tie), so the larger
+        // derived focal — portrait 37.6 over landscape 25.9 —
+        // recommends portrait. Before 0.17.0 this verdict carried
+        // no recommendation and both call sites defaulted to
+        // landscape by their own divergent re-derivations.
+        val verdict = result.verdict as LandscapeComposition.Verdict.AllOutsideNight
+        assertTrue(verdict.recommendedPortrait)
         // The snapshot falls back to the geometric segments (no
-        // night-cut segment exists); the tie between the two
-        // orientations' equal geometric spans takes landscape.
+        // night-cut segment exists) and takes the longest one's
+        // best moment: landscape's 107 minutes is the longest
+        // across both orientations (portrait's geometric window
+        // is shorter), so no tie reaches the recommended
+        // orientation's preference here.
+        assertEquals(86.0, result.portrait.geometricSegments.single().durationMinutes, 8.0)
         assertNear(local(0, LocalTime.of(18, 43)), evaluation.snapshotInstant, 10)
         // A viewpoint's range is its anchor circle rim.
         assertEquals(48, evaluation.snapshotPoints.size)

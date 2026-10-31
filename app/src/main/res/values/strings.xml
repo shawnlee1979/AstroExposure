@@ -499,6 +499,7 @@
     <string name="composition_never_top_note">与焦距无关——目标全程在地景后方。换机位、或改朝地景顶更低的方向，才有解。</string>
     <string name="composition_span_title">装不下：跨度超出最宽画框</string>
     <string name="composition_span_detail">锚点（%1$s）跨度需垂直视场 %2$d° · 14 mm 最宽 横 %3$d° / 竖 %4$d°</string>
+    <string name="composition_span_detail_nonpositive">锚点（%1$s）目标顶未高出地景顶的安放位置，跨度不为正 · 14 mm 最宽 横 %2$d° / 竖 %3$d°</string>
     <string name="composition_caliber_no_frame">按骨架顶点计 · 方位随目标 · 地景顶按目标方向代表值</string>
     <string name="composition_caliber_no_frame_anchor">按锚点计（圆径＝长轴）· 方位随目标 · 地景顶按目标方向代表值</string>
     <string name="composition_plan_focal_no_share">构图焦距：%1$d mm（%2$s）</string>
