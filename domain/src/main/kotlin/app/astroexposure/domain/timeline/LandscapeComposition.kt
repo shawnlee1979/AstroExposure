@@ -6,39 +6,65 @@ import java.time.Instant
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.roundToLong
+import kotlin.math.tan
 
 /**
- * The landscape composition model (ui-design §7.9, 0.15.0): frame
- * the subject first, then include the foreground. The camera is
- * placed dead on the foreground — its vertical midline on the
- * foreground bearing B, the foreground's top edge (sight-line
- * altitude T) resting at a fixed fraction of the frame height
- * above the lower edge — and everything else is solved, not set:
+ * The landscape composition model, second revision (ui-design
+ * §7.9, 0.16.0): the subject is the anchor and the focal length is
+ * derived, not chosen.
  *
- * - the focal CAP per orientation: at the key moment t̂ (the
- *   subject centre's closest approach to B), the largest focal
- *   length whose frame still holds the whole subject range;
- * - the FEASIBLE interval per orientation: the framing advice
- *   interval (§7.10's share band) cut by the cap;
- * - the recommended focal f*: the largest focal in the feasible
- *   interval whose total window is at least [WINDOW_RULE_FRACTION]
- *   of the best achievable — at the cap itself the window is
- *   typically pinched into a one-sided stub (the cap is defined by
- *   full containment AT t̂), so the naive clamp lands exactly on
- *   the degenerate point;
- * - the WINDOWS at f*: the spans in which the whole subject range
- *   is inside the placed frame, cut to the night span, with the
- *   best moment in the three honest forms (crossing / closest /
- *   crossing cut away by the night).
+ * The subject is already selected, so the frame's vertical
+ * midline follows the subject centre's azimuth A(t) at every
+ * instant; the foreground's azimuth is therefore a derived
+ * quantity and never an input. The only site quantity is the
+ * foreground top altitude T, read as a representative value along
+ * the subject's track and held constant over the night. How much
+ * foreground enters the picture is set by T alone: the foreground
+ * top rests at [FOREGROUND_TOP_FRACTION] of the frame height
+ * above the lower edge (the placement rule), and the vertical
+ * span from T to the subject's top is what the frame must hold.
  *
- * Judgement reuses §7.10's construction verbatim — the same
- * tangent-plane transform and the same in-frame test
- * ([FramingChart.tangentPoint], [FramingChart.pointInFrame]) — with
- * the tangent point moved to the frame centre and the coordinates
- * read as (azimuth, altitude). No second geometry lives here. The
- * camera is modelled level: in landscape mode the frame's up axis
- * is the altitude direction and the framing chart's rotation does
- * not participate (a stated simplification, §7.9).
+ * The solve, per orientation:
+ * - the anchor t̂ is the instant of greatest subject-centre
+ *   altitude inside the night span (the whole sample axis when no
+ *   night span is given); the span is largest there, so a focal
+ *   derived at t̂ is the night's most conservative one. The anchor
+ *   may sit on a night boundary, for instance when the centre
+ *   descends monotonically all night.
+ * - the vertical span S at t̂ is read in the tangent plane at the
+ *   subject centre (roll 0): S = v_top − v_fg, where v_fg is the
+ *   tangent-plane height of the point (A(t̂), T) and v_top the
+ *   greatest tangent-plane height of the subject's range points.
+ *   The subject's bottom does not enter the span; sinking below T
+ *   is judged separately, as a window condition.
+ * - the frame height the span needs is H = S / (1 − p) with
+ *   p = [FOREGROUND_TOP_FRACTION], the required vertical field is
+ *   V_req = 2·atan(H/2), and the closed-form focal is the sensor's
+ *   vertical side over H (24 mm landscape, 36 mm portrait, so the
+ *   portrait closed form is always 1.5x the landscape one).
+ * - an exact containment check at t̂ may only shorten that focal:
+ *   with the tangent point moved to the placed frame centre, the
+ *   candidate is verified with [FramingChart.tangentPoint] and
+ *   [FramingChart.pointInFrame]; a failing candidate is bisected
+ *   down towards [MIN_FOCAL_MM], never raised. The vertical span
+ *   the user set is the primary constraint; a horizontal overflow
+ *   is answered with a shorter focal, never with a taller frame
+ *   that would push the foreground out.
+ * - the windows at the derived focal are the spans where the
+ *   whole range is inside the placed frame AND no range point
+ *   has sunk below T, cut to the night span. A segment's best
+ *   moment is the point of greatest vertical margin inside it
+ *   (see [Series.bestMomentIn]).
+ * - the subject's share of the long side at the derived focal is
+ *   a reported fact only: it never changes a verdict and never
+ *   moves a focal.
+ *
+ * Judgement reuses §7.10's construction: the same tangent-plane
+ * transform and the same in-frame test, with the tangent point at
+ * the placed frame centre and the coordinates read as (azimuth,
+ * altitude). The single placement formula lives in
+ * [frameCentreAltitudeDeg]; nothing else in the codebase
+ * restates it.
  *
  * Subject range (supplied by the caller as sampled sky points):
  * a constellation is its skeleton's unique vertices, a deep-sky
@@ -50,8 +76,8 @@ import kotlin.math.roundToLong
  * the caller samples the ephemeris port on the shared 5-minute
  * grid. Series are treated piecewise-linearly between samples;
  * window boundaries sit at the interpolated zero crossings of the
- * frame slack, the same interpolation discipline as §7.4/§7.9's
- * predecessor.
+ * two window constraints, the same interpolation discipline as
+ * §7.4.
  */
 object LandscapeComposition {
 
@@ -68,9 +94,6 @@ object LandscapeComposition {
      */
     const val FOREGROUND_TOP_FRACTION = 0.1
 
-    /** f* keeps at least this fraction of the best window (§7.9). */
-    const val WINDOW_RULE_FRACTION = 0.9
-
     /**
      * The shortest window still presented as usable, minutes: twice
      * the sampling step — below it the interpolated boundary error
@@ -80,12 +103,14 @@ object LandscapeComposition {
 
     /**
      * The low-altitude hint rail, degrees: below this centre
-     * altitude at t̂ the result carries a neutral extinction /
-     * obstruction note. A hint only — it never cuts a window and
-     * never forms a diagnosis (§7.9; the retired band's floor,
-     * demoted).
+     * altitude at the anchor the result carries a neutral
+     * extinction / obstruction note. A hint only — it never cuts a
+     * window and never forms a diagnosis (§7.9).
      */
     const val LOW_ALTITUDE_HINT_DEG = 5.0
+
+    /** One sampling step, minutes: the recommendation tie band (§7.9). */
+    private const val SAMPLE_STEP_MINUTES = 5.0
 
     /** One sky point's sampled position: azimuth and altitude, degrees. */
     data class PointSample(val azimuthDeg: Double, val altitudeDeg: Double)
@@ -100,46 +125,21 @@ object LandscapeComposition {
         val points: List<PointSample>,
     )
 
-    /** The night's key moment: the centre's closest approach to the bearing. */
-    data class KeyMoment(
+    /** The anchor t̂: the night's greatest centre altitude and where it falls. */
+    data class AnchorMoment(
         val instant: Instant,
-        /** Centre altitude at the key moment, degrees. */
-        val altitudeDeg: Double,
-        /** True when the centre's azimuth crosses the bearing exactly there. */
-        val exactCrossing: Boolean,
-        /** |azimuth − bearing| at the key moment, degrees (≈0 for a crossing). */
-        val residualDeg: Double,
+        /** Centre altitude at the anchor, degrees. */
+        val centreAltitudeDeg: Double,
     )
 
-    /** Which end of a segment a clipped-away crossing belongs to. */
-    enum class SegmentEdge { START, END }
+    /** A segment's best moment: the greatest vertical margin inside it. */
+    data class BestMoment(
+        val instant: Instant,
+        /** Centre altitude at the best moment, degrees. */
+        val centreAltitudeDeg: Double,
+    )
 
-    /** A segment's best moment (the three honest forms, §7.9). */
-    sealed interface BestMoment {
-        /** The centre crosses the bearing inside the segment. */
-        data class Crossing(val instant: Instant, val altitudeDeg: Double) : BestMoment
-
-        /** No crossing inside: the closest approach in the segment, with its residual. */
-        data class ClosestInSegment(
-            val instant: Instant,
-            val altitudeDeg: Double,
-            val residualDiffDeg: Double,
-        ) : BestMoment
-
-        /**
-         * The crossing exists but the night cut removed it from
-         * this segment: [endpoint] stands in as the in-window best
-         * and the true crossing is named alongside (§7.9).
-         */
-        data class CrossingOutsideNight(
-            val edge: SegmentEdge,
-            val endpoint: Instant,
-            val crossingInstant: Instant,
-            val crossingAltitudeDeg: Double,
-        ) : BestMoment
-    }
-
-    /** One in-frame span: bounds, best moment, centre altitude range. */
+    /** One in-window span: bounds, best moment, centre altitude range. */
     data class Segment(
         val start: Instant,
         val end: Instant,
@@ -152,86 +152,79 @@ object LandscapeComposition {
     }
 
     /**
-     * One orientation's solved state. [capFocalMm] is null when even
-     * the widest focal cannot hold the subject at the key moment.
-     * The feasible fields are null when the orientation cannot be
-     * used (no cap, or the cap undercuts the advice interval).
-     * [segments] are the night-cut windows at [recommendedFocalMm];
-     * [geometricSegments] the same windows before the night cut.
+     * One orientation's solved state. [derivedFocalMm] is null when
+     * the orientation cannot be used at the anchor (the closed form
+     * undercuts the widest focal, or even the widest focal fails
+     * the exact check there); [closedFormFocalMm] and
+     * [requiredVerticalFovDeg] are reported regardless, as the
+     * honest size of the span that was asked for.
+     * [focalCappedAtMax] marks a closed form beyond the slider
+     * domain, solved at [MAX_FOCAL_MM]. [share] is the subject's
+     * share of the long side at the derived focal, null without
+     * size data or a derived focal. [segments] are the night-cut
+     * windows at the derived focal; [geometricSegments] the same
+     * windows before the night cut.
      */
     data class OrientationOutcome(
         val portrait: Boolean,
-        val capFocalMm: Double?,
-        val feasibleLowMm: Double?,
-        val feasibleHighMm: Double?,
-        val recommendedFocalMm: Double?,
+        val derivedFocalMm: Double?,
+        val closedFormFocalMm: Double,
+        val requiredVerticalFovDeg: Double,
+        val focalCappedAtMax: Boolean,
+        val share: Double?,
         val segments: List<Segment>,
         val geometricSegments: List<Segment>,
         val totalWindowMinutes: Double,
         val longestSegmentMinutes: Double,
     )
 
-    /** The live-fact row of the share-conflict verdict (§7.9 §2.5-3). */
-    data class LiveFact(
-        val portrait: Boolean,
-        val capFocalMm: Double,
-        /** Windows at the cap focal (night-cut when any exist there). */
-        val segments: List<Segment>,
-        /** True when [segments] are the uncut geometric windows (all in twilight). */
-        val outsideNight: Boolean,
-        /** The subject's actual long-side share at the cap focal, 0..1. */
-        val share: Double,
-    )
-
-    /** The night's verdict — exactly one, in solver precedence (§7.9 §2.5). */
+    /** The night's verdict — exactly one, in solver precedence (§7.9). */
     sealed interface Verdict {
         /** A usable composition exists; [recommendedPortrait] names the recommended orientation. */
         data class Feasible(val recommendedPortrait: Boolean) : Verdict
 
-        /** The centre never comes within the widest frame's half width of the bearing. */
-        data object NeverCrossesBearing : Verdict
-
         /**
-         * Both orientations lack a cap: the vertical span from the
-         * foreground top to the subject top overflows even the
-         * widest frame. [subjectTopAltitudeDeg] is the range's top
-         * at the key moment; [reachableTopDeg] the landscape
-         * 14 mm frame's upper edge.
+         * The subject's lowest range point stays under the
+         * foreground top at every sampled instant of the axis: the
+         * subject passes behind the foreground all night and no
+         * focal length can change that. [maxBottomAltitudeDeg] is
+         * the greatest of those lowest-point altitudes, reached at
+         * [atInstant].
          */
-        data class VerticalOverflow(
-            val subjectTopAltitudeDeg: Double,
-            val reachableTopDeg: Double,
+        data class NeverAboveForegroundTop(
+            val maxBottomAltitudeDeg: Double,
+            val atInstant: Instant,
+            val foregroundTopDeg: Double,
         ) : Verdict
 
         /**
-         * Caps exist but both undercut the advice interval: the
-         * foreground can be included only by framing the subject
-         * smaller than the advised share. [liveFact] is the widest
-         * workable reality, stated as fact — the verdict stands.
+         * At the anchor, neither orientation yields a derived
+         * focal: the vertical span needs [requiredVerticalFovDeg]
+         * of vertical field, more than the widest frame holds.
          */
-        data class ShareConflict(val liveFact: LiveFact?) : Verdict
+        data class SpanExceedsWidestFrame(
+            val anchorInstant: Instant,
+            val requiredVerticalFovDeg: Double,
+        ) : Verdict
 
         /** Windows exist geometrically but every one lies outside the night span. */
         data object AllOutsideNight : Verdict
 
-        /** Feasible, but the recommended orientation's longest window is under the usable floor. */
+        /** Solvable, but the recommended orientation's longest night window is under the usable floor. */
         data object WindowTooShort : Verdict
     }
 
-    /** The full evaluation of one night, one subject, one site. */
+    /** The full evaluation of one night, one subject, one foreground top. */
     data class Result(
-        val keyMoment: KeyMoment,
-        /** The advice interval before the caps (null: no size data, no share constraint). */
-        val adviceLowMm: Double?,
-        val adviceHighMm: Double?,
+        val anchor: AnchorMoment,
         val landscape: OrientationOutcome,
         val portrait: OrientationOutcome,
         val verdict: Verdict,
-        /** t̂ centre altitude under the hint rail (feasible-family verdicts only). */
+        /** Anchor centre altitude under the hint rail (feasible-family verdicts only). */
         val lowAltitudeHint: Boolean,
     )
 
-    /** The frame centre's altitude for a placed frame (§7.9 §2.1). */
+    /** The frame centre's altitude for a placed frame (§7.9): T + (0.5 − p) · V. */
     fun frameCentreAltitudeDeg(foregroundTopDeg: Double, focalMm: Double, portrait: Boolean): Double =
         foregroundTopDeg + (0.5 - FOREGROUND_TOP_FRACTION) * verticalFovDeg(focalMm, portrait)
 
@@ -244,137 +237,143 @@ object LandscapeComposition {
         }
 
     /**
-     * The widest frame's horizontal half width, degrees (landscape
-     * at [MIN_FOCAL_MM]): the reach the never-crosses verdict is
-     * measured against.
-     */
-    val widestHalfWidthDeg: Double =
-        Math.toDegrees(atan((FullFrameFraming.FRAME_LONG_MM / 2.0) / MIN_FOCAL_MM))
-
-    /**
      * Evaluate one night. [samples] are the subject's series over
-     * the night axis (at least two, in time order); [advice] is the
-     * subject's §7.10 framing advice; [sizeMajorArcmin] its
-     * catalogue major axis (for the share figures); [nightSpan] the
-     * span windows are cut to, or null to leave them uncut.
+     * the night axis (at least two, in time order);
+     * [foregroundTopDeg] is the foreground top altitude T;
+     * [sizeMajorArcmin] the subject's catalogue major axis (for the
+     * share figure only); [nightSpan] the span windows are cut to,
+     * or null to leave them uncut.
      */
     fun evaluate(
         samples: List<Sample>,
-        bearingDeg: Double,
         foregroundTopDeg: Double,
-        advice: FullFrameFraming.Advice,
         sizeMajorArcmin: Double?,
         nightSpan: NightTimeline.Interval?,
     ): Result {
         require(samples.size >= 2) { "landscape composition needs a sampled series" }
-        val series = Series(samples, bearingDeg)
-        val key = series.keyMoment()
+        val series = Series(samples)
+        val anchor = series.anchorMoment(nightSpan)
+        val anchorMs = anchor.instant.toEpochMilli()
 
-        // The advice interval in its unclamped share-band form: the
-        // Range form's stored bounds are this interval clamped to
-        // the advice focal limits, which the feasible cut re-derives
-        // against the slider domain anyway.
-        val adviceInterval: Pair<Double, Double>? = when (advice) {
-            is FullFrameFraming.Advice.Range ->
-                Pair(advice.lowFocalMm, advice.highFocalMm)
-            is FullFrameFraming.Advice.CappedAtMaxFocal ->
-                sizeMajorArcmin?.let {
-                    Pair(
-                        FullFrameFraming.focalForShare(it, FullFrameFraming.SHARE_LOW),
-                        FullFrameFraming.focalForShare(it, FullFrameFraming.SHARE_HIGH),
-                    )
-                }
-            is FullFrameFraming.Advice.CappedAtMinFocal ->
-                sizeMajorArcmin?.let {
-                    Pair(
-                        FullFrameFraming.focalForShare(it, FullFrameFraming.SHARE_LOW),
-                        FullFrameFraming.focalForShare(it, FullFrameFraming.SHARE_HIGH),
-                    )
-                }
-            is FullFrameFraming.Advice.NoSizeData -> null
-        }
-        val adviceLow = adviceInterval?.first ?: MIN_FOCAL_MM
-        val adviceHigh = adviceInterval?.second ?: MAX_FOCAL_MM
-
-        if (!key.exactCrossing && key.residualDeg > widestHalfWidthDeg) {
-            val empty = { portrait: Boolean ->
-                OrientationOutcome(portrait, null, null, null, null, emptyList(), emptyList(), 0.0, 0.0)
+        // The vertical span at the anchor and the closed forms it
+        // fixes. A non-positive frame height (the subject top does
+        // not rise past the placement the foreground asks for) is
+        // stated as a zero required field and an infinite closed
+        // form, which then walks the capped-at-maximum path below.
+        val span = series.verticalSpanAt(anchorMs, foregroundTopDeg)
+        val frameHeight = span / (1.0 - FOREGROUND_TOP_FRACTION)
+        val requiredVerticalFovDeg =
+            if (frameHeight <= 0.0) 0.0 else Math.toDegrees(2.0 * atan(frameHeight / 2.0))
+        fun closedFormFor(portrait: Boolean): Double =
+            if (frameHeight <= 0.0) {
+                Double.POSITIVE_INFINITY
+            } else {
+                (if (portrait) FullFrameFraming.FRAME_LONG_MM else FullFrameFraming.FRAME_SHORT_MM) /
+                    frameHeight
             }
-            return Result(
-                keyMoment = key,
-                adviceLowMm = adviceInterval?.first,
-                adviceHighMm = adviceInterval?.second,
-                landscape = empty(false),
-                portrait = empty(true),
-                verdict = Verdict.NeverCrossesBearing,
-                lowAltitudeHint = false,
+
+        fun unsolvedOutcome(portrait: Boolean): OrientationOutcome {
+            val closed = closedFormFor(portrait)
+            return OrientationOutcome(
+                portrait = portrait,
+                derivedFocalMm = null,
+                closedFormFocalMm = closed,
+                requiredVerticalFovDeg = requiredVerticalFovDeg,
+                focalCappedAtMax = closed > MAX_FOCAL_MM,
+                share = null,
+                segments = emptyList(),
+                geometricSegments = emptyList(),
+                totalWindowMinutes = 0.0,
+                longestSegmentMinutes = 0.0,
             )
         }
 
-        val caps = listOf(false, true).associateWith { portrait ->
-            series.capAtKeyMoment(foregroundTopDeg, portrait)
-        }
-        if (caps.values.all { it == null }) {
-            val top = series.rangeTopAltitudeAt(key.instant)
+        // Verdict 1: the subject never rises past the foreground
+        // top. The lowest range point's altitude is read at the
+        // samples; when even its greatest value stays under T, no
+        // focal exists to solve for — both orientations report
+        // their closed forms with no derived focal and no windows.
+        val (maxBottom, maxBottomMs) = series.maxBottom()
+        if (maxBottom < foregroundTopDeg) {
             return Result(
-                keyMoment = key,
-                adviceLowMm = adviceInterval?.first,
-                adviceHighMm = adviceInterval?.second,
-                landscape = OrientationOutcome(false, null, null, null, null, emptyList(), emptyList(), 0.0, 0.0),
-                portrait = OrientationOutcome(true, null, null, null, null, emptyList(), emptyList(), 0.0, 0.0),
-                verdict = Verdict.VerticalOverflow(
-                    subjectTopAltitudeDeg = top,
-                    reachableTopDeg = foregroundTopDeg +
-                        (1.0 - FOREGROUND_TOP_FRACTION) * verticalFovDeg(MIN_FOCAL_MM, portrait = false),
+                anchor = anchor,
+                landscape = unsolvedOutcome(portrait = false),
+                portrait = unsolvedOutcome(portrait = true),
+                verdict = Verdict.NeverAboveForegroundTop(
+                    maxBottomAltitudeDeg = maxBottom,
+                    atInstant = Instant.ofEpochMilli(maxBottomMs),
+                    foregroundTopDeg = foregroundTopDeg,
                 ),
                 lowAltitudeHint = false,
             )
         }
 
-        val outcomes = listOf(false, true).associateWith { portrait ->
-            solveOrientation(series, foregroundTopDeg, portrait, caps.getValue(portrait), adviceLow, adviceHigh, nightSpan)
+        fun solveOrientation(portrait: Boolean): OrientationOutcome {
+            val closed = closedFormFor(portrait)
+            var derived: Double? = null
+            if (closed >= MIN_FOCAL_MM) {
+                val candidate = minOf(closed, MAX_FOCAL_MM)
+                derived = series.focalAtAnchor(anchorMs, foregroundTopDeg, portrait, candidate)
+            }
+            val share = derived?.let { focal ->
+                sizeMajorArcmin?.let { FullFrameFraming.shareAtFocal(it, focal) }
+            }
+            val (segments, geometric) = if (derived != null) {
+                series.windowsAt(foregroundTopDeg, portrait, derived, nightSpan)
+            } else {
+                Pair(emptyList(), emptyList())
+            }
+            return OrientationOutcome(
+                portrait = portrait,
+                derivedFocalMm = derived,
+                closedFormFocalMm = closed,
+                requiredVerticalFovDeg = requiredVerticalFovDeg,
+                focalCappedAtMax = closed > MAX_FOCAL_MM,
+                share = share,
+                segments = segments,
+                geometricSegments = geometric,
+                totalWindowMinutes = segments.sumOf { it.durationMinutes },
+                longestSegmentMinutes = segments.maxOfOrNull { it.durationMinutes } ?: 0.0,
+            )
         }
-        val landscape = outcomes.getValue(false)
-        val portraitOutcome = outcomes.getValue(true)
-        val anyFeasible = landscape.recommendedFocalMm != null || portraitOutcome.recommendedFocalMm != null
 
-        if (!anyFeasible) {
-            // Caps exist (checked above) but both undercut the
-            // advice interval: inclusion and share are mutually
-            // exclusive. The live fact rides the larger cap.
-            val liveFact = listOf(landscape, portraitOutcome)
-                .filter { it.capFocalMm != null }
-                .maxByOrNull { it.capFocalMm!! }
-                ?.let { wider ->
-                    val atCap = series.windowsAt(foregroundTopDeg, wider.portrait, wider.capFocalMm!!, nightSpan)
-                    val share = sizeMajorArcmin?.let {
-                        FullFrameFraming.shareAtFocal(it, wider.capFocalMm)
-                    } ?: 0.0
-                    LiveFact(
-                        portrait = wider.portrait,
-                        capFocalMm = wider.capFocalMm,
-                        segments = atCap.first.ifEmpty { atCap.second },
-                        outsideNight = atCap.first.isEmpty() && atCap.second.isNotEmpty(),
-                        share = share,
-                    )
-                }
+        val landscape = solveOrientation(portrait = false)
+        val portraitOutcome = solveOrientation(portrait = true)
+
+        // Verdict 2: the span defeats the widest frame in both
+        // orientations at the anchor.
+        val feasible = listOf(landscape, portraitOutcome).filter { it.derivedFocalMm != null }
+        if (feasible.isEmpty()) {
             return Result(
-                keyMoment = key,
-                adviceLowMm = adviceInterval?.first,
-                adviceHighMm = adviceInterval?.second,
+                anchor = anchor,
                 landscape = landscape,
                 portrait = portraitOutcome,
-                verdict = Verdict.ShareConflict(liveFact),
+                verdict = Verdict.SpanExceedsWidestFrame(
+                    anchorInstant = anchor.instant,
+                    requiredVerticalFovDeg = requiredVerticalFovDeg,
+                ),
                 lowAltitudeHint = false,
             )
         }
 
-        val recommended = when {
-            landscape.recommendedFocalMm == null -> portraitOutcome
-            portraitOutcome.recommendedFocalMm == null -> landscape
-            landscape.totalWindowMinutes >= portraitOutcome.totalWindowMinutes -> landscape
-            else -> portraitOutcome
+        // The recommended orientation (the §7.9 rule, stated on the
+        // night-cut windows): among the orientations that derived a
+        // focal, the one whose longest night segment is longer;
+        // when the longest segments differ by at most one sampling
+        // step, the larger derived focal (the same window with the
+        // subject larger in frame); when still tied, landscape.
+        val recommended = if (feasible.size == 1) {
+            feasible.first()
+        } else {
+            val diff = portraitOutcome.longestSegmentMinutes - landscape.longestSegmentMinutes
+            when {
+                diff > SAMPLE_STEP_MINUTES -> portraitOutcome
+                diff < -SAMPLE_STEP_MINUTES -> landscape
+                portraitOutcome.derivedFocalMm!! > landscape.derivedFocalMm!! -> portraitOutcome
+                else -> landscape
+            }
         }
+
         val verdict = when {
             recommended.segments.isEmpty() && recommended.geometricSegments.isNotEmpty() ->
                 Verdict.AllOutsideNight
@@ -382,130 +381,33 @@ object LandscapeComposition {
             else -> Verdict.Feasible(recommendedPortrait = recommended.portrait)
         }
         return Result(
-            keyMoment = key,
-            adviceLowMm = adviceInterval?.first,
-            adviceHighMm = adviceInterval?.second,
+            anchor = anchor,
             landscape = landscape,
             portrait = portraitOutcome,
             verdict = verdict,
-            lowAltitudeHint = key.altitudeDeg < LOW_ALTITUDE_HINT_DEG,
+            lowAltitudeHint = anchor.centreAltitudeDeg < LOW_ALTITUDE_HINT_DEG,
         )
-    }
-
-    /**
-     * One orientation's solve: feasible interval, f* and the
-     * windows at f*. A null cap (or a cap under the advice floor)
-     * leaves the feasible fields null — the numbers that do exist
-     * (the cap) stay on the outcome for the honest wording.
-     */
-    private fun solveOrientation(
-        series: Series,
-        foregroundTopDeg: Double,
-        portrait: Boolean,
-        capFocalMm: Double?,
-        adviceLow: Double,
-        adviceHigh: Double,
-        nightSpan: NightTimeline.Interval?,
-    ): OrientationOutcome {
-        if (capFocalMm == null) {
-            return OrientationOutcome(portrait, null, null, null, null, emptyList(), emptyList(), 0.0, 0.0)
-        }
-        val low = maxOf(adviceLow, MIN_FOCAL_MM)
-        val high = minOf(adviceHigh, capFocalMm, MAX_FOCAL_MM)
-        if (low > high) {
-            return OrientationOutcome(portrait, capFocalMm, null, null, null, emptyList(), emptyList(), 0.0, 0.0)
-        }
-        val star = recommendedFocal(series, foregroundTopDeg, portrait, low, high, nightSpan)
-        val (segments, geometric) = series.windowsAt(foregroundTopDeg, portrait, star, nightSpan)
-        return OrientationOutcome(
-            portrait = portrait,
-            capFocalMm = capFocalMm,
-            feasibleLowMm = low,
-            feasibleHighMm = high,
-            recommendedFocalMm = star,
-            segments = segments,
-            geometricSegments = geometric,
-            totalWindowMinutes = segments.sumOf { it.durationMinutes },
-            longestSegmentMinutes = segments.maxOfOrNull { it.durationMinutes } ?: 0.0,
-        )
-    }
-
-    /**
-     * f*: the largest focal in [low, high] whose total window keeps
-     * [WINDOW_RULE_FRACTION] of the best total over the interval.
-     * Scanned on a log grid (focal perception is logarithmic), then
-     * the threshold crossing above the winner is bisected — the
-     * rule exists because the window at the cap is typically a
-     * one-sided stub, and landing on it by construction is the
-     * failure this rule prevents (§7.9 §5).
-     */
-    private fun recommendedFocal(
-        series: Series,
-        foregroundTopDeg: Double,
-        portrait: Boolean,
-        low: Double,
-        high: Double,
-        nightSpan: NightTimeline.Interval?,
-    ): Double {
-        fun totalAt(focal: Double): Double =
-            series.windowsAt(foregroundTopDeg, portrait, focal, nightSpan)
-                .first.sumOf { it.durationMinutes }
-        if (high <= low) return high
-        val gridCount = 41
-        val ratio = high / low
-        val grid = (0 until gridCount).map { i ->
-            low * Math.pow(ratio, i.toDouble() / (gridCount - 1))
-        }
-        val totals = grid.map { totalAt(it) }
-        val best = totals.max()
-        if (best <= 0.0) return high
-        val threshold = WINDOW_RULE_FRACTION * best
-        val winnerIndex = grid.indices.last { totals[it] >= threshold }
-        if (winnerIndex == gridCount - 1) return high
-        // Bisect the threshold crossing in (grid[winner], grid[winner+1]).
-        var lo = grid[winnerIndex]
-        var hi = grid[winnerIndex + 1]
-        repeat(14) {
-            val mid = (lo + hi) / 2.0
-            if (totalAt(mid) >= threshold) lo = mid else hi = mid
-        }
-        return lo
     }
 
     /**
      * The sampled night, prepared once: unwrapped azimuth series
      * for the centre and every range point, so interpolation never
-     * tears at the 0°/360° seam.
+     * tears at the 0°/360° seam, alongside the centre and point
+     * altitude series. All interpolation is piecewise-linear
+     * between samples.
      */
     private class Series(
         private val samples: List<Sample>,
-        private val bearingDeg: Double,
     ) {
         private val times: LongArray = LongArray(samples.size) { samples[it].instant.toEpochMilli() }
         private val centreAlt: DoubleArray = DoubleArray(samples.size) { samples[it].centre.altitudeDeg }
-        /** Centre azimuth difference to the bearing, unwrapped-continuous. */
-        private val centreDiff: DoubleArray = unwrapDiffs(samples.map { it.centre.azimuthDeg })
+        private val centreAz: DoubleArray = unwrapAbsolute(samples.map { it.centre.azimuthDeg })
         private val pointCount: Int = samples.first().points.size
         private val pointAlt: List<DoubleArray> = (0 until pointCount).map { p ->
             DoubleArray(samples.size) { samples[it].points[p].altitudeDeg }
         }
         private val pointAz: List<DoubleArray> = (0 until pointCount).map { p ->
             unwrapAbsolute(samples.map { it.points[p].azimuthDeg })
-        }
-        private val centreAz: DoubleArray = unwrapAbsolute(samples.map { it.centre.azimuthDeg })
-
-        private fun unwrapDiffs(azimuths: List<Double>): DoubleArray {
-            val out = DoubleArray(azimuths.size)
-            var prev = signedDiffToBearing(azimuths.first())
-            out[0] = prev
-            for (i in 1 until azimuths.size) {
-                var d = signedDiffToBearing(azimuths[i])
-                while (d - prev > 180.0) d -= 360.0
-                while (d - prev < -180.0) d += 360.0
-                out[i] = d
-                prev = d
-            }
-            return out
         }
 
         private fun unwrapAbsolute(azimuths: List<Double>): DoubleArray {
@@ -522,15 +424,6 @@ object LandscapeComposition {
             return out
         }
 
-        private fun signedDiffToBearing(azimuthDeg: Double): Double {
-            val az = ((azimuthDeg % 360.0) + 360.0) % 360.0
-            val bearing = ((bearingDeg % 360.0) + 360.0) % 360.0
-            var diff = az - bearing
-            if (diff <= -180.0) diff += 360.0
-            if (diff > 180.0) diff -= 360.0
-            return diff
-        }
-
         /** Piecewise-linear interpolation of [values] at epoch millis [t]. */
         private fun interpAt(values: DoubleArray, t: Long): Double {
             if (t <= times.first()) return values.first()
@@ -543,84 +436,102 @@ object LandscapeComposition {
             return values[i] + f * (values[i + 1] - values[i])
         }
 
-        /** The key moment: the centre's closest approach to the bearing. */
-        fun keyMoment(): KeyMoment {
-            // Candidate instants: every interpolated zero crossing of
-            // the centre difference, plus the closest sample.
-            var bestT = times[0]
-            var bestAbs = abs(centreDiff[0])
-            var bestAlt = centreAlt[0]
-            for (i in centreDiff.indices) {
-                val v = abs(centreDiff[i])
-                if (v < bestAbs) {
-                    bestAbs = v
-                    bestT = times[i]
-                    bestAlt = centreAlt[i]
-                }
-            }
-            var crossingT: Long? = null
-            var crossingAlt = 0.0
-            for (j in 0 until centreDiff.size - 1) {
-                if (centreDiff[j] == 0.0) {
-                    crossingT = times[j]
-                    crossingAlt = centreAlt[j]
-                    break
-                }
-                if (centreDiff[j] * centreDiff[j + 1] < 0.0) {
-                    val f = (0.0 - centreDiff[j]) / (centreDiff[j + 1] - centreDiff[j])
-                    val t = times[j] + (f * (times[j + 1] - times[j])).roundToLong()
-                    // Prefer the crossing whose altitude is highest
-                    // (the night's real pass, not a below-horizon sweep).
-                    val alt = interpAt(centreAlt, t)
-                    if (crossingT == null || alt > crossingAlt) {
-                        crossingT = t
-                        crossingAlt = alt
-                    }
-                }
-            }
-            return if (crossingT != null) {
-                KeyMoment(Instant.ofEpochMilli(crossingT), crossingAlt, exactCrossing = true, residualDeg = 0.0)
-            } else {
-                KeyMoment(Instant.ofEpochMilli(bestT), bestAlt, exactCrossing = false, residualDeg = bestAbs)
-            }
-        }
+        private fun centreAltAt(t: Long): Double = interpAt(centreAlt, t)
 
-        /** The range's top altitude at [t] (the centre's when there are no range points). */
-        fun rangeTopAltitudeAt(t: Instant): Double {
-            val ms = t.toEpochMilli()
-            if (pointCount == 0) return interpAt(centreAlt, ms)
-            return (0 until pointCount).maxOf { p -> interpAt(pointAlt[p], ms) }
+        private fun centreAzAt(t: Long): Double = interpAt(centreAz, t)
+
+        /** The judged points at [t]: the range points, or the centre alone. */
+        private fun judgedPointsAt(t: Long): List<PointSample> =
+            if (pointCount == 0) {
+                listOf(PointSample(centreAzAt(t), centreAltAt(t)))
+            } else {
+                (0 until pointCount).map { p ->
+                    PointSample(interpAt(pointAz[p], t), interpAt(pointAlt[p], t))
+                }
+            }
+
+        /** The lowest judged altitude at sample [i] (the centre's when there are no range points). */
+        private fun bottomAltAtSample(i: Int): Double =
+            if (pointCount == 0) {
+                centreAlt[i]
+            } else {
+                (0 until pointCount).minOf { p -> pointAlt[p][i] }
+            }
+
+        /** The lowest judged altitude at [t], from the interpolated point series. */
+        private fun bottomAltAtTime(t: Long): Double =
+            if (pointCount == 0) {
+                centreAltAt(t)
+            } else {
+                (0 until pointCount).minOf { p -> interpAt(pointAlt[p], t) }
+            }
+
+        /** The greatest sample bottom altitude and the first instant it is reached. */
+        fun maxBottom(): Pair<Double, Long> {
+            var best = Double.NEGATIVE_INFINITY
+            var bestT = times.first()
+            for (i in samples.indices) {
+                val bottom = bottomAltAtSample(i)
+                if (bottom > best) {
+                    best = bottom
+                    bestT = times[i]
+                }
+            }
+            return Pair(best, bestT)
         }
 
         /**
-         * Frame slack at sample [i] for a placed frame: the minimum
-         * over the judged points of the smaller tangent-plane margin
-         * (≥ 0 = inside). Judged points are the range points, or the
-         * centre alone when the subject carries none.
+         * The anchor: the instant of greatest centre altitude
+         * inside the night span (the whole axis when [nightSpan] is
+         * null). The centre altitude is piecewise-linear, so its
+         * maximum over the span falls on a sample or on a span
+         * endpoint; the endpoints are evaluated by interpolation,
+         * so a night that only descends anchors exactly on its
+         * start. Ties keep the earliest instant.
          */
-        private fun slackAt(
-            i: Int,
-            frameCentreAltDeg: Double,
-            spec: FramingChart.FrameSpec,
-        ): Double {
-            val (halfRight, halfUp) = FramingChart.frameHalfExtents(spec)
-            var slack = Double.POSITIVE_INFINITY
-            fun judge(azDeg: Double, altDeg: Double) {
-                val point = FramingChart.tangentPoint(bearingDeg, frameCentreAltDeg, azDeg, altDeg)
-                if (point == null) {
-                    slack = Double.NEGATIVE_INFINITY
-                    return
+        fun anchorMoment(nightSpan: NightTimeline.Interval?): AnchorMoment {
+            val lo = (nightSpan?.start?.toEpochMilli() ?: times.first())
+                .coerceIn(times.first(), times.last())
+            val hi = (nightSpan?.end?.toEpochMilli() ?: times.last())
+                .coerceIn(times.first(), times.last())
+            val candidates = sortedSetOf(lo, hi)
+            for (t in times) if (t in lo..hi) candidates += t
+            var bestT = lo
+            var bestAlt = Double.NEGATIVE_INFINITY
+            for (t in candidates) {
+                val alt = centreAltAt(t)
+                if (alt > bestAlt) {
+                    bestAlt = alt
+                    bestT = t
                 }
-                val (u, v) = FramingChart.frameCoords(point, spec)
-                val s = minOf(halfRight - abs(u), halfUp - abs(v))
-                if (s < slack) slack = s
             }
-            if (pointCount == 0) {
-                judge(centreAz[i], centreAlt[i])
-            } else {
-                for (p in 0 until pointCount) judge(pointAz[p][i], pointAlt[p][i])
+            return AnchorMoment(Instant.ofEpochMilli(bestT), bestAlt)
+        }
+
+        /**
+         * The vertical span S at [t] (see the object doc): the
+         * tangent plane sits at the subject centre, so the
+         * foreground-top point (A(t), T) shares the centre's
+         * azimuth and its height has the closed form
+         * tan(T − centre altitude) — the same value
+         * [FramingChart.tangentPoint] returns for a same-azimuth
+         * point, used directly when that call reports the point
+         * 90+ degrees away. A range point with no tangent
+         * projection counts as infinitely high.
+         */
+        fun verticalSpanAt(t: Long, foregroundTopDeg: Double): Double {
+            val cAz = centreAzAt(t)
+            val cAlt = centreAltAt(t)
+            val vForeground = FramingChart.tangentPoint(cAz, cAlt, cAz, foregroundTopDeg)?.yNorth
+                ?: tan(Math.toRadians(foregroundTopDeg - cAlt))
+            if (pointCount == 0) return 0.0 - vForeground
+            var vTop = Double.NEGATIVE_INFINITY
+            for (point in judgedPointsAt(t)) {
+                val tangent = FramingChart.tangentPoint(cAz, cAlt, point.azimuthDeg, point.altitudeDeg)
+                    ?: return Double.POSITIVE_INFINITY
+                if (tangent.yNorth > vTop) vTop = tangent.yNorth
             }
-            return slack
+            return vTop - vForeground
         }
 
         /** All-in test at an arbitrary instant (interpolated series). */
@@ -629,41 +540,41 @@ object LandscapeComposition {
             frameCentreAltDeg: Double,
             spec: FramingChart.FrameSpec,
         ): Boolean {
-            val (halfRight, halfUp) = FramingChart.frameHalfExtents(spec)
-            fun judge(azDeg: Double, altDeg: Double): Boolean {
-                val point = FramingChart.tangentPoint(bearingDeg, frameCentreAltDeg, azDeg, altDeg)
-                    ?: return false
-                val (u, v) = FramingChart.frameCoords(point, spec)
-                return abs(u) <= halfRight && abs(v) <= halfUp
+            val cAz = centreAzAt(t)
+            for (point in judgedPointsAt(t)) {
+                val tangent = FramingChart.tangentPoint(
+                    cAz, frameCentreAltDeg, point.azimuthDeg, point.altitudeDeg,
+                ) ?: return false
+                if (!FramingChart.pointInFrame(tangent, spec)) return false
             }
-            return if (pointCount == 0) {
-                judge(interpAt(centreAz, t), interpAt(centreAlt, t))
-            } else {
-                (0 until pointCount).all { p ->
-                    judge(interpAt(pointAz[p], t), interpAt(pointAlt[p], t))
-                }
-            }
+            return true
         }
 
         /**
-         * The cap: the largest focal in the slider domain holding
-         * the whole range at the key moment, or null when even the
-         * widest focal fails there. Full containment degrades
-         * monotonically as focal grows (the vertical field shrinks
-         * and the placed centre sinks toward the foreground top),
-         * so bisection is sound.
+         * The derived focal at the anchor for one orientation: the
+         * candidate itself when the exact check holds there, else
+         * the largest focal in [MIN_FOCAL_MM, candidate] that
+         * holds, else null. Full containment degrades monotonically
+         * as the focal grows (the frame shrinks around a centre the
+         * placement rule holds to the foreground), so bisection is
+         * sound; the search only ever shortens the candidate.
          */
-        fun capAtKeyMoment(foregroundTopDeg: Double, portrait: Boolean): Double? {
-            val key = keyMoment()
-            val t = key.instant.toEpochMilli()
+        fun focalAtAnchor(
+            t: Long,
+            foregroundTopDeg: Double,
+            portrait: Boolean,
+            candidate: Double,
+        ): Double? {
             fun fits(focal: Double): Boolean {
-                val centreAlt = frameCentreAltitude(foregroundTopDeg, focal, portrait)
+                val centreAlt = LandscapeComposition.frameCentreAltitudeDeg(
+                    foregroundTopDeg, focal, portrait,
+                )
                 return allInAt(t, centreAlt, FramingChart.FrameSpec(focal, portrait, 0.0))
             }
-            if (!fits(MIN_FOCAL_MM)) return null
-            if (fits(MAX_FOCAL_MM)) return MAX_FOCAL_MM
-            var lo = MIN_FOCAL_MM
-            var hi = MAX_FOCAL_MM
+            if (fits(candidate)) return candidate
+            if (!fits(LandscapeComposition.MIN_FOCAL_MM)) return null
+            var lo = LandscapeComposition.MIN_FOCAL_MM
+            var hi = candidate
             repeat(40) {
                 val mid = (lo + hi) / 2.0
                 if (fits(mid)) lo = mid else hi = mid
@@ -672,9 +583,39 @@ object LandscapeComposition {
         }
 
         /**
+         * Frame slack at [t] for a placed frame: the minimum over
+         * the judged points of the smaller tangent-plane margin
+         * (≥ 0 = inside). The tangent point sits at the frame
+         * centre, whose azimuth is the subject centre's azimuth at
+         * [t] — the midline follows the subject.
+         */
+        private fun frameSlackAtTime(
+            t: Long,
+            frameCentreAltDeg: Double,
+            spec: FramingChart.FrameSpec,
+        ): Double {
+            val (halfRight, halfUp) = FramingChart.frameHalfExtents(spec)
+            val cAz = centreAzAt(t)
+            var slack = Double.POSITIVE_INFINITY
+            for (point in judgedPointsAt(t)) {
+                val tangent = FramingChart.tangentPoint(
+                    cAz, frameCentreAltDeg, point.azimuthDeg, point.altitudeDeg,
+                ) ?: return Double.NEGATIVE_INFINITY
+                val (u, v) = FramingChart.frameCoords(tangent, spec)
+                val s = minOf(halfRight - abs(u), halfUp - abs(v))
+                if (s < slack) slack = s
+            }
+            return slack
+        }
+
+        /**
          * The windows at one focal: (night-cut segments, geometric
-         * segments). Boundaries are the interpolated zero crossings
-         * of the frame slack; best moments follow the three forms.
+         * segments). A sample is in-window when both constraints
+         * hold — the range fully inside the placed frame, and no
+         * point sunk below the foreground top. A run's boundary is
+         * set by whichever constraint crosses zero inside the
+         * neighbouring step: entering takes the later crossing,
+         * leaving the earlier one. Runs are never merged.
          */
         fun windowsAt(
             foregroundTopDeg: Double,
@@ -682,35 +623,50 @@ object LandscapeComposition {
             focalMm: Double,
             nightSpan: NightTimeline.Interval?,
         ): Pair<List<Segment>, List<Segment>> {
-            val centreAlt = frameCentreAltitude(foregroundTopDeg, focalMm, portrait)
+            val frameCentreAlt = LandscapeComposition.frameCentreAltitudeDeg(
+                foregroundTopDeg, focalMm, portrait,
+            )
             val spec = FramingChart.FrameSpec(focalMm, portrait, 0.0)
             val n = samples.size
-            val slacks = DoubleArray(n) { slackAt(it, centreAlt, spec) }
+            val frameSlacks = DoubleArray(n) { frameSlackAtTime(times[it], frameCentreAlt, spec) }
+            val sinkSlacks = DoubleArray(n) { bottomAltAtSample(it) - foregroundTopDeg }
+            fun crossingTime(t0: Long, t1: Long, s0: Double, s1: Double): Long {
+                if (!s0.isFinite()) return t1
+                if (!s1.isFinite()) return t0
+                val f = s0 / (s0 - s1)
+                return t0 + (f * (t1 - t0)).roundToLong()
+            }
+            fun entryTime(prev: Int, curr: Int): Long {
+                val crossings = mutableListOf<Long>()
+                if (frameSlacks[prev] < 0.0 && frameSlacks[curr] >= 0.0) {
+                    crossings += crossingTime(times[prev], times[curr], frameSlacks[prev], frameSlacks[curr])
+                }
+                if (sinkSlacks[prev] < 0.0 && sinkSlacks[curr] >= 0.0) {
+                    crossings += crossingTime(times[prev], times[curr], sinkSlacks[prev], sinkSlacks[curr])
+                }
+                return crossings.maxOrNull() ?: times[curr]
+            }
+            fun exitTime(curr: Int, next: Int): Long {
+                val crossings = mutableListOf<Long>()
+                if (frameSlacks[curr] >= 0.0 && frameSlacks[next] < 0.0) {
+                    crossings += crossingTime(times[curr], times[next], frameSlacks[curr], frameSlacks[next])
+                }
+                if (sinkSlacks[curr] >= 0.0 && sinkSlacks[next] < 0.0) {
+                    crossings += crossingTime(times[curr], times[next], sinkSlacks[curr], sinkSlacks[next])
+                }
+                return crossings.minOrNull() ?: times[curr]
+            }
             val geometric = mutableListOf<Segment>()
             val indexList = samples.indices.toList()
-            for (run in NightTimeline.contiguousRuns(indexList) { slacks[it] >= 0.0 }) {
+            for (run in NightTimeline.contiguousRuns(indexList) {
+                frameSlacks[it] >= 0.0 && sinkSlacks[it] >= 0.0
+            }) {
                 val a = run.first
                 val b = run.last
-                val start: Long = if (a == 0) {
-                    times[0]
-                } else {
-                    val f = slacks[a - 1] / (slacks[a - 1] - slacks[a])
-                    times[a - 1] + (f * (times[a] - times[a - 1])).roundToLong()
-                }
-                val end: Long = if (b == n - 1) {
-                    times[n - 1]
-                } else {
-                    val f = slacks[b] / (slacks[b] - slacks[b + 1])
-                    times[b] + (f * (times[b + 1] - times[b])).roundToLong()
-                }
+                val start: Long = if (a == 0) times[0] else entryTime(a - 1, a)
+                val end: Long = if (b == n - 1) times[n - 1] else exitTime(b, b + 1)
                 if (end <= start) continue
-                geometric += Segment(
-                    start = Instant.ofEpochMilli(start),
-                    end = Instant.ofEpochMilli(end),
-                    best = bestIn(start, end),
-                    minAltitudeDeg = centreRangeIn(start, end).first,
-                    maxAltitudeDeg = centreRangeIn(start, end).second,
-                )
+                geometric += makeSegment(start, end, foregroundTopDeg, frameCentreAlt, spec)
             }
             if (nightSpan == null) return Pair(geometric, geometric)
             val cut = mutableListOf<Segment>()
@@ -721,94 +677,126 @@ object LandscapeComposition {
                 cut += if (cutStart == raw.start && cutEnd == raw.end) {
                     raw
                 } else {
-                    cutSegment(raw, cutStart, cutEnd)
+                    // A cut segment's best moment is recomputed
+                    // inside what remains, never inherited.
+                    makeSegment(
+                        cutStart.toEpochMilli(), cutEnd.toEpochMilli(),
+                        foregroundTopDeg, frameCentreAlt, spec,
+                    )
                 }
             }
             return Pair(cut, geometric)
         }
 
-        /** The frame centre altitude under the placement rule (§7.9 §2.1). */
-        private fun frameCentreAltitude(foregroundTopDeg: Double, focalMm: Double, portrait: Boolean): Double =
-            foregroundTopDeg + (0.5 - FOREGROUND_TOP_FRACTION) * verticalFovDeg(focalMm, portrait)
+        private fun makeSegment(
+            start: Long,
+            end: Long,
+            foregroundTopDeg: Double,
+            frameCentreAltDeg: Double,
+            spec: FramingChart.FrameSpec,
+        ): Segment {
+            val range = centreRangeIn(start, end)
+            return Segment(
+                start = Instant.ofEpochMilli(start),
+                end = Instant.ofEpochMilli(end),
+                best = bestMomentIn(start, end, foregroundTopDeg, frameCentreAltDeg, spec),
+                minAltitudeDeg = range.first,
+                maxAltitudeDeg = range.second,
+            )
+        }
 
         /** Centre altitude min/max over [start, end] (samples plus interpolated ends). */
         private fun centreRangeIn(start: Long, end: Long): Pair<Double, Double> {
-            val values = mutableListOf(interpAt(centreAlt, start), interpAt(centreAlt, end))
+            val values = mutableListOf(centreAltAt(start), centreAltAt(end))
             for (i in times.indices) {
                 if (times[i] in start..end) values += centreAlt[i]
             }
             return Pair(values.min(), values.max())
         }
 
-        /**
-         * The best moment inside [start, end]: a zero crossing of
-         * the centre difference inside the span is the crossing
-         * form; otherwise the closest approach inside the span.
-         */
-        private fun bestIn(start: Long, end: Long): BestMoment {
-            for (j in 0 until centreDiff.size - 1) {
-                if (centreDiff[j] == 0.0 && times[j] in start..end) {
-                    return BestMoment.Crossing(Instant.ofEpochMilli(times[j]), centreAlt[j])
-                }
-                if (centreDiff[j] * centreDiff[j + 1] < 0.0) {
-                    val f = (0.0 - centreDiff[j]) / (centreDiff[j + 1] - centreDiff[j])
-                    val t = times[j] + (f * (times[j + 1] - times[j])).roundToLong()
-                    if (t in start..end) {
-                        return BestMoment.Crossing(Instant.ofEpochMilli(t), interpAt(centreAlt, t))
-                    }
-                }
+        /** The greatest frame-coordinate height among the judged points at [t]. */
+        private fun frameTopAt(
+            t: Long,
+            frameCentreAltDeg: Double,
+            spec: FramingChart.FrameSpec,
+        ): Double {
+            val cAz = centreAzAt(t)
+            var top = Double.NEGATIVE_INFINITY
+            for (point in judgedPointsAt(t)) {
+                val tangent = FramingChart.tangentPoint(
+                    cAz, frameCentreAltDeg, point.azimuthDeg, point.altitudeDeg,
+                ) ?: return Double.POSITIVE_INFINITY
+                val v = FramingChart.frameCoords(tangent, spec).second
+                if (v > top) top = v
             }
-            var bestT = start
-            var bestAbs = abs(interpAt(centreDiff, start))
-            for (i in times.indices) {
-                if (times[i] in start..end) {
-                    val v = abs(centreDiff[i])
-                    if (v < bestAbs) {
-                        bestAbs = v
-                        bestT = times[i]
-                    }
-                }
-            }
-            val endAbs = abs(interpAt(centreDiff, end))
-            if (endAbs < bestAbs) {
-                bestAbs = endAbs
-                bestT = end
-            }
-            return BestMoment.ClosestInSegment(
-                Instant.ofEpochMilli(bestT), interpAt(centreAlt, bestT), bestAbs,
-            )
+            return top
         }
 
         /**
-         * [raw] cut to [cutStart, cutEnd]: a crossing the cut
-         * removed is reported as outside with the nearer endpoint
-         * standing in; a closest point is recomputed inside what
-         * remains (the predecessor's discipline, §7.9).
+         * The vertical margin at [t]: the smaller of the upper
+         * margin (the range top's angular distance under the
+         * frame's upper edge, read in the frame's tangent plane)
+         * and the lower margin (the lowest point's altitude above
+         * the foreground top).
          */
-        private fun cutSegment(raw: Segment, cutStart: Instant, cutEnd: Instant): Segment {
-            val startMs = cutStart.toEpochMilli()
-            val endMs = cutEnd.toEpochMilli()
-            val best: BestMoment = when (val rawBest = raw.best) {
-                is BestMoment.Crossing -> when {
-                    rawBest.instant.isBefore(cutStart) -> BestMoment.CrossingOutsideNight(
-                        SegmentEdge.START, cutStart, rawBest.instant, rawBest.altitudeDeg,
-                    )
-                    rawBest.instant.isAfter(cutEnd) -> BestMoment.CrossingOutsideNight(
-                        SegmentEdge.END, cutEnd, rawBest.instant, rawBest.altitudeDeg,
-                    )
-                    else -> rawBest
+        private fun verticalMarginAt(
+            t: Long,
+            foregroundTopDeg: Double,
+            frameCentreAltDeg: Double,
+            spec: FramingChart.FrameSpec,
+        ): Double {
+            val halfUp = FramingChart.frameHalfExtents(spec).second
+            val vTop = frameTopAt(t, frameCentreAltDeg, spec)
+            val upper = Math.toDegrees(atan(halfUp) - atan(vTop))
+            val lower = bottomAltAtTime(t) - foregroundTopDeg
+            return minOf(upper, lower)
+        }
+
+        /**
+         * The best moment inside [start, end]: the instant of
+         * greatest vertical margin. The segment's samples and ends
+         * are scored first; the winning sample's neighbouring
+         * intervals are then scanned at one-minute steps over the
+         * interpolated series, so the result is a deterministic
+         * function of the samples.
+         */
+        private fun bestMomentIn(
+            start: Long,
+            end: Long,
+            foregroundTopDeg: Double,
+            frameCentreAltDeg: Double,
+            spec: FramingChart.FrameSpec,
+        ): BestMoment {
+            fun margin(t: Long): Double = verticalMarginAt(t, foregroundTopDeg, frameCentreAltDeg, spec)
+            val coarse = sortedSetOf(start, end)
+            for (t in times) if (t in start..end) coarse += t
+            val coarseList = coarse.toList()
+            var bestIndex = 0
+            var bestMargin = Double.NEGATIVE_INFINITY
+            for ((index, t) in coarseList.withIndex()) {
+                val m = margin(t)
+                if (m > bestMargin) {
+                    bestMargin = m
+                    bestIndex = index
                 }
-                is BestMoment.ClosestInSegment -> bestIn(startMs, endMs)
-                is BestMoment.CrossingOutsideNight -> rawBest
             }
-            val range = centreRangeIn(startMs, endMs)
-            return Segment(
-                start = cutStart,
-                end = cutEnd,
-                best = best,
-                minAltitudeDeg = range.first,
-                maxAltitudeDeg = range.second,
-            )
+            val scanStart = if (bestIndex > 0) coarseList[bestIndex - 1] else start
+            val scanEnd = if (bestIndex < coarseList.lastIndex) coarseList[bestIndex + 1] else end
+            var bestT = coarseList[bestIndex]
+            var t = scanStart
+            while (t < scanEnd) {
+                val m = margin(t)
+                if (m > bestMargin) {
+                    bestMargin = m
+                    bestT = t
+                }
+                t += 60_000L
+            }
+            val endMargin = margin(scanEnd)
+            if (endMargin > bestMargin) {
+                bestT = scanEnd
+            }
+            return BestMoment(Instant.ofEpochMilli(bestT), centreAltAt(bestT))
         }
     }
 }
