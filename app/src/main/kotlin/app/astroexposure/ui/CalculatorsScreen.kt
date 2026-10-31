@@ -46,7 +46,7 @@ import app.astroexposure.domain.model.LandscapeModel
 import app.astroexposure.domain.model.MeteorModel
 import android.content.Context
 import app.astroexposure.domain.strictness.Strictness
-import app.astroexposure.domain.timeline.CompositionWindow
+import app.astroexposure.domain.timeline.LandscapeComposition
 import app.astroexposure.domain.tracking.TrackingKind
 import app.astroexposure.domain.tracking.TrackingProfile
 import app.astroexposure.domain.units.Degrees
@@ -647,9 +647,10 @@ private fun LandscapeCalculator(
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
 
-    // The composition block (ui-design §7.9): it stands ABOVE the
-    // framing choices — the foreground bearing is a field
-    // measurement the framing then serves. Subject groups mirror
+    // The landscape composition block (ui-design §7.9, 0.15.0): it
+    // stands ABOVE the framing choices — the site (foreground
+    // bearing + foreground-top altitude) is a field measurement
+    // the framing then serves. Subject groups mirror
     // the board's (the galactic-centre viewpoint is its own chip,
     // fixed); picking a subject also carries its declination into
     // the sky frame's field (§7.8's carry-in rule, the same one the
@@ -675,9 +676,9 @@ private fun LandscapeCalculator(
     val activeCompositionSubject = compositionSubject
     if (compositionSubjects != null && activeCompositionSubject != null) {
         CompositionSection(
-            onEvaluate = { bearing, tolerance ->
-                container.tonightOverview.evaluateCompositionForSubject(
-                    location, date, activeCompositionSubject, bearing, tolerance,
+            onEvaluate = { bearing, top ->
+                container.tonightOverview.evaluateLandscapeForSubject(
+                    location, date, activeCompositionSubject, bearing, top,
                 )
             },
             evaluationKey = activeCompositionSubject.id,
@@ -783,12 +784,12 @@ private fun LandscapeCalculator(
                     }
                 }
             },
-            onStateChange = { bearing, tolerance, evaluation ->
+            onStateChange = { bearing, top, evaluation ->
                 compositionSnapshot = evaluation?.let {
                     CompositionPlanSnapshot(
                         subjectName = compositionSubjectName ?: "",
                         bearingDeg = bearing,
-                        toleranceDeg = tolerance,
+                        topDeg = top,
                         evaluation = it,
                     )
                 }
@@ -949,11 +950,12 @@ private fun LandscapeCalculator(
         )
     }
     SavePlanButton(enabled = true) {
-        // The composition lines ride along when the block produced
+        // The landscape lines ride along when the block produced
         // an evaluation (ui-design §7.9): subject / bearing /
-        // tolerance, the spans and the best moments — or the one
-        // diagnosis, stated as computed. The payload is unchanged:
-        // the plan layer carries no composition parameters.
+        // foreground top, the focal verdict, the spans and the
+        // best moments — or the one diagnosis, stated as computed.
+        // The payload is unchanged: the plan layer carries no
+        // landscape parameters.
         val compositionLines = compositionSnapshot?.let {
             compositionPlanLines(context, it, location.zone)
         } ?: emptyList()
@@ -1011,27 +1013,29 @@ private fun loadCompositionSubjects(container: AppContainer): CompositionSubject
     null
 }
 
-/** What the composition block hands to the plan text on save (ui-design §7.9). */
+/** What the landscape block hands to the plan text on save (ui-design §7.9). */
 private data class CompositionPlanSnapshot(
     val subjectName: String,
     val bearingDeg: Double,
-    val toleranceDeg: Double,
-    val evaluation: TonightOverviewUseCase.CompositionEvaluation,
+    val topDeg: Double,
+    val evaluation: TonightOverviewUseCase.LandscapeEvaluation,
 )
 
 /** A segment's best moment as an instant (an outside-night crossing reports its endpoint). */
-private fun compositionBestInstant(best: CompositionWindow.BestMoment): Instant = when (best) {
-    is CompositionWindow.BestMoment.Crossing -> best.instant
-    is CompositionWindow.BestMoment.ClosestInSegment -> best.instant
-    is CompositionWindow.BestMoment.CrossingOutsideNight -> best.endpoint
+private fun compositionBestInstant(best: LandscapeComposition.BestMoment): Instant = when (best) {
+    is LandscapeComposition.BestMoment.Crossing -> best.instant
+    is LandscapeComposition.BestMoment.ClosestInSegment -> best.instant
+    is LandscapeComposition.BestMoment.CrossingOutsideNight -> best.endpoint
 }
 
 /**
- * The composition block's three plan lines (ui-design §7.9): the
- * subject / bearing / tolerance header, the spans (or the one
- * diagnosis, worded from the same string resources the section
- * renders), and the best moments. Pure text assembly — every number
- * in it comes from the evaluation, none is recomputed here.
+ * The landscape block's four plan lines (ui-design §7.9, 0.15.0):
+ * the subject / bearing / foreground-top header, the focal line
+ * (the recommended orientation's interval, or "does not fit" with
+ * the verdict's short category), the spans (or the diagnosis
+ * category, worded from the same string resources the section
+ * renders), and the best moments. Pure text assembly — every
+ * number in it comes from the evaluation, none is recomputed here.
  */
 private fun compositionPlanLines(
     context: Context,
@@ -1044,56 +1048,87 @@ private fun compositionPlanLines(
             R.string.composition_plan_line,
             snapshot.subjectName,
             snapshot.bearingDeg.roundToInt(),
-            snapshot.toleranceDeg.roundToInt(),
+            snapshot.topDeg.roundToInt(),
         ),
     )
-    val twilightSegments =
-        (result.diagnosis as? CompositionWindow.Diagnosis.TwilightOnly)?.segments
-    val spans = result.segments.ifEmpty { twilightSegments ?: emptyList() }
+    val verdict = result.verdict
+    val primary = recommendedOutcome(result)
+    val outsideNight = verdict == LandscapeComposition.Verdict.AllOutsideNight
+    val segments = when {
+        primary == null -> emptyList()
+        outsideNight -> primary.geometricSegments
+        else -> primary.segments
+    }
+    // Line 2: the focal verdict.
+    when (verdict) {
+        is LandscapeComposition.Verdict.Feasible,
+        LandscapeComposition.Verdict.WindowTooShort,
+        LandscapeComposition.Verdict.AllOutsideNight -> {
+            val low = primary?.feasibleLowMm
+            val high = primary?.feasibleHighMm
+            val recommended = primary?.recommendedFocalMm
+            if (primary != null && low != null && high != null && recommended != null) {
+                lines += context.getString(
+                    R.string.composition_plan_focal,
+                    low.roundToInt(),
+                    high.roundToInt(),
+                    recommended.roundToInt(),
+                    context.getString(
+                        if (primary.portrait) {
+                            R.string.framing_portrait
+                        } else {
+                            R.string.framing_landscape
+                        },
+                    ),
+                )
+            } else {
+                lines += context.getString(
+                    R.string.composition_plan_focal_blocked,
+                    context.getString(R.string.composition_plan_blocked_conflict),
+                )
+            }
+        }
+        LandscapeComposition.Verdict.NeverCrossesBearing -> lines += context.getString(
+            R.string.composition_plan_focal_blocked,
+            context.getString(R.string.composition_plan_blocked_never),
+        )
+        is LandscapeComposition.Verdict.VerticalOverflow -> lines += context.getString(
+            R.string.composition_plan_focal_blocked,
+            context.getString(R.string.composition_plan_blocked_overflow),
+        )
+        is LandscapeComposition.Verdict.ShareConflict -> lines += context.getString(
+            R.string.composition_plan_focal_blocked,
+            context.getString(R.string.composition_plan_blocked_conflict),
+        )
+    }
+    // Lines 3-4: the spans and their best moments, or the diagnosis.
     when {
-        spans.isNotEmpty() -> {
-            val spansText = spans.joinToString(" / ") { segment ->
+        segments.isNotEmpty() -> {
+            var spansText = segments.joinToString(" / ") { segment ->
                 "${formatTime(segment.start, zone)}–${formatTime(segment.end, zone)}"
             }
-            lines += context.getString(
-                R.string.composition_plan_windows,
-                if (twilightSegments != null) {
-                    spansText + " · " + context.getString(R.string.composition_twilight_note)
-                } else {
-                    spansText
-                },
-            )
+            if (outsideNight) {
+                spansText += " · " + context.getString(R.string.composition_twilight_note)
+            }
+            if (verdict == LandscapeComposition.Verdict.WindowTooShort) {
+                spansText += " · " + context.getString(R.string.composition_too_short_short)
+            }
+            lines += context.getString(R.string.composition_plan_windows, spansText)
             lines += context.getString(
                 R.string.composition_plan_best,
-                spans.joinToString(" / ") { segment ->
+                segments.joinToString(" / ") { segment ->
                     formatTime(compositionBestInstant(segment.best), zone)
                 },
             )
         }
         else -> {
-            val diagnosisText = when (val diagnosis = result.diagnosis) {
-                is CompositionWindow.Diagnosis.AltitudeOutsideBand -> when {
-                    diagnosis.azimuthBandMaxAltitudeDeg <
-                        CompositionWindow.MIN_ALTITUDE_DEG -> context.getString(
-                            R.string.composition_empty_below,
-                            diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
-                        )
-                    diagnosis.azimuthBandMinAltitudeDeg >
-                        CompositionWindow.MAX_ALTITUDE_DEG -> context.getString(
-                            R.string.composition_empty_above,
-                            diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
-                        )
-                    else -> context.getString(
-                        R.string.composition_empty_altitude_range,
-                        diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
-                        diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
-                    )
-                }
-                is CompositionWindow.Diagnosis.NeverInAzimuthBand -> context.getString(
-                    R.string.composition_empty_never,
-                    diagnosis.closestDiffDeg.roundToInt(),
-                    formatTime(diagnosis.closestInstant, zone),
-                )
+            val diagnosisText = when (verdict) {
+                LandscapeComposition.Verdict.NeverCrossesBearing ->
+                    context.getString(R.string.composition_never_title)
+                is LandscapeComposition.Verdict.VerticalOverflow ->
+                    context.getString(R.string.composition_overflow_title)
+                is LandscapeComposition.Verdict.ShareConflict ->
+                    context.getString(R.string.composition_conflict_title)
                 else -> ""
             }
             lines += context.getString(R.string.composition_plan_windows, diagnosisText)

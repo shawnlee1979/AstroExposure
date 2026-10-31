@@ -309,15 +309,11 @@ class LensPickerTest {
 
     // -- State-machine wiring (source level) ------------------------
 
-    private fun mainSource(file: String): String {
+    /** Walk up from the working directory to [file] under one of [bases]. */
+    private fun sourceUnder(file: String, bases: List<String>): String {
         var dir = File(System.getProperty("user.dir")).absoluteFile
         while (true) {
-            for (
-                base in listOf(
-                    "app/src/main/kotlin/app/astroexposure/ui",
-                    "src/main/kotlin/app/astroexposure/ui",
-                )
-            ) {
+            for (base in bases) {
                 val candidate = File(dir, "$base/$file")
                 if (candidate.isFile) return candidate.readText()
             }
@@ -325,6 +321,14 @@ class LensPickerTest {
                 ?: error("$file not found above ${System.getProperty("user.dir")}")
         }
     }
+
+    private fun mainSource(file: String): String = sourceUnder(
+        file,
+        listOf(
+            "app/src/main/kotlin/app/astroexposure/ui",
+            "src/main/kotlin/app/astroexposure/ui",
+        ),
+    )
 
     @Test
     fun handoverSetsTheBasisAndFacetsButNeverPicks() {
@@ -366,22 +370,13 @@ class LensPickerTest {
         assertTrue(source.contains("onCamera = { camera = it }"))
     }
 
-    private fun testSource(file: String): String {
-        var dir = File(System.getProperty("user.dir")).absoluteFile
-        while (true) {
-            for (
-                base in listOf(
-                    "app/src/test/kotlin/app/astroexposure/ui",
-                    "src/test/kotlin/app/astroexposure/ui",
-                )
-            ) {
-                val candidate = File(dir, "$base/$file")
-                if (candidate.isFile) return candidate.readText()
-            }
-            dir = dir.parentFile
-                ?: error("$file not found above ${System.getProperty("user.dir")}")
-        }
-    }
+    private fun testSource(file: String): String = sourceUnder(
+        file,
+        listOf(
+            "app/src/test/kotlin/app/astroexposure/ui",
+            "src/test/kotlin/app/astroexposure/ui",
+        ),
+    )
 
     @Test
     fun basisButtonsMeetTheRowHeightFloor() {

@@ -18,9 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astroexposure.R
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
-import app.astroexposure.domain.timeline.CompositionWindow
+import app.astroexposure.domain.timeline.LandscapeComposition
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.ui.theme.LocalStateColors
 import app.astroexposure.usecase.TonightOverviewUseCase
@@ -62,80 +62,123 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 /**
- * The landscape composition section (ui-design §7.9): ONE section
- * behind both entrances — the target detail dialog (its subject is
- * the entry being viewed) and the landscape calculator (its subject
- * comes from the selector the calculator renders into
- * [subjectSelector]). Both feed the same use-case evaluation and
- * render the same result structure; the section owns the bearing
- * and tolerance as session state (a bearing is a field measurement
- * — nothing is persisted and nothing is shared between entrances).
- *
- * The bearing has two writers on one field: the stepper (tap ±1°,
- * hold for repeated ±5° steps, the cursor time bar's button
- * discipline) and compass capture (subscribe only while capturing,
- * cancel on lock-in / cancel / disposal — the finder section's
- * subscription discipline). Evaluation is debounced like the
- * cursor's, so stepping does not evaluate every intermediate value.
- * Both writers also raise the bearing's edited flag: until either
- * has run, the 180° the field opens on is an unedited placeholder
- * and the section marks the evaluation as a sample (§7.9, 0.13.0)
- * — the flag follows the edit, never the value.
+ * The landscape composition component library (ui-design §7.9,
+ * 0.15.0): the site (foreground bearing + foreground-top altitude)
+ * is one grouped input, written by steppers or by a single compass
+ * capture that takes both readings at once; the results render the
+ * domain's verdict — the focal interval that includes the
+ * foreground, the recommended focal, the shootable spans at that
+ * focal and their best moments, or the one honest "does not fit"
+ * category with its figures. The same pieces serve both entrances:
+ * the detail dialog's framing section (behind its "with
+ * foreground" switch, with the snapshot canvas) and the landscape
+ * calculator's always-on group card ([LandscapeGroupCard] via
+ * [CompositionSection]). A site is a field measurement — session
+ * state only, never persisted, never shared between entrances.
+ * Each field carries its own edited flag: until a writer has run,
+ * the value it opens on is a sample and the results say so
+ * (0.13.0's rule, extended to the two-field site).
+ */
+class LandscapeSiteState {
+    var bearingDeg by mutableStateOf(180)
+    var bearingEdited by mutableStateOf(false)
+    var topDeg by mutableStateOf(0)
+    var topEdited by mutableStateOf(false)
+    var evaluation by mutableStateOf<TonightOverviewUseCase.LandscapeEvaluation?>(null)
+
+    /** Write the bearing: wraps into [0, 360) and marks the field edited. */
+    fun writeBearing(value: Int) {
+        bearingDeg = ((value % 360) + 360) % 360
+        bearingEdited = true
+    }
+
+    /** Write the foreground-top altitude: clamps into [-20, 80] and marks edited. */
+    fun writeTop(value: Int) {
+        topDeg = value.coerceIn(-20, 80)
+        topEdited = true
+    }
+}
+
+/** The remembered site state for one entrance instance. */
+@Composable
+fun rememberLandscapeSiteState(): LandscapeSiteState = remember { LandscapeSiteState() }
+
+/**
+ * The evaluation driver: debounced like the cursor's (200 ms, on
+ * the default dispatcher), reporting every settled state through
+ * [onStateChange]. When [evaluationKey] changes the previous
+ * subject's result is cleared BEFORE the new evaluation runs, so a
+ * switched subject never shows the old subject's verdict while the
+ * new one computes.
  */
 @Composable
-fun CompositionSection(
-    onEvaluate: (bearingDeg: Double, toleranceDeg: Double) ->
-        TonightOverviewUseCase.CompositionEvaluation?,
+fun LandscapeEvaluationEffect(
+    state: LandscapeSiteState,
     evaluationKey: Any?,
+    onEvaluate: (Double, Double) -> TonightOverviewUseCase.LandscapeEvaluation?,
+    onStateChange: (Double, Double, TonightOverviewUseCase.LandscapeEvaluation?) -> Unit =
+        { _, _, _ -> },
+) {
+    LaunchedEffect(evaluationKey) {
+        state.evaluation = null
+    }
+    LaunchedEffect(state.bearingDeg, state.topDeg, evaluationKey) {
+        delay(200)
+        val result = withContext(Dispatchers.Default) {
+            onEvaluate(state.bearingDeg.toDouble(), state.topDeg.toDouble())
+        }
+        state.evaluation = result
+    }
+    LaunchedEffect(state.bearingDeg, state.topDeg, state.evaluation) {
+        onStateChange(state.bearingDeg.toDouble(), state.topDeg.toDouble(), state.evaluation)
+    }
+}
+
+/** The "with foreground" switch row shared by the dialog entrances (≥48dp). */
+@Composable
+fun LandscapeSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.composition_switch),
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = stringResource(R.string.composition_switch_purpose),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * The site inputs: the bearing row, the foreground-top row (same
+ * shape; its stepper clamps instead of wrapping) and the capture
+ * row. Capture subscribes only while it runs (the finder section's
+ * discipline); its live line shows heading and pitch together, and
+ * locking in writes both — heading rounded into the bearing, pitch
+ * rounded and clamped into the top altitude — and raises both
+ * edited flags at once. Cancelling writes neither.
+ */
+@Composable
+fun LandscapeSiteInputs(
+    state: LandscapeSiteState,
     orientationProvider: DeviceOrientationProvider,
     siteLatitudeDeg: Double,
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
-    zone: ZoneId,
-    subjectIsViewpoint: Boolean,
-    modifier: Modifier = Modifier,
-    subjectSelector: (@Composable () -> Unit)? = null,
-    onStateChange: (
-        bearingDeg: Double,
-        toleranceDeg: Double,
-        evaluation: TonightOverviewUseCase.CompositionEvaluation?,
-    ) -> Unit = { _, _, _ -> },
 ) {
-    var bearingDeg by remember { mutableStateOf(180) }
-    // Whether the bearing is the user's own yet (ui-design §7.9,
-    // 0.13.0): the field opens on a 180° placeholder, and until a
-    // stepper step or a compass lock-in actually writes it, the
-    // evaluation below is a SAMPLE — the value carries a marker
-    // and the results carry a header saying so. The flag follows
-    // the edit, never the value: a bearing the user really set
-    // to 180° is not a sample. Session state like the bearing
-    // itself (not persisted, not shared between entrances).
-    var bearingEdited by remember { mutableStateOf(false) }
-    var toleranceDeg by remember {
-        mutableStateOf(CompositionWindow.DEFAULT_TOLERANCE_DEG)
-    }
-    var evaluation by remember {
-        mutableStateOf<TonightOverviewUseCase.CompositionEvaluation?>(null)
-    }
-    LaunchedEffect(bearingDeg, toleranceDeg, evaluationKey) {
-        delay(200)
-        val result = withContext(Dispatchers.Default) {
-            onEvaluate(bearingDeg.toDouble(), toleranceDeg)
-        }
-        evaluation = result
-    }
-    LaunchedEffect(bearingDeg, toleranceDeg, evaluation) {
-        onStateChange(bearingDeg.toDouble(), toleranceDeg, evaluation)
-    }
-
     val available = remember(orientationProvider) { orientationProvider.isAvailable() }
     var capturing by remember { mutableStateOf(false) }
     var captureSample by remember {
         mutableStateOf<DeviceOrientationProvider.OrientationSample?>(null)
     }
-    // Capture subscribes only while it runs (the finder section's
-    // discipline): locking in, cancelling or leaving the section
-    // disposes the effect and cancels the subscription.
     DisposableEffect(
         capturing, orientationProvider, siteLatitudeDeg, siteLongitudeDeg,
     ) {
@@ -155,177 +198,136 @@ fun CompositionSection(
         }
     }
 
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Foreground bearing: stepper and compass capture write the
+        // SAME field (ui-design §7.9).
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SectionTitle(stringResource(R.string.composition_title))
             Text(
-                text = stringResource(R.string.composition_purpose),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = stringResource(R.string.composition_bearing_label),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
             )
+            BearingStepButton(
+                label = "−",
+                description = stringResource(R.string.composition_step_down),
+            ) { step -> state.writeBearing(state.bearingDeg - step) }
             Text(
-                text = stringResource(
-                    if (subjectIsViewpoint) {
-                        R.string.composition_caliber_anchor
-                    } else {
-                        R.string.composition_caliber
-                    },
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "${state.bearingDeg}°",
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(60.dp),
             )
-            if (subjectIsViewpoint) {
+            if (!state.bearingEdited) {
                 Text(
-                    text = stringResource(R.string.composition_anchor_extends),
+                    text = stringResource(R.string.composition_example_tag),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            subjectSelector?.invoke()
+            BearingStepButton(
+                label = "+",
+                description = stringResource(R.string.composition_step_up),
+            ) { step -> state.writeBearing(state.bearingDeg + step) }
+        }
 
-            // Foreground bearing: stepper and compass capture write
-            // the SAME field (ui-design §7.9).
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+        // Foreground-top altitude: same stepper shape, clamped.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.composition_site_top_label),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            BearingStepButton(
+                label = "−",
+                description = stringResource(R.string.composition_step_down_top),
+            ) { step -> state.writeTop(state.topDeg - step) }
+            Text(
+                text = "${state.topDeg}°",
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(60.dp),
+            )
+            if (!state.topEdited) {
                 Text(
-                    text = stringResource(R.string.composition_bearing_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.weight(1f),
+                    text = stringResource(R.string.composition_example_tag),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                BearingStepButton(
-                    label = "−",
-                    description = stringResource(R.string.composition_step_down),
-                ) { step ->
-                    bearingDeg = (bearingDeg - step + 360) % 360
-                    bearingEdited = true
-                }
-                Text(
-                    text = "$bearingDeg°",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(60.dp),
-                )
-                if (!bearingEdited) {
-                    Text(
-                        text = stringResource(R.string.composition_example_tag),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                BearingStepButton(
-                    label = "+",
-                    description = stringResource(R.string.composition_step_up),
-                ) { step ->
-                    bearingDeg = (bearingDeg + step) % 360
-                    bearingEdited = true
-                }
             }
-            if (!capturing) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(
-                        onClick = { capturing = true },
-                        enabled = available,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.composition_capture))
-                    }
-                }
-                if (!available) {
-                    Text(
-                        text = stringResource(R.string.composition_capture_unavailable),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                val heading = captureSample?.headingTrueDeg?.let { raw ->
-                    ((raw % 360.0) + 360.0) % 360.0
-                }
-                Text(
-                    text = stringResource(
-                        R.string.composition_capture_live,
-                        heading?.roundToInt()?.rem(360) ?: 0,
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                if (captureSample?.accuracy ==
-                    DeviceOrientationProvider.OrientationAccuracy.LOW ||
-                    captureSample?.accuracy ==
-                    DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
+            BearingStepButton(
+                label = "+",
+                description = stringResource(R.string.composition_step_up_top),
+            ) { step -> state.writeTop(state.topDeg + step) }
+        }
+
+        if (!capturing) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { capturing = true },
+                    enabled = available,
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
-                    Text(
-                        text = stringResource(R.string.finder_calibration_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LocalStateColors.current.warn,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            heading?.let {
-                                bearingDeg = it.roundToInt() % 360
-                                bearingEdited = true
-                            }
-                            capturing = false
-                        },
-                        enabled = heading != null,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.composition_capture_lock))
-                    }
-                    TextButton(
-                        onClick = { capturing = false },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.composition_capture_cancel))
-                    }
+                    Text(stringResource(R.string.composition_capture))
                 }
             }
-
-            // Tolerance tiers (ui-design §7.9): the band's width is
-            // the user's field call; the altitude band is not a
-            // setting and stays fixed.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            if (!available) {
+                Text(
+                    text = stringResource(R.string.composition_capture_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            val heading = captureSample?.headingTrueDeg?.let { raw ->
+                ((raw % 360.0) + 360.0) % 360.0
+            }
+            val pitch = captureSample?.pitchDeg
+            Text(
+                text = stringResource(
+                    R.string.composition_capture_live2,
+                    heading?.roundToInt()?.rem(360) ?: 0,
+                    pitch?.roundToInt() ?: 0,
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (captureSample?.accuracy ==
+                DeviceOrientationProvider.OrientationAccuracy.LOW ||
+                captureSample?.accuracy ==
+                DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
             ) {
                 Text(
-                    text = stringResource(R.string.composition_tolerance_label),
-                    style = MaterialTheme.typography.labelLarge,
+                    text = stringResource(R.string.finder_calibration_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalStateColors.current.warn,
                 )
-                CompositionWindow.TOLERANCE_TIERS_DEG.forEach { tier ->
-                    FilterChip(
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        selected = toleranceDeg == tier,
-                        onClick = { toleranceDeg = tier },
-                        label = { Text("±${tier.roundToInt()}°") },
-                    )
-                }
             }
-
-            val current = evaluation
-            if (current == null) {
-                Text(text = "…", style = MaterialTheme.typography.bodyLarge)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!bearingEdited) {
-                        Text(
-                            text = stringResource(
-                                R.string.composition_example_note, bearingDeg,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    CompositionResults(evaluation = current, zone = zone)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        heading?.let { state.writeBearing(it.roundToInt()) }
+                        pitch?.let { state.writeTop(it.roundToInt()) }
+                        capturing = false
+                    },
+                    enabled = heading != null,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.composition_capture_lock))
+                }
+                TextButton(
+                    onClick = { capturing = false },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.composition_capture_cancel))
                 }
             }
         }
@@ -333,12 +335,12 @@ fun CompositionSection(
 }
 
 /**
- * One bearing step button (the cursor time bar's discipline,
- * ui-design §7.5): a tap steps 1°, a hold switches to repeated 5°
- * steps until release. [onStep] receives the unsigned step size.
+ * One step button (the cursor time bar's discipline, ui-design
+ * §7.5): a tap steps 1°, a hold switches to repeated 5° steps until
+ * release. [onStep] receives the unsigned step size.
  */
 @Composable
-private fun BearingStepButton(
+internal fun BearingStepButton(
     label: String,
     description: String,
     onStep: (Int) -> Unit,
@@ -385,76 +387,254 @@ private fun BearingStepButton(
     }
 }
 
-/** The evaluation's verdict: spans with their best moments, or the one diagnosis. */
+/** The orientation word for an outcome ("landscape" / "portrait"). */
 @Composable
-private fun CompositionResults(
-    evaluation: TonightOverviewUseCase.CompositionEvaluation,
+internal fun orientationWord(portrait: Boolean): String = stringResource(
+    if (portrait) R.string.framing_portrait else R.string.framing_landscape,
+)
+
+/**
+ * The outcome the verdict recommends: the feasible one with the
+ * longer total window (landscape on a tie) — the domain's own
+ * recommendation rule, re-derived here only to pick which outcome
+ * the primary lines describe when the caller names no orientation.
+ * Null when neither orientation is feasible.
+ */
+internal fun recommendedOutcome(
+    result: LandscapeComposition.Result,
+): LandscapeComposition.OrientationOutcome? {
+    val landscape = result.landscape
+    val portrait = result.portrait
+    return when {
+        landscape.recommendedFocalMm == null -> portrait.takeIf { it.recommendedFocalMm != null }
+        portrait.recommendedFocalMm == null -> landscape
+        landscape.totalWindowMinutes >= portrait.totalWindowMinutes -> landscape
+        else -> portrait
+    }
+}
+
+/**
+ * The verdict's rendering (ui-design §7.9 §4.2), in row order: the
+ * sample-site crown line (while either field is unedited), the
+ * verdict's own lines — gold only on the focal conclusion and the
+ * best-moment lines — the mini time bar, and the standing caliber
+ * line. [primaryPortrait] names the orientation the primary lines
+ * describe; the other orientation gets its one contrast line.
+ */
+@Composable
+fun LandscapeResults(
+    evaluation: TonightOverviewUseCase.LandscapeEvaluation,
     zone: ZoneId,
+    subjectIsViewpoint: Boolean,
+    primaryPortrait: Boolean,
+    bearingEdited: Boolean = true,
+    topEdited: Boolean = true,
 ) {
     val result = evaluation.result
+    val context = LocalContext.current
+    val primary = if (primaryPortrait) result.portrait else result.landscape
+    val other = if (primaryPortrait) result.landscape else result.portrait
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (result.segments.isNotEmpty()) {
-            result.segments.forEach { segment ->
-                CompositionSegmentLines(segment = segment, zone = zone)
-            }
-        } else {
-            when (val diagnosis = result.diagnosis) {
-                is CompositionWindow.Diagnosis.TwilightOnly -> {
+        if (!bearingEdited || !topEdited) {
+            val tag = stringResource(R.string.composition_example_tag)
+            val bearingBase = stringResource(
+                R.string.composition_site_bearing_part,
+                evaluation.bearingDeg.roundToInt(),
+            )
+            val topBase = stringResource(
+                R.string.composition_site_top_part,
+                evaluation.foregroundTopDeg.roundToInt(),
+            )
+            Text(
+                text = stringResource(
+                    R.string.composition_example_note,
+                    if (bearingEdited) bearingBase else "$bearingBase（$tag）",
+                    if (topEdited) topBase else "$topBase（$tag）",
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        when (val verdict = result.verdict) {
+            is LandscapeComposition.Verdict.Feasible,
+            LandscapeComposition.Verdict.WindowTooShort,
+            LandscapeComposition.Verdict.AllOutsideNight -> {
+                val outsideNight = verdict == LandscapeComposition.Verdict.AllOutsideNight
+                val segments = if (outsideNight) primary.geometricSegments else primary.segments
+                val low = primary.feasibleLowMm
+                val high = primary.feasibleHighMm
+                val recommended = primary.recommendedFocalMm
+                if (low != null && high != null && recommended != null) {
+                    Text(
+                        text = stringResource(
+                            R.string.composition_focal_conclusion,
+                            low.roundToInt(), high.roundToInt(), recommended.roundToInt(),
+                            orientationWord(primary.portrait),
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                // The other orientation's one contrast line.
+                val otherLow = other.feasibleLowMm
+                val otherHigh = other.feasibleHighMm
+                val otherCap = other.capFocalMm
+                Text(
+                    text = when {
+                        otherLow != null && otherHigh != null -> stringResource(
+                            R.string.composition_other_feasible,
+                            orientationWord(other.portrait),
+                            otherLow.roundToInt(), otherHigh.roundToInt(),
+                            compositionDurationText(
+                                context, other.totalWindowMinutes.roundToInt().toLong(),
+                            ),
+                        )
+                        otherCap == null -> stringResource(
+                            R.string.composition_other_no_cap,
+                            orientationWord(other.portrait),
+                        )
+                        else -> stringResource(
+                            R.string.composition_other_capped,
+                            orientationWord(other.portrait),
+                            otherCap.roundToInt(),
+                        )
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (outsideNight) {
                     Text(
                         text = stringResource(R.string.composition_twilight_note),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    diagnosis.segments.forEach { segment ->
-                        CompositionSegmentLines(segment = segment, zone = zone)
-                    }
                 }
-                is CompositionWindow.Diagnosis.AltitudeOutsideBand ->
+                segments.forEach { segment ->
+                    LandscapeSegmentLines(segment = segment, zone = zone)
+                }
+                if (verdict == LandscapeComposition.Verdict.WindowTooShort) {
+                    val longest = segments.maxByOrNull { it.durationMinutes }
                     Text(
-                        text = compositionAltitudeDiagnosisText(diagnosis),
+                        text = stringResource(R.string.composition_too_short_title),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                is CompositionWindow.Diagnosis.NeverInAzimuthBand ->
+                    if (longest != null) {
+                        Text(
+                            text = stringResource(
+                                R.string.composition_too_short_detail,
+                                formatTime(longest.start, zone),
+                                formatTime(longest.end, zone),
+                                longest.durationMinutes.roundToInt(),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+                if (result.lowAltitudeHint) {
+                    Text(
+                        text = stringResource(R.string.composition_low_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            LandscapeComposition.Verdict.NeverCrossesBearing -> {
+                Text(
+                    text = stringResource(R.string.composition_never_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.composition_never_detail,
+                        formatTime(result.keyMoment.instant, zone),
+                        result.keyMoment.residualDeg.roundToInt(),
+                        LandscapeComposition.widestHalfWidthDeg.roundToInt(),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            is LandscapeComposition.Verdict.VerticalOverflow -> {
+                Text(
+                    text = stringResource(R.string.composition_overflow_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.composition_overflow_detail,
+                        verdict.subjectTopAltitudeDeg.roundToInt(),
+                        verdict.reachableTopDeg.roundToInt(),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            is LandscapeComposition.Verdict.ShareConflict -> {
+                Text(
+                    text = stringResource(R.string.composition_conflict_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.composition_conflict_detail,
+                        result.landscape.capFocalMm?.roundToInt()?.toString() ?: "—",
+                        result.portrait.capFocalMm?.roundToInt()?.toString() ?: "—",
+                        result.adviceLowMm?.roundToInt() ?: 0,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                verdict.liveFact?.let { fact ->
+                    val spans = fact.segments.joinToString(" / ") { segment ->
+                        "${formatTime(segment.start, zone)}–${formatTime(segment.end, zone)}"
+                    }
+                    val spansText = if (fact.outsideNight) {
+                        spans + " · " + stringResource(R.string.composition_twilight_note)
+                    } else {
+                        spans
+                    }
                     Text(
                         text = stringResource(
-                            R.string.composition_empty_never,
-                            diagnosis.closestDiffDeg.roundToInt(),
-                            formatTime(diagnosis.closestInstant, zone),
+                            R.string.composition_live_fact,
+                            (fact.share * 100).roundToInt(),
+                            orientationWord(fact.portrait),
+                            fact.capFocalMm.roundToInt(),
+                            spansText,
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                null -> Unit
+                }
             }
         }
-        CompositionMiniBar(evaluation = evaluation)
-    }
-}
 
-/** The altitude diagnosis's wording: which bound the band fails, from its range. */
-@Composable
-private fun compositionAltitudeDiagnosisText(
-    diagnosis: CompositionWindow.Diagnosis.AltitudeOutsideBand,
-): String = when {
-    diagnosis.azimuthBandMaxAltitudeDeg < CompositionWindow.MIN_ALTITUDE_DEG ->
-        stringResource(
-            R.string.composition_empty_below,
-            diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
+        LandscapeMiniBar(evaluation = evaluation, primaryPortrait = primaryPortrait)
+
+        // The standing caliber line: the fixed placement rule is
+        // part of the answer and stays on screen with it.
+        Text(
+            text = stringResource(
+                if (subjectIsViewpoint) {
+                    R.string.composition_caliber_anchor
+                } else {
+                    R.string.composition_caliber
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    diagnosis.azimuthBandMinAltitudeDeg > CompositionWindow.MAX_ALTITUDE_DEG ->
-        stringResource(
-            R.string.composition_empty_above,
-            diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
-        )
-    else -> stringResource(
-        R.string.composition_empty_altitude_range,
-        diagnosis.azimuthBandMinAltitudeDeg.roundToInt(),
-        diagnosis.azimuthBandMaxAltitudeDeg.roundToInt(),
-    )
+        if (subjectIsViewpoint) {
+            Text(
+                text = stringResource(R.string.composition_anchor_extends),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /** One span's three lines: bounds + duration, the best moment (gold), the altitude range. */
 @Composable
-private fun CompositionSegmentLines(
-    segment: CompositionWindow.Segment,
+private fun LandscapeSegmentLines(
+    segment: LandscapeComposition.Segment,
     zone: ZoneId,
 ) {
     val context = LocalContext.current
@@ -469,19 +649,19 @@ private fun CompositionSegmentLines(
         )
         Text(
             text = when (val best = segment.best) {
-                is CompositionWindow.BestMoment.Crossing -> stringResource(
+                is LandscapeComposition.BestMoment.Crossing -> stringResource(
                     R.string.composition_best_crossing,
                     formatTime(best.instant, zone),
                     best.altitudeDeg.roundToInt(),
                 )
-                is CompositionWindow.BestMoment.ClosestInSegment -> stringResource(
+                is LandscapeComposition.BestMoment.ClosestInSegment -> stringResource(
                     R.string.composition_best_closest,
                     formatTime(best.instant, zone),
                     best.residualDiffDeg.roundToInt(),
                     best.altitudeDeg.roundToInt(),
                 )
-                is CompositionWindow.BestMoment.CrossingOutsideNight -> stringResource(
-                    if (best.edge == CompositionWindow.SegmentEdge.START) {
+                is LandscapeComposition.BestMoment.CrossingOutsideNight -> stringResource(
+                    if (best.edge == LandscapeComposition.SegmentEdge.START) {
                         R.string.composition_best_outside_start
                     } else {
                         R.string.composition_best_outside_end
@@ -520,19 +700,22 @@ internal fun compositionDurationText(context: android.content.Context, minutes: 
 }
 
 /**
- * The section's own whole-night bar (ui-design §7.9): the
- * composition window's time presentation stays inside the section
- * and never joins the main timeline. The astronomical night is the
- * dark span; composition spans are gold (twilight-only spans in the
- * outline tone, since they sit outside the dark span by
- * definition); each span's best moment is a gold tick.
+ * The group's own whole-night bar (ui-design §7.9): the landscape
+ * presentation stays inside the group and never joins the main
+ * timeline. The astronomical night is the dark span; the primary
+ * orientation's spans are gold — for the all-outside-night verdict
+ * the geometric spans are drawn in the outline tone instead, since
+ * they sit outside the dark span by definition; each span's best
+ * moment is a gold tick.
  */
 @Composable
-private fun CompositionMiniBar(evaluation: TonightOverviewUseCase.CompositionEvaluation) {
+private fun LandscapeMiniBar(
+    evaluation: TonightOverviewUseCase.LandscapeEvaluation,
+    primaryPortrait: Boolean,
+) {
     val result = evaluation.result
-    val twilightSegments =
-        (result.diagnosis as? CompositionWindow.Diagnosis.TwilightOnly)?.segments
-            ?: emptyList()
+    val primary = if (primaryPortrait) result.portrait else result.landscape
+    val outsideNight = result.verdict == LandscapeComposition.Verdict.AllOutsideNight
     val description = stringResource(R.string.composition_minibar_cd)
     val gold = MaterialTheme.colorScheme.primary
     val twilightColor = MaterialTheme.colorScheme.outline
@@ -550,8 +733,7 @@ private fun CompositionMiniBar(evaluation: TonightOverviewUseCase.CompositionEva
         fun x(instant: Instant): Double =
             NightTimeline.fractionOf(instant, evaluation.axisStart, evaluation.axisEnd) *
                 widthDp
-        // One span on the bar: its fill plus the best moment's tick.
-        val segmentBox: @Composable (CompositionWindow.Segment, Color) -> Unit =
+        val segmentBox: @Composable (LandscapeComposition.Segment, Color) -> Unit =
             { segment, fill ->
                 Box(
                     modifier = Modifier
@@ -561,9 +743,9 @@ private fun CompositionMiniBar(evaluation: TonightOverviewUseCase.CompositionEva
                         .background(fill),
                 )
                 val tickAt = when (val best = segment.best) {
-                    is CompositionWindow.BestMoment.Crossing -> best.instant
-                    is CompositionWindow.BestMoment.ClosestInSegment -> best.instant
-                    is CompositionWindow.BestMoment.CrossingOutsideNight -> best.endpoint
+                    is LandscapeComposition.BestMoment.Crossing -> best.instant
+                    is LandscapeComposition.BestMoment.ClosestInSegment -> best.instant
+                    is LandscapeComposition.BestMoment.CrossingOutsideNight -> best.endpoint
                 }
                 Box(
                     modifier = Modifier
@@ -582,11 +764,117 @@ private fun CompositionMiniBar(evaluation: TonightOverviewUseCase.CompositionEva
                     .background(Color.Black.copy(alpha = 0.35f)),
             )
         }
-        twilightSegments.forEach { segment ->
-            segmentBox(segment, twilightColor.copy(alpha = 0.55f))
-        }
-        result.segments.forEach { segment ->
-            segmentBox(segment, gold.copy(alpha = 0.55f))
+        if (outsideNight) {
+            primary.geometricSegments.forEach { segment ->
+                segmentBox(segment, twilightColor.copy(alpha = 0.55f))
+            }
+        } else {
+            primary.segments.forEach { segment ->
+                segmentBox(segment, gold.copy(alpha = 0.55f))
+            }
         }
     }
+}
+
+/**
+ * The always-on landscape group card (the calculator entrance):
+ * title, purpose, the caller's subject selector, the site inputs
+ * and the results for [state]'s evaluation. [primaryPortrait]
+ * overrides the primary orientation; left null the results follow
+ * the verdict's recommended orientation.
+ */
+@Composable
+fun LandscapeGroupCard(
+    state: LandscapeSiteState,
+    orientationProvider: DeviceOrientationProvider,
+    siteLatitudeDeg: Double,
+    siteLongitudeDeg: Double,
+    siteAltitudeMeters: Double,
+    zone: ZoneId,
+    subjectIsViewpoint: Boolean,
+    modifier: Modifier = Modifier,
+    subjectSelector: (@Composable () -> Unit)? = null,
+    primaryPortrait: Boolean? = null,
+) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            SectionTitle(stringResource(R.string.composition_title))
+            Text(
+                text = stringResource(R.string.composition_purpose),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            subjectSelector?.invoke()
+            LandscapeSiteInputs(
+                state = state,
+                orientationProvider = orientationProvider,
+                siteLatitudeDeg = siteLatitudeDeg,
+                siteLongitudeDeg = siteLongitudeDeg,
+                siteAltitudeMeters = siteAltitudeMeters,
+            )
+            val current = state.evaluation
+            if (current == null) {
+                Text(text = "…", style = MaterialTheme.typography.bodyLarge)
+            } else {
+                LandscapeResults(
+                    evaluation = current,
+                    zone = zone,
+                    subjectIsViewpoint = subjectIsViewpoint,
+                    primaryPortrait = primaryPortrait
+                        ?: recommendedOutcome(current.result)?.portrait
+                        ?: false,
+                    bearingEdited = state.bearingEdited,
+                    topEdited = state.topEdited,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The landscape calculator's section (ui-design §7.9): owns its
+ * site state, drives its evaluation and renders
+ * [LandscapeGroupCard]; [onStateChange] hands the settled site and
+ * evaluation to the caller (the plan text rides on it).
+ */
+@Composable
+fun CompositionSection(
+    onEvaluate: (bearingDeg: Double, topDeg: Double) ->
+        TonightOverviewUseCase.LandscapeEvaluation?,
+    evaluationKey: Any?,
+    orientationProvider: DeviceOrientationProvider,
+    siteLatitudeDeg: Double,
+    siteLongitudeDeg: Double,
+    siteAltitudeMeters: Double,
+    zone: ZoneId,
+    subjectIsViewpoint: Boolean,
+    modifier: Modifier = Modifier,
+    subjectSelector: (@Composable () -> Unit)? = null,
+    onStateChange: (
+        bearingDeg: Double,
+        topDeg: Double,
+        evaluation: TonightOverviewUseCase.LandscapeEvaluation?,
+    ) -> Unit = { _, _, _ -> },
+) {
+    val state = rememberLandscapeSiteState()
+    LandscapeEvaluationEffect(
+        state = state,
+        evaluationKey = evaluationKey,
+        onEvaluate = onEvaluate,
+        onStateChange = onStateChange,
+    )
+    LandscapeGroupCard(
+        state = state,
+        orientationProvider = orientationProvider,
+        siteLatitudeDeg = siteLatitudeDeg,
+        siteLongitudeDeg = siteLongitudeDeg,
+        siteAltitudeMeters = siteAltitudeMeters,
+        zone = zone,
+        subjectIsViewpoint = subjectIsViewpoint,
+        modifier = modifier,
+        subjectSelector = subjectSelector,
+    )
 }

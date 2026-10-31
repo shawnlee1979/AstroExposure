@@ -125,8 +125,8 @@ fun TonightScreen(
     onEvaluateTarget: (Instant, String) -> TonightOverviewUseCase.TargetDetail?,
     /** The lens library (built-in + custom), for the detail dialog's framing chart (§7.10). */
     lenses: List<app.astroexposure.domain.lens.Lens>,
-    onEvaluateComposition: (String, Double, Double) ->
-        TonightOverviewUseCase.CompositionEvaluation?,
+    onEvaluateLandscape: (String, Double, Double) ->
+        TonightOverviewUseCase.LandscapeEvaluation?,
     onOpenTargetCalculator: (CalcCategory, CalcPrefill) -> Unit,
     orientationProvider: app.astroexposure.domain.orientation.DeviceOrientationProvider,
     siteLatitudeDeg: Double,
@@ -758,8 +758,8 @@ fun TonightScreen(
                     } else {
                         null
                     },
-                    onEvaluateComposition = { bearingDeg, toleranceDeg ->
-                        onEvaluateComposition(id, bearingDeg, toleranceDeg)
+                    onEvaluateLandscape = { bearingDeg, topDeg ->
+                        onEvaluateLandscape(id, bearingDeg, topDeg)
                     },
                     redLight = redLight,
                 )

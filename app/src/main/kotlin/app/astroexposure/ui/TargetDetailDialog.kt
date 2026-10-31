@@ -15,12 +15,16 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,7 +68,7 @@ internal enum class DetailStep { INFO, COMPOSE, FINDER }
  * order. Target info (the data grid and its notes) and the finder
  * always exist. The composition step exists whenever the subject
  * has anything to compose — the framing chart or its no-size
- * statement, plus the §7.9 composition section — which is every
+ * statement, with §7.9's landscape group on the chart — which is every
  * subject but a meteor radiant: a radiant is not a framable
  * subject and gets neither (§7.9, §7.10), so its composition
  * step is absent outright rather than shown empty. Step numbers
@@ -97,8 +101,9 @@ private fun detailStepNameRes(step: DetailStep): Int = when (step) {
  * footer (calculator jump + close). Since 0.12.0 the middle is a
  * three-step flow in the order the dialog is actually used: step 1
  * target info (the one six-row two-column data grid and its
- * small-print notes), step 2 composition (the framing chart, then
- * the §7.9 composition section), step 3 the finder section, moved
+ * small-print notes), step 2 composition (one merged composition
+ * tool since 0.15.0: the framing chart is the frame layer, §7.9's
+ * landscape composition the foreground layer on it), step 3 the finder section, moved
  * here from the top of the middle — the finder is picked up last,
  * once the composition is settled. A navigation row at the top of
  * the middle scrolls any step into view. The 0.8.0 folded
@@ -126,8 +131,8 @@ fun TargetDetailDialog(
     onDismiss: () -> Unit,
     actionLabel: String?,
     onAction: (() -> Unit)?,
-    onEvaluateComposition: (bearingDeg: Double, toleranceDeg: Double) ->
-        TonightOverviewUseCase.CompositionEvaluation?,
+    onEvaluateLandscape: (bearingDeg: Double, topDeg: Double) ->
+        TonightOverviewUseCase.LandscapeEvaluation?,
 ) {
     DetailDialog(
         title = detail.subject.displayName(),
@@ -364,25 +369,53 @@ fun TargetDetailDialog(
                                 }
                             }
                             DetailStep.COMPOSE -> {
-                                // The framing chart (ui-design §7.10): the grid's
-                                // focal advice drawn — a star chart with the
-                                // full-frame rectangle over the subject. Deep-sky
-                                // objects and constellations get it; a deep-sky
-                                // object without a catalogue size gets the honest
-                                // one-line statement instead of an empty chart.
-                                // Viewpoints and radiants get neither (a radiant is
-                                // not a framable subject; viewpoints are out of this
-                                // batch's scope). Not the composition section below:
-                                // that one is §7.9's time-window geometry, and the
-                                // two share neither state nor wording.
+                                // One merged composition tool (ui-design
+                                // §7.10 + §7.9, 0.15.0): frame the target
+                                // first, then include the foreground. The
+                                // framing chart is the tool's frame layer;
+                                // §7.9's landscape composition is its
+                                // foreground layer, carried by the chart
+                                // section itself behind its "with
+                                // foreground" switch (snapshot included).
+                                // A subject without a chart — a viewpoint,
+                                // or a deep-sky object with no catalogue
+                                // size — gets the landscape group on its
+                                // own switch card instead (no snapshot:
+                                // there is no chart to place). A radiant
+                                // never reaches this step (detailSteps).
                                 val chart = detail.framingChart
+                                val isViewpoint =
+                                    detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint
                                 if (chart != null) {
+                                    val siteState = remember(detail.subject.id) {
+                                        LandscapeSiteState()
+                                    }
                                     FramingChartSection(
                                         data = chart,
                                         advice = detail.framing,
                                         subjectMajorArcmin =
                                             detail.subject.sizeMajorDeg?.times(60.0) ?: 0.0,
                                         redLight = redLight,
+                                        landscapeSite = siteState,
+                                        landscapeEvaluation = siteState.evaluation,
+                                        onEvaluateLandscape = onEvaluateLandscape,
+                                        evaluationKey = detail.subject.id,
+                                        orientationProvider = orientationProvider,
+                                        siteLatitudeDeg = siteLatitudeDeg,
+                                        siteLongitudeDeg = siteLongitudeDeg,
+                                        siteAltitudeMeters = siteAltitudeMeters,
+                                        zone = zone,
+                                        subjectIsViewpoint = isViewpoint,
+                                    )
+                                } else if (isViewpoint) {
+                                    LandscapeSwitchCard(
+                                        detail = detail,
+                                        zone = zone,
+                                        orientationProvider = orientationProvider,
+                                        siteLatitudeDeg = siteLatitudeDeg,
+                                        siteLongitudeDeg = siteLongitudeDeg,
+                                        siteAltitudeMeters = siteAltitudeMeters,
+                                        onEvaluateLandscape = onEvaluateLandscape,
                                     )
                                 } else if (
                                     detail.subject is TonightOverviewUseCase.TonightSubject.DeepSky &&
@@ -393,23 +426,16 @@ fun TargetDetailDialog(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    LandscapeSwitchCard(
+                                        detail = detail,
+                                        zone = zone,
+                                        orientationProvider = orientationProvider,
+                                        siteLatitudeDeg = siteLatitudeDeg,
+                                        siteLongitudeDeg = siteLongitudeDeg,
+                                        siteAltitudeMeters = siteAltitudeMeters,
+                                        onEvaluateLandscape = onEvaluateLandscape,
+                                    )
                                 }
-
-                                // The composition section (ui-design §7.9): every
-                                // pointable subject but a meteor radiant gets one —
-                                // a radiant is not a framable subject, and its pane
-                                // carries no fake controls.
-                                CompositionSection(
-                                    onEvaluate = onEvaluateComposition,
-                                    evaluationKey = detail.subject.id,
-                                    orientationProvider = orientationProvider,
-                                    siteLatitudeDeg = siteLatitudeDeg,
-                                    siteLongitudeDeg = siteLongitudeDeg,
-                                    siteAltitudeMeters = siteAltitudeMeters,
-                                    zone = zone,
-                                    subjectIsViewpoint =
-                                        detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
-                                )
                             }
                             DetailStep.FINDER -> {
                                 FinderSection(
@@ -909,3 +935,69 @@ private fun GridCell(
 
 /** The scrolling middle's height cap: the head and footer stay put, the middle scrolls. */
 private val MIDDLE_MAX_HEIGHT = 520.dp
+
+
+/**
+ * The landscape group on its own switch card, for subjects with no
+ * framing chart (ui-design §7.9, 0.15.0): a viewpoint, or a deep-sky
+ * object without a catalogue size. Same switch row, same site
+ * inputs and results as the chart-carried form — only the snapshot
+ * is absent, because there is no chart to place a frame on. The
+ * switch and the site are remembered per subject.
+ */
+@Composable
+private fun LandscapeSwitchCard(
+    detail: TonightOverviewUseCase.TargetDetail,
+    zone: ZoneId,
+    orientationProvider: DeviceOrientationProvider,
+    siteLatitudeDeg: Double,
+    siteLongitudeDeg: Double,
+    siteAltitudeMeters: Double,
+    onEvaluateLandscape: (bearingDeg: Double, topDeg: Double) ->
+        TonightOverviewUseCase.LandscapeEvaluation?,
+) {
+    var landscapeOn by remember(detail.subject.id) { mutableStateOf(false) }
+    val siteState = remember(detail.subject.id) { LandscapeSiteState() }
+    if (landscapeOn) {
+        LandscapeEvaluationEffect(
+            state = siteState,
+            evaluationKey = detail.subject.id,
+            onEvaluate = onEvaluateLandscape,
+        )
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            LandscapeSwitchRow(
+                checked = landscapeOn,
+                onCheckedChange = { landscapeOn = it },
+            )
+            if (landscapeOn) {
+                LandscapeSiteInputs(
+                    state = siteState,
+                    orientationProvider = orientationProvider,
+                    siteLatitudeDeg = siteLatitudeDeg,
+                    siteLongitudeDeg = siteLongitudeDeg,
+                    siteAltitudeMeters = siteAltitudeMeters,
+                )
+                val current = siteState.evaluation
+                if (current == null) {
+                    Text(text = "…", style = MaterialTheme.typography.bodyLarge)
+                } else {
+                    LandscapeResults(
+                        evaluation = current,
+                        zone = zone,
+                        subjectIsViewpoint =
+                            detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
+                        primaryPortrait =
+                            recommendedOutcome(current.result)?.portrait ?: false,
+                        bearingEdited = siteState.bearingEdited,
+                        topEdited = siteState.topEdited,
+                    )
+                }
+            }
+        }
+    }
+}

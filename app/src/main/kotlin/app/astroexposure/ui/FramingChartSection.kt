@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,10 +46,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astroexposure.R
 import app.astroexposure.domain.camera.FramingChart
+import app.astroexposure.domain.orientation.DeviceOrientationProvider
+import app.astroexposure.domain.timeline.LandscapeComposition
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ChartStar
 import app.astroexposure.ui.theme.LocalStateColors
 import app.astroexposure.usecase.TonightOverviewUseCase
+import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -65,9 +69,11 @@ import kotlin.math.tan
  * the 36x24 mm full-frame rectangle over it, judged exactly in the
  * domain's tangent plane. It answers "does it fit, and what gets
  * cut" for a focal length, a rotation and a landscape / portrait
- * choice. It is NOT the §7.9 composition section: that one computes
- * time windows against a foreground bearing; this one is pure
- * spatial geometry, and the two share neither state nor wording.
+ * choice. It is the composition tool's FRAME layer: §7.9's
+ * landscape composition is the layer above it — with the "with
+ * foreground" switch on, the chart becomes the landscape snapshot
+ * (the frame placed dead on the foreground at the key moment) and
+ * the landscape group renders below the chart's own controls.
  *
  * All judgement comes from [FramingChart]; this file filters the
  * field, projects for display and assembles wording. The three
@@ -88,11 +94,70 @@ fun FramingChartSection(
     subjectMajorArcmin: Double,
     redLight: Boolean,
     modifier: Modifier = Modifier,
+    landscapeSite: LandscapeSiteState? = null,
+    landscapeEvaluation: TonightOverviewUseCase.LandscapeEvaluation? = null,
+    onEvaluateLandscape: ((Double, Double) -> TonightOverviewUseCase.LandscapeEvaluation?)? = null,
+    evaluationKey: Any? = null,
+    orientationProvider: DeviceOrientationProvider? = null,
+    siteLatitudeDeg: Double = 0.0,
+    siteLongitudeDeg: Double = 0.0,
+    siteAltitudeMeters: Double = 0.0,
+    zone: ZoneId? = null,
+    subjectIsViewpoint: Boolean = false,
 ) {
     val defaultFocal = FramingChart.defaultFocalMm(advice) ?: return
     var focalMm by remember(data) { mutableStateOf(defaultFocal) }
     var rotationDeg by remember(data) { mutableStateOf(0.0) }
     var portrait by remember(data) { mutableStateOf(false) }
+    // Landscape mode (ui-design §7.9, 0.15.0): off, this section is
+    // the pure framing chart, unchanged. On, the site inputs and
+    // results render below the chart controls, the chart becomes
+    // the placed-frame snapshot, and the orientation chips pick
+    // the landscape verdict's primary orientation.
+    var landscapeEnabled by remember(data) { mutableStateOf(false) }
+    var portraitTouched by remember(data) { mutableStateOf(false) }
+    val landscapeActive = landscapeEnabled && landscapeSite != null &&
+        onEvaluateLandscape != null && orientationProvider != null
+    if (landscapeSite != null && onEvaluateLandscape != null && landscapeEnabled) {
+        LandscapeEvaluationEffect(
+            state = landscapeSite,
+            evaluationKey = evaluationKey,
+            onEvaluate = onEvaluateLandscape,
+        )
+    }
+    // Until the user picks an orientation for THIS subject, a
+    // feasible verdict's recommended orientation leads.
+    LaunchedEffect(landscapeEvaluation) {
+        val verdict = landscapeEvaluation?.result?.verdict
+        if (landscapeEnabled && !portraitTouched &&
+            verdict is LandscapeComposition.Verdict.Feasible
+        ) {
+            portrait = verdict.recommendedPortrait
+        }
+    }
+    // The snapshot placement: the primary orientation's recommended
+    // focal — for a share conflict, the live fact's cap and its
+    // orientation. Null when the verdict cannot be placed.
+    val snapshotPlacement: Pair<Double, Boolean>? = if (landscapeActive) {
+        val eval = landscapeEvaluation
+        when (val verdict = eval?.result?.verdict) {
+            is LandscapeComposition.Verdict.Feasible,
+            LandscapeComposition.Verdict.WindowTooShort,
+            LandscapeComposition.Verdict.AllOutsideNight -> {
+                val outcome = if (portrait) {
+                    eval?.result?.portrait
+                } else {
+                    eval?.result?.landscape
+                }
+                outcome?.recommendedFocalMm?.let { it to portrait }
+            }
+            is LandscapeComposition.Verdict.ShareConflict ->
+                verdict.liveFact?.let { it.capFocalMm to it.portrait }
+            else -> null
+        }
+    } else {
+        null
+    }
 
     val english = isEnglishUiLanguage()
     val spec = FramingChart.FrameSpec(focalMm, portrait, rotationDeg)
@@ -149,6 +214,27 @@ fun FramingChartSection(
                     ),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (snapshotPlacement != null && landscapeEvaluation != null &&
+                        landscapeSite != null
+                    ) {
+                        LandscapeSnapshotCanvas(
+                            evaluation = landscapeEvaluation,
+                            focalMm = snapshotPlacement.first,
+                            portrait = snapshotPlacement.second,
+                            redLight = redLight,
+                            contentDescription = stringResource(
+                                R.string.composition_snapshot_cd,
+                                stringResource(
+                                    if (snapshotPlacement.second) {
+                                        R.string.framing_portrait
+                                    } else {
+                                        R.string.framing_landscape
+                                    },
+                                ),
+                                snapshotPlacement.first.roundToInt(),
+                            ),
+                        )
+                    } else {
                     FramingChartCanvas(
                         model = model,
                         spec = spec,
@@ -159,6 +245,7 @@ fun FramingChartSection(
                             conclusion, quantities, neighbourDescription,
                         ).joinToString(" "),
                     )
+                    }
                     // No visible verdict or quantities line under
                     // the chart (0.13.2, on-device feedback): both
                     // strings live on in the canvas description
@@ -189,6 +276,7 @@ fun FramingChartSection(
                     value = focalToSlider(focalMm),
                     onValueChange = { focalMm = sliderToFocal(it) },
                     valueRange = 0f..1f,
+                    enabled = !landscapeActive,
                 )
                 FocalScaleTicks()
             }
@@ -219,18 +307,32 @@ fun FramingChartSection(
                     onValueChange = { rotationDeg = it.roundToInt().toDouble() },
                     valueRange = 0f..180f,
                     steps = 179,
+                    enabled = !landscapeActive,
                 )
+                if (landscapeActive) {
+                    Text(
+                        text = stringResource(R.string.composition_rotation_off_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = !portrait,
-                    onClick = { portrait = false },
+                    onClick = {
+                        portrait = false
+                        portraitTouched = true
+                    },
                     label = { Text(stringResource(R.string.framing_landscape)) },
                 )
                 FilterChip(
                     selected = portrait,
-                    onClick = { portrait = true },
+                    onClick = {
+                        portrait = true
+                        portraitTouched = true
+                    },
                     label = { Text(stringResource(R.string.framing_portrait)) },
                 )
             }
@@ -246,6 +348,40 @@ fun FramingChartSection(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            // The landscape layer (ui-design §7.9): the switch row
+            // is always offered when the caller wired a landscape
+            // entrance; the site group expands under it.
+            if (landscapeSite != null && onEvaluateLandscape != null &&
+                orientationProvider != null
+            ) {
+                LandscapeSwitchRow(
+                    checked = landscapeEnabled,
+                    onCheckedChange = { landscapeEnabled = it },
+                )
+                if (landscapeEnabled) {
+                    LandscapeSiteInputs(
+                        state = landscapeSite,
+                        orientationProvider = orientationProvider,
+                        siteLatitudeDeg = siteLatitudeDeg,
+                        siteLongitudeDeg = siteLongitudeDeg,
+                        siteAltitudeMeters = siteAltitudeMeters,
+                    )
+                    val current = landscapeEvaluation
+                    if (current == null) {
+                        Text(text = "…", style = MaterialTheme.typography.bodyLarge)
+                    } else {
+                        LandscapeResults(
+                            evaluation = current,
+                            zone = zone ?: ZoneId.systemDefault(),
+                            subjectIsViewpoint = subjectIsViewpoint,
+                            primaryPortrait = portrait,
+                            bearingEdited = landscapeSite.bearingEdited,
+                            topEdited = landscapeSite.topEdited,
+                        )
+                    }
+                }
             }
         }
     }
@@ -1342,6 +1478,149 @@ private fun ellipsePath(
 }
 
 private const val ELLIPSE_STEPS = 64
+
+// ---------------------------------------------------------------------------
+// The landscape snapshot canvas (ui-design §7.9, 0.15.0).
+// ---------------------------------------------------------------------------
+
+/**
+ * The placed frame at the key moment: the frame rectangle (the
+ * focal's, in the snapshot orientation, letterboxed into the chart
+ * area), the foreground-top line with the foreground band shaded
+ * below it, and the subject's key-moment range points — a
+ * constellation's skeleton chains, a deep-sky object's rim ring in
+ * point order — transformed through the same tangent plane the
+ * domain judges in, centred on (bearing, placed centre altitude).
+ * The foreground top's tangent height is tan(top − centreAlt): in
+ * this plane an equal-altitude line is horizontal to the accuracy
+ * this drawing needs.
+ */
+@Composable
+private fun LandscapeSnapshotCanvas(
+    evaluation: TonightOverviewUseCase.LandscapeEvaluation,
+    focalMm: Double,
+    portrait: Boolean,
+    redLight: Boolean,
+    contentDescription: String,
+) {
+    val colors = MaterialTheme.colorScheme
+    val pointColor = if (redLight) Color(0xFFFF9D8A) else colors.primary
+    val lineColor = if (redLight) Color(0xFFD64A3E) else colors.onSurfaceVariant
+    val bandColor = (if (redLight) Color(0xFF0D0303) else Color.Black).copy(alpha = 0.55f)
+    val bearing = evaluation.bearingDeg
+    val topDeg = evaluation.foregroundTopDeg
+    val centreAlt = LandscapeComposition.frameCentreAltitudeDeg(topDeg, focalMm, portrait)
+    val spec = FramingChart.FrameSpec(focalMm, portrait, 0.0)
+    val (halfRight, halfUp) = FramingChart.frameHalfExtents(spec)
+    val pointsByIndex = evaluation.keyMomentPoints.mapIndexedNotNull { index, sample ->
+        FramingChart.tangentPoint(bearing, centreAlt, sample.azimuthDeg, sample.altitudeDeg)
+            ?.let { index to it }
+    }
+    val pointByIndex = pointsByIndex.toMap()
+    val centrePoint = FramingChart.tangentPoint(
+        bearing, centreAlt,
+        evaluation.keyMomentCentre.azimuthDeg, evaluation.keyMomentCentre.altitudeDeg,
+    )
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CHART_HEIGHT_DP.dp)
+            .semantics { this.contentDescription = contentDescription },
+    ) {
+        drawRect(color = colors.background)
+        val scale = minOf(
+            size.width / (2.0 * halfRight), size.height / (2.0 * halfUp),
+        ).toFloat()
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        fun place(point: FramingChart.TangentPoint): Offset = Offset(
+            cx + (point.xEast * scale).toFloat(),
+            cy - (point.yNorth * scale).toFloat(),
+        )
+        val frameLeft = cx - (halfRight * scale).toFloat()
+        val frameTop = cy - (halfUp * scale).toFloat()
+        val frameWidth = (2.0 * halfRight * scale).toFloat()
+        val frameHeight = (2.0 * halfUp * scale).toFloat()
+
+        // The foreground band: below the foreground-top line,
+        // inside the frame.
+        val topV = tan(Math.toRadians(topDeg - centreAlt))
+        val topY = cy - (topV * scale).toFloat()
+        val bandTop = maxOf(topY, frameTop)
+        if (bandTop < frameTop + frameHeight) {
+            drawRect(
+                color = bandColor,
+                topLeft = Offset(frameLeft, bandTop),
+                size = androidx.compose.ui.geometry.Size(
+                    frameWidth, frameTop + frameHeight - bandTop,
+                ),
+            )
+        }
+        if (topY in frameTop..(frameTop + frameHeight)) {
+            drawLine(
+                color = lineColor,
+                start = Offset(frameLeft, topY),
+                end = Offset(frameLeft + frameWidth, topY),
+                strokeWidth = 1.2.dp.toPx(),
+            )
+        }
+
+        // The subject's range: skeleton chains when the use case
+        // supplies them, otherwise the point ring in order, closed.
+        if (evaluation.keyMomentChains.isNotEmpty()) {
+            for (chain in evaluation.keyMomentChains) {
+                val path = Path()
+                var started = false
+                for (index in chain) {
+                    val point = pointByIndex[index] ?: continue
+                    val offset = place(point)
+                    if (!started) {
+                        path.moveTo(offset.x, offset.y)
+                        started = true
+                    } else {
+                        path.lineTo(offset.x, offset.y)
+                    }
+                }
+                if (started) {
+                    drawPath(
+                        path = path, color = lineColor.copy(alpha = 0.9f),
+                        style = Stroke(width = 1.2.dp.toPx()),
+                    )
+                }
+            }
+        } else if (pointsByIndex.size >= 2) {
+            val path = Path()
+            pointsByIndex.forEachIndexed { i, (_, point) ->
+                val offset = place(point)
+                if (i == 0) path.moveTo(offset.x, offset.y) else path.lineTo(offset.x, offset.y)
+            }
+            path.close()
+            drawPath(
+                path = path, color = lineColor.copy(alpha = 0.9f),
+                style = Stroke(width = 1.2.dp.toPx()),
+            )
+        }
+        for ((_, point) in pointsByIndex) {
+            drawCircle(color = pointColor, radius = 2.2.dp.toPx(), center = place(point))
+        }
+
+        // The frame itself, and the subject centre's mark.
+        drawRect(
+            color = colors.primary,
+            topLeft = Offset(frameLeft, frameTop),
+            size = androidx.compose.ui.geometry.Size(frameWidth, frameHeight),
+            style = Stroke(width = 1.7.dp.toPx()),
+        )
+        centrePoint?.let { point ->
+            val offset = place(point)
+            drawCircle(color = pointColor, radius = 3.2.dp.toPx(), center = offset)
+            val cross = 6.dp.toPx()
+            drawLine(pointColor, Offset(offset.x - cross, offset.y), Offset(offset.x + cross, offset.y), 1.dp.toPx())
+            drawLine(pointColor, Offset(offset.x, offset.y - cross), Offset(offset.x, offset.y + cross), 1.dp.toPx())
+        }
+        drawRect(color = colors.outline, style = Stroke(width = 1.dp.toPx()))
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Scales and tiers.

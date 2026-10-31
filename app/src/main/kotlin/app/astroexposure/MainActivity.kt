@@ -587,10 +587,10 @@ private fun AstroApp(container: AppContainer) {
                                 objectId,
                             )
                         },
-                        onEvaluateComposition = { objectId, bearingDeg, toleranceDeg ->
-                            container.tonightOverview.evaluateComposition(
+                        onEvaluateLandscape = { objectId, bearingDeg, topDeg ->
+                            container.tonightOverview.evaluateLandscape(
                                 location, tonightDate, result.timeline, objectId,
-                                bearingDeg, toleranceDeg,
+                                bearingDeg, topDeg,
                             )
                         },
                         onOpenTargetCalculator = { category, prefill ->
