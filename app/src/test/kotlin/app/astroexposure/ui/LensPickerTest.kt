@@ -366,6 +366,67 @@ class LensPickerTest {
         assertTrue(source.contains("onCamera = { camera = it }"))
     }
 
+    private fun testSource(file: String): String {
+        var dir = File(System.getProperty("user.dir")).absoluteFile
+        while (true) {
+            for (
+                base in listOf(
+                    "app/src/test/kotlin/app/astroexposure/ui",
+                    "src/test/kotlin/app/astroexposure/ui",
+                )
+            ) {
+                val candidate = File(dir, "$base/$file")
+                if (candidate.isFile) return candidate.readText()
+            }
+            dir = dir.parentFile
+                ?: error("$file not found above ${System.getProperty("user.dir")}")
+        }
+    }
+
+    @Test
+    fun basisButtonsMeetTheRowHeightFloor() {
+        val picker = mainSource("LensSelection.kt")
+        // Both buttons that leave a basis state carry the same
+        // 48dp floor as the facet chips and candidate rows in
+        // this file (Material3 already guarantees the touch
+        // target; the floor unifies the visual height).
+        val clear = picker.substringBefore("calc_lens_basis_clear").takeLast(200)
+        assertTrue("the note clear button has the 48dp floor", clear.contains("heightIn(min = 48.dp)"))
+        val showAll = picker.substringBefore("calc_lens_show_all").takeLast(200)
+        assertTrue("the show-all button has the 48dp floor", showAll.contains("heightIn(min = 48.dp)"))
+    }
+
+    @Test
+    fun pickerCommentsCarryNoStrayBatchLabels() {
+        // Review-thread labels are unverifiable from the repo,
+        // so no comment in the picker files may cite one. The
+        // tokens are built, not written, so this test itself
+        // cannot trip the scan.
+        val batchLabel = "H" + "1"
+        val decisionLabel = "Q" + "6"
+        val files = mapOf(
+            "LensPickerTest.kt" to ::testSource,
+            "LensSelection.kt" to ::mainSource,
+            "LensFacets.kt" to ::mainSource,
+            "CalculatorsScreen.kt" to ::mainSource,
+        )
+        for ((file, read) in files) {
+            val fragments = read(file).lines().flatMap { line ->
+                val trimmed = line.trim()
+                when {
+                    trimmed.startsWith("//") || trimmed.startsWith("/*") ||
+                        trimmed.startsWith("*") -> listOf(line)
+                    "//" in line -> listOf(line.substringAfter("//"))
+                    else -> emptyList()
+                }
+            }
+            assertTrue(
+                "$file comments cite no stray review label",
+                fragments.none { it.contains(batchLabel) || it.contains(decisionLabel) },
+            )
+        }
+    }
+
     @Test
     fun facetChangesKeepTheRecommendedStateAlive() {
         val source = mainSource("CalculatorsScreen.kt")

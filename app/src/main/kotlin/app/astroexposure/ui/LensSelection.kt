@@ -248,7 +248,10 @@ internal fun LensPickerBlock(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { onBasisChange(LensFocalBasis.None) }) {
+                    TextButton(
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        onClick = { onBasisChange(LensFocalBasis.None) },
+                    ) {
                         Text(stringResource(R.string.calc_lens_basis_clear))
                     }
                 }
@@ -315,7 +318,10 @@ internal fun LensPickerBlock(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = { onBasisChange(LensFocalBasis.None) }) {
+            TextButton(
+                modifier = Modifier.heightIn(min = 48.dp),
+                onClick = { onBasisChange(LensFocalBasis.None) },
+            ) {
                 Text(stringResource(R.string.calc_lens_show_all))
             }
         } else {
