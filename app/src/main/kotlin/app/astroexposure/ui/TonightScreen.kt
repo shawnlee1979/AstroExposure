@@ -721,8 +721,18 @@ fun TonightScreen(
             val category = detail?.let { subjectCalcCategory(it.subject) }
             // The handover prefill is composed here, in composition
             // (its name is UI-language work), and merely captured by
-            // the action lambda below.
-            val prefill = detail?.let { CalcPrefill.fromSubject(it.subject) }
+            // the action lambda below. The focal triple rides along
+            // from the same detail (its framing advice and major
+            // axis), so the calculators' lens picker filters by
+            // the range the detail's first step printed (0.14.0).
+            val prefill = detail?.let {
+                CalcPrefill.fromSubject(
+                    subject = it.subject,
+                    advice = it.framing,
+                    sizeMajorArcmin = it.subject.sizeMajorDeg?.times(60.0),
+                    lenses = lenses,
+                )
+            }
             if (detail != null && retainedCursor != null) {
                 TargetDetailDialog(
                     detail = detail,
@@ -751,7 +761,6 @@ fun TonightScreen(
                     onEvaluateComposition = { bearingDeg, toleranceDeg ->
                         onEvaluateComposition(id, bearingDeg, toleranceDeg)
                     },
-                    lenses = lenses,
                     redLight = redLight,
                 )
             } else {
@@ -1659,18 +1668,22 @@ fun targetCalcCategory(type: DeepSkyObjectType): CalcCategory? = when (type) {
 /**
  * Which calculator a tonight subject's detail dialog jumps to
  * (ui-design §7.8): deep-sky objects keep the type table above;
- * constellations and wide-field viewpoints go to the wide-field
- * calculator with the centre declination carried in (the same
- * carry-in rule as deep-sky objects); a radiant goes to the meteor
- * calculator with its shower selected.
+ * constellations and wide-field viewpoints go to the LANDSCAPE
+ * calculator with the centre declination carried in — §7.8's
+ * stated landing, since the landscape calculator is where a
+ * subject's declination meets a foreground (its §7.9 composition
+ * section takes the subject from there). Until 0.14.0 the two
+ * landed on the wide-field calculator instead, against the
+ * spec; the mapping now matches it. A radiant goes to the
+ * meteor calculator with its shower selected.
  */
 fun subjectCalcCategory(
     subject: TonightOverviewUseCase.TonightSubject,
 ): CalcCategory? = when (subject) {
     is TonightOverviewUseCase.TonightSubject.DeepSky ->
         targetCalcCategory(subject.obj.type)
-    is TonightOverviewUseCase.TonightSubject.Constellation -> CalcCategory.WIDE_FIELD
-    is TonightOverviewUseCase.TonightSubject.Viewpoint -> CalcCategory.WIDE_FIELD
+    is TonightOverviewUseCase.TonightSubject.Constellation -> CalcCategory.LANDSCAPE
+    is TonightOverviewUseCase.TonightSubject.Viewpoint -> CalcCategory.LANDSCAPE
     is TonightOverviewUseCase.TonightSubject.Radiant -> CalcCategory.METEOR
 }
 
