@@ -349,9 +349,11 @@ class LensPickerTest {
             .substringBefore("onBasisChange")
         assertTrue(pick.contains("lens = picked"))
         assertTrue(pick.contains("focalMm = landingFocalMm"))
-        // Q6: picking does not exit the recommended state — the
-        // basis survives until the note row's clear, a facet
-        // change, or the next handover replaces it.
+        // Picking does not exit the recommended state — the
+        // basis survives a pick and a facet change alike; it
+        // leaves only through the note row's clear, a
+        // replacing handover, or a handover that carries no
+        // focal payload (ui-design §4).
         assertFalse("a pick never clears the basis", pick.contains("focalBasis"))
         // A manual category switch dismisses only the receipt
         // hint, never the basis.
@@ -362,6 +364,22 @@ class LensPickerTest {
         // A camera change touches nothing else (the camera has
         // no mount to derive a facet from).
         assertTrue(source.contains("onCamera = { camera = it }"))
+    }
+
+    @Test
+    fun facetChangesKeepTheRecommendedStateAlive() {
+        val source = mainSource("CalculatorsScreen.kt")
+        // The mount handler only resets the brand facet and
+        // reads the basis to recompute the offered brands; the
+        // brand handler writes one field. Neither assigns the
+        // basis, so switching a facet never leaves the
+        // recommended state (ui-design §4).
+        val mount = source.substringAfter("onMountFacet = {")
+            .substringBefore("onBrandFacet")
+        assertFalse("a mount facet change never clears the basis", mount.contains("focalBasis ="))
+        val brand = source.substringAfter("onBrandFacet = {")
+            .substringBefore("onFocal")
+        assertFalse("a brand facet change never clears the basis", brand.contains("focalBasis ="))
     }
 
     @Test
