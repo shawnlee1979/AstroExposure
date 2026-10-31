@@ -72,7 +72,7 @@ import kotlin.math.tan
  * choice. It is the composition tool's FRAME layer: §7.9's
  * landscape composition is the layer above it — with the "with
  * foreground" switch on, the chart becomes the landscape snapshot
- * (the frame placed dead on the foreground at the key moment) and
+ * (the frame placed dead on the foreground at the best moment) and
  * the landscape group renders below the chart's own controls.
  *
  * All judgement comes from [FramingChart]; this file filters the
@@ -96,7 +96,7 @@ fun FramingChartSection(
     modifier: Modifier = Modifier,
     landscapeSite: LandscapeSiteState? = null,
     landscapeEvaluation: TonightOverviewUseCase.LandscapeEvaluation? = null,
-    onEvaluateLandscape: ((Double, Double) -> TonightOverviewUseCase.LandscapeEvaluation?)? = null,
+    onEvaluateLandscape: ((Double) -> TonightOverviewUseCase.LandscapeEvaluation?)? = null,
     evaluationKey: Any? = null,
     orientationProvider: DeviceOrientationProvider? = null,
     siteLatitudeDeg: Double = 0.0,
@@ -104,6 +104,7 @@ fun FramingChartSection(
     siteAltitudeMeters: Double = 0.0,
     zone: ZoneId? = null,
     subjectIsViewpoint: Boolean = false,
+    subjectAzimuthDeg: Double? = null,
 ) {
     val defaultFocal = FramingChart.defaultFocalMm(advice) ?: return
     var focalMm by remember(data) { mutableStateOf(defaultFocal) }
@@ -135,12 +136,14 @@ fun FramingChartSection(
             portrait = verdict.recommendedPortrait
         }
     }
-    // The snapshot placement: the primary orientation's recommended
-    // focal — for a share conflict, the live fact's cap and its
-    // orientation. Null when the verdict cannot be placed.
+    // The snapshot placement: for a feasible-family verdict, the
+    // CURRENT orientation's derived focal at that orientation.
+    // Null — the free chart stands — for a blocking verdict (never
+    // above the foreground top, span exceeds the widest frame) or
+    // when the current orientation derived no focal.
     val snapshotPlacement: Pair<Double, Boolean>? = if (landscapeActive) {
         val eval = landscapeEvaluation
-        when (val verdict = eval?.result?.verdict) {
+        when (eval?.result?.verdict) {
             is LandscapeComposition.Verdict.Feasible,
             LandscapeComposition.Verdict.WindowTooShort,
             LandscapeComposition.Verdict.AllOutsideNight -> {
@@ -149,10 +152,8 @@ fun FramingChartSection(
                 } else {
                     eval?.result?.landscape
                 }
-                outcome?.recommendedFocalMm?.let { it to portrait }
+                outcome?.derivedFocalMm?.let { it to portrait }
             }
-            is LandscapeComposition.Verdict.ShareConflict ->
-                verdict.liveFact?.let { it.capFocalMm to it.portrait }
             else -> null
         }
     } else {
@@ -279,6 +280,13 @@ fun FramingChartSection(
                     enabled = !landscapeActive,
                 )
                 FocalScaleTicks()
+                if (landscapeActive) {
+                    Text(
+                        text = stringResource(R.string.composition_focal_derived_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             // Rotation: a stepped slider, never a drag on the chart
@@ -367,6 +375,7 @@ fun FramingChartSection(
                         siteLatitudeDeg = siteLatitudeDeg,
                         siteLongitudeDeg = siteLongitudeDeg,
                         siteAltitudeMeters = siteAltitudeMeters,
+                        subjectAzimuthDeg = subjectAzimuthDeg,
                     )
                     val current = landscapeEvaluation
                     if (current == null) {
@@ -377,7 +386,6 @@ fun FramingChartSection(
                             zone = zone ?: ZoneId.systemDefault(),
                             subjectIsViewpoint = subjectIsViewpoint,
                             primaryPortrait = portrait,
-                            bearingEdited = landscapeSite.bearingEdited,
                             topEdited = landscapeSite.topEdited,
                         )
                     }
@@ -1480,20 +1488,24 @@ private fun ellipsePath(
 private const val ELLIPSE_STEPS = 64
 
 // ---------------------------------------------------------------------------
-// The landscape snapshot canvas (ui-design §7.9, 0.15.0).
+// The landscape snapshot canvas (ui-design §7.9, 0.16.0).
 // ---------------------------------------------------------------------------
 
 /**
- * The placed frame at the key moment: the frame rectangle (the
- * focal's, in the snapshot orientation, letterboxed into the chart
- * area), the foreground-top line with the foreground band shaded
- * below it, and the subject's key-moment range points — a
- * constellation's skeleton chains, a deep-sky object's rim ring in
- * point order — transformed through the same tangent plane the
- * domain judges in, centred on (bearing, placed centre altitude).
- * The foreground top's tangent height is tan(top − centreAlt): in
- * this plane an equal-altitude line is horizontal to the accuracy
- * this drawing needs.
+ * The placed frame frozen at the snapshot instant — the best
+ * moment of the longest window (see the evaluation's
+ * snapshotInstant): the frame rectangle (the derived focal's, in
+ * the snapshot orientation, letterboxed into the chart area), the
+ * foreground-top line with the foreground band shaded below it,
+ * and the subject's snapshot range points — a constellation's
+ * skeleton chains, a deep-sky object's rim ring in point order —
+ * transformed through the same tangent plane the domain judges
+ * in, centred on (the snapshot centre's azimuth, placed centre
+ * altitude): the frame's azimuth is the subject's own at that
+ * instant, derived — never an input. The foreground top's
+ * tangent height is tan(top − centreAlt): in this plane an
+ * equal-altitude line is horizontal to the accuracy this drawing
+ * needs.
  */
 @Composable
 private fun LandscapeSnapshotCanvas(
@@ -1507,19 +1519,20 @@ private fun LandscapeSnapshotCanvas(
     val pointColor = if (redLight) Color(0xFFFF9D8A) else colors.primary
     val lineColor = if (redLight) Color(0xFFD64A3E) else colors.onSurfaceVariant
     val bandColor = (if (redLight) Color(0xFF0D0303) else Color.Black).copy(alpha = 0.55f)
-    val bearing = evaluation.bearingDeg
+    val centreAzimuth = evaluation.snapshotCentre.azimuthDeg
     val topDeg = evaluation.foregroundTopDeg
     val centreAlt = LandscapeComposition.frameCentreAltitudeDeg(topDeg, focalMm, portrait)
     val spec = FramingChart.FrameSpec(focalMm, portrait, 0.0)
     val (halfRight, halfUp) = FramingChart.frameHalfExtents(spec)
-    val pointsByIndex = evaluation.keyMomentPoints.mapIndexedNotNull { index, sample ->
-        FramingChart.tangentPoint(bearing, centreAlt, sample.azimuthDeg, sample.altitudeDeg)
-            ?.let { index to it }
+    val pointsByIndex = evaluation.snapshotPoints.mapIndexedNotNull { index, sample ->
+        FramingChart.tangentPoint(
+            centreAzimuth, centreAlt, sample.azimuthDeg, sample.altitudeDeg,
+        )?.let { index to it }
     }
     val pointByIndex = pointsByIndex.toMap()
     val centrePoint = FramingChart.tangentPoint(
-        bearing, centreAlt,
-        evaluation.keyMomentCentre.azimuthDeg, evaluation.keyMomentCentre.altitudeDeg,
+        centreAzimuth, centreAlt,
+        evaluation.snapshotCentre.azimuthDeg, evaluation.snapshotCentre.altitudeDeg,
     )
     Canvas(
         modifier = Modifier
@@ -1567,8 +1580,8 @@ private fun LandscapeSnapshotCanvas(
 
         // The subject's range: skeleton chains when the use case
         // supplies them, otherwise the point ring in order, closed.
-        if (evaluation.keyMomentChains.isNotEmpty()) {
-            for (chain in evaluation.keyMomentChains) {
+        if (evaluation.snapshotChains.isNotEmpty()) {
+            for (chain in evaluation.snapshotChains) {
                 val path = Path()
                 var started = false
                 for (index in chain) {

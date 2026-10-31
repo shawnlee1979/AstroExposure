@@ -131,7 +131,7 @@ fun TargetDetailDialog(
     onDismiss: () -> Unit,
     actionLabel: String?,
     onAction: (() -> Unit)?,
-    onEvaluateLandscape: (bearingDeg: Double, topDeg: Double) ->
+    onEvaluateLandscape: (topDeg: Double) ->
         TonightOverviewUseCase.LandscapeEvaluation?,
 ) {
     DetailDialog(
@@ -406,6 +406,7 @@ fun TargetDetailDialog(
                                         siteAltitudeMeters = siteAltitudeMeters,
                                         zone = zone,
                                         subjectIsViewpoint = isViewpoint,
+                                        subjectAzimuthDeg = detail.azimuthDeg,
                                     )
                                 } else if (isViewpoint) {
                                     LandscapeSwitchCard(
@@ -953,7 +954,7 @@ private fun LandscapeSwitchCard(
     siteLatitudeDeg: Double,
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
-    onEvaluateLandscape: (bearingDeg: Double, topDeg: Double) ->
+    onEvaluateLandscape: (topDeg: Double) ->
         TonightOverviewUseCase.LandscapeEvaluation?,
 ) {
     var landscapeOn by remember(detail.subject.id) { mutableStateOf(false) }
@@ -981,6 +982,7 @@ private fun LandscapeSwitchCard(
                     siteLatitudeDeg = siteLatitudeDeg,
                     siteLongitudeDeg = siteLongitudeDeg,
                     siteAltitudeMeters = siteAltitudeMeters,
+                    subjectAzimuthDeg = detail.azimuthDeg,
                 )
                 val current = siteState.evaluation
                 if (current == null) {
@@ -993,7 +995,6 @@ private fun LandscapeSwitchCard(
                             detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
                         primaryPortrait =
                             recommendedOutcome(current.result)?.portrait ?: false,
-                        bearingEdited = siteState.bearingEdited,
                         topEdited = siteState.topEdited,
                     )
                 }
