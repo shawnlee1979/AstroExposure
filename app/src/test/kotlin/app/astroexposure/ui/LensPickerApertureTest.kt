@@ -7,23 +7,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The all-lenses panel's aperture numbers are the shared
- * [formatApertureValue] output — the panel keeps no formatter
- * of its own (ui-design §7.10; before 0.13.1 the panel's
- * former private formatter stripped every
- * trailing ".0", so an f/4.0 lens read "f/4" in the panel but
- * "f/4.0" in the calculator). The value cases pin the shared
- * formatter at the exact points where the two implementations
- * diverged — that formatter's output IS the panel row's
- * aperture text, by construction — and the source cases pin
- * that the panel row really calls the shared function, and
- * that the brand facet's selection is keyed by the [LensBrand]
- * enum itself rather than by looking a display name back up.
- * Source is read directly,
- * like FramingChartStringsTest, because the row's text
- * assembly is a composable a JVM test cannot invoke.
+ * The lens picker's aperture numbers are the shared
+ * [formatApertureValue] output — the picker keeps no formatter
+ * of its own (ui-design §7.10, carried to §4 with the picker in
+ * 0.14.0; before 0.13.1 the framing panel's former private
+ * formatter stripped every trailing ".0", so an f/4.0 lens
+ * read "f/4" in the panel but "f/4.0" in the calculator). The
+ * value cases pin the shared formatter at the exact points
+ * where the two implementations diverged — that formatter's
+ * output IS the picker row's aperture text, by construction —
+ * and the source cases pin that the picker row really calls
+ * the shared function, and that the brand facet's selection is
+ * keyed by the [LensBrand] enum itself rather than by looking
+ * a display name back up. Source is read directly, like
+ * FramingChartStringsTest, because the row's text assembly is
+ * a composable a JVM test cannot invoke.
  */
-class LensPanelApertureTest {
+class LensPickerApertureTest {
 
     @Test
     fun sharedApertureFormatterAtTheDivergencePoints() {
@@ -40,24 +40,24 @@ class LensPanelApertureTest {
         assertEquals("16", formatApertureValue(16.0))
     }
 
-    private fun framingSectionSource(): String {
+    private fun pickerSource(): String {
         var dir = File(System.getProperty("user.dir")).absoluteFile
         while (true) {
             for (base in listOf(
                 "app/src/main/kotlin/app/astroexposure/ui",
                 "src/main/kotlin/app/astroexposure/ui",
             )) {
-                val candidate = File(dir, "$base/FramingChartSection.kt")
+                val candidate = File(dir, "$base/LensSelection.kt")
                 if (candidate.isFile) return candidate.readText()
             }
             dir = dir.parentFile
-                ?: error("FramingChartSection.kt not found above ${System.getProperty("user.dir")}")
+                ?: error("LensSelection.kt not found above ${System.getProperty("user.dir")}")
         }
     }
 
     @Test
-    fun panelHasNoApertureFormatterOfItsOwn() {
-        val source = framingSectionSource()
+    fun pickerHasNoApertureFormatterOfItsOwn() {
+        val source = pickerSource()
         assertFalse("no private aperture formatter remains", source.contains("apertureText"))
         assertTrue(source.contains("formatApertureValue(lens.maxAperture)"))
         assertTrue(source.contains("formatApertureValue(tele)"))
@@ -65,8 +65,8 @@ class LensPanelApertureTest {
 
     @Test
     fun brandFacetSelectionIsKeyedByTheEnum() {
-        val source = framingSectionSource()
-        assertTrue(source.contains("selected = brandFacet,"))
+        val source = pickerSource()
+        assertTrue(source.contains("selected = effectiveBrand,"))
         assertFalse(
             "no display-name lookup-back remains",
             source.contains("displayName(customLabel) == name"),

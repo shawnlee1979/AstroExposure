@@ -100,11 +100,58 @@ class FramingSectionVisibilityContractTest {
         assertTrue(
             source.contains("conclusion, quantities, neighbourDescription"),
         )
-        assertTrue(
-            "the empty-candidate line still takes the row's place",
-            source.contains(
-                "candidateEmptyText(advice, selection, subjectMajorArcmin)",
-            ),
-        )
+    }
+
+    /**
+     * Lens picking left the section entirely (0.14.0): the
+     * candidate row, the all-lenses panel and the readout's
+     * lens-name suffix are gone — lens choice lives on the
+     * calculators page now (see LensPickerTest for its pins).
+     * What stays is the pure composition what-if: chart, focal
+     * readout and slider, rotation, orientation.
+     */
+    @Test
+    fun sectionHasNoLensPickingLeft() {
+        val source = sectionSource()
+        for (remnant in listOf(
+            "AllLensesPanel",
+            "candidateEmptyText",
+            "selectedLensId",
+            "showAllLenses",
+            "framing_all_lenses",
+            "FramingLensCandidates",
+        )) {
+            assertFalse("$remnant removed from the section", source.contains(remnant))
+        }
+        assertTrue(source.contains("FramingChartCanvas("))
+        assertTrue(source.contains("focalReadout(advice, focalMm)"))
+        assertTrue(source.contains("FocalScaleTicks()"))
+        assertTrue(source.contains("R.string.framing_angle_label"))
+    }
+
+    @Test
+    fun retiredPanelKeysStayOutOfBothLocales() {
+        for (locale in listOf("values", "values-en")) {
+            val strings = strings(locale)
+            for (key in listOf(
+                "framing_all_lenses",
+                "framing_all_lenses_mount",
+                "framing_all_lenses_brand",
+                "framing_facet_all",
+                "framing_candidates_empty_range",
+                "framing_candidates_empty_capped_max",
+                "framing_candidates_empty_capped_min",
+                "framing_lens_spec_prime",
+                "framing_lens_spec_zoom",
+                "framing_lens_spec_zoom_range",
+            )) {
+                assertFalse("$key removed ($locale)", strings.containsKey(key))
+            }
+            // The lens spec wording lives on under the
+            // calculators' prefix, text unchanged.
+            assertTrue(strings.containsKey("calc_lens_spec_prime"))
+            assertTrue(strings.containsKey("calc_lens_spec_zoom"))
+            assertTrue(strings.containsKey("calc_lens_spec_zoom_range"))
+        }
     }
 }
