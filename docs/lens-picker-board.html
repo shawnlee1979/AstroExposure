@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>曝光参谋 AstroExposure · 0.14.0 设计提案样张（选镜流程迁移）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#030409; color:#E9EEF8; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:28px 16px 48px; }
+  h1 { font-size:22px; font-weight:700; letter-spacing:.5px; }
+  h1 span { color:#F2C66D; }
+  .sub { color:#96A3BE; font-size:13px; margin:8px 0 4px; line-height:1.7; max-width:1060px; }
+  .note { color:#5D6C8C; font-size:12px; margin-bottom:26px; max-width:1060px; line-height:1.7; }
+  .board { display:flex; flex-wrap:wrap; gap:30px 22px; align-items:flex-start; }
+  .cell { width:384px; }
+  .cap { margin-top:10px; font-size:13px; font-weight:600; }
+  .cap small { display:block; color:#5D6C8C; font-weight:400; margin-top:3px; line-height:1.65; font-size:12px; }
+  .cap b { color:#F2C66D; font-weight:600; }
+  /* phone frame */
+  .phone { background:#05070D; border:1px solid #22304F; border-radius:18px; padding:14px 12px 16px; }
+  .ptitle { font-size:15px; font-weight:700; display:flex; justify-content:space-between; align-items:baseline; }
+  .ptitle small { color:#5D6C8C; font-weight:400; font-size:11.5px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .chip { font-size:12px; color:#96A3BE; border:1px solid #22304F; background:#0C1120; border-radius:999px; padding:7px 10px; font-variant-numeric:tabular-nums; }
+  .chip.sel { color:#F2C66D; border-color:#F2C66D; }
+  .chip.dim { color:#5D6C8C; }
+  .hint { color:#6EA8FE; font-size:12px; line-height:1.6; margin-top:9px; font-variant-numeric:tabular-nums; }
+  .menu { margin-top:11px; border:1px solid #22304F; background:#0C1120; border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; min-height:48px; }
+  .menu .k { color:#5D6C8C; font-size:11.5px; display:block; }
+  .menu .v { font-size:13.5px; font-weight:600; }
+  .menu .car { color:#5D6C8C; }
+  .lenshead { margin-top:13px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .lenshead .k { color:#5D6C8C; font-size:11.5px; }
+  .lenshead .v { font-size:13.5px; font-weight:600; line-height:1.45; }
+  .lenshead .s { color:#96A3BE; font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .tag { color:#05070D; background:#F2C66D; font-size:10.5px; font-weight:700; border-radius:4px; padding:2px 6px; white-space:nowrap; margin-top:2px; }
+  .srcnote { margin-top:10px; background:#131B31; border:1px solid #22304F; border-radius:10px; padding:9px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; min-height:48px; }
+  .srcnote .t { font-size:12px; color:#96A3BE; line-height:1.6; font-variant-numeric:tabular-nums; }
+  .srcnote .t b { color:#E9EEF8; font-weight:600; }
+  .srcnote .clr { color:#6EA8FE; font-size:12.5px; white-space:nowrap; }
+  .basisrow { margin-top:10px; display:flex; gap:6px; align-items:center; }
+  .basisrow .k { color:#5D6C8C; font-size:11.5px; margin-right:2px; }
+  .frow { margin-top:11px; }
+  .frow .k { color:#5D6C8C; font-size:11.5px; display:block; margin-bottom:6px; }
+  .frow .chips { margin-top:0; }
+  .lrow { margin-top:8px; border:1px solid #22304F; background:#0C1120; border-radius:10px; padding:10px 12px; min-height:48px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .lrow .n { font-size:13px; font-weight:600; line-height:1.45; }
+  .lrow .s { color:#96A3BE; font-size:11.5px; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .lrow.sel { border-left:3px solid #F2C66D; }
+  .lrow .cov { color:#4CC38A; font-size:11px; white-space:nowrap; }
+  .miss { color:#5D6C8C; font-size:11.5px; margin-top:9px; }
+  .slider { margin-top:14px; }
+  .slider .lab { display:flex; justify-content:space-between; font-size:12px; color:#96A3BE; font-variant-numeric:tabular-nums; }
+  .slider .lab b { color:#E9EEF8; font-size:13px; }
+  .track { position:relative; height:4px; background:#22304F; border-radius:2px; margin:14px 2px 4px; }
+  .track .fill { position:absolute; left:0; top:0; height:4px; background:#6EA8FE; border-radius:2px; }
+  .track .knob { position:absolute; top:50%; width:18px; height:18px; border-radius:50%; background:#E9EEF8; transform:translate(-50%,-50%); }
+  .track .endlab { position:absolute; top:8px; font-size:10.5px; color:#5D6C8C; font-variant-numeric:tabular-nums; }
+  .foot { color:#5D6C8C; font-size:11.5px; margin-top:14px; border-top:1px dashed #22304F; padding-top:9px; line-height:1.6; }
+  .steps { display:flex; gap:6px; margin-top:10px; }
+  .step { font-size:12px; color:#96A3BE; border:1px solid #22304F; background:#0C1120; border-radius:8px; padding:7px 10px; }
+  .step.sel { color:#F2C66D; border-color:#F2C66D; }
+  .chart { margin-top:10px; border:1px solid #22304F; border-radius:10px; overflow:hidden; line-height:0; background:#070B16; }
+  .readout { font-size:12px; color:#96A3BE; margin-top:9px; font-variant-numeric:tabular-nums; line-height:1.6; }
+  .readout b { color:#E9EEF8; font-weight:600; }
+  .toggle { display:flex; gap:6px; margin-top:11px; align-items:center; }
+  .toggle .k { color:#5D6C8C; font-size:11.5px; margin-right:2px; }
+  .peek { margin-top:14px; border:1px solid #22304F; background:#0C1120; border-radius:10px; padding:10px 12px; }
+  .peek .t { font-size:13px; font-weight:600; }
+  .peek .s { color:#96A3BE; font-size:11.5px; margin-top:3px; line-height:1.6; }
+  .gone { color:#E5484D; }
+</style>
+</head>
+<body>
+<h1>0.14.0 设计提案样张 · <span>选镜流程迁移（详情窗 → 计算页）</span></h1>
+<p class="sub">版本号 0.14.0 为暂定。样张数值全部由仓库 lenses.json（内置 52 支）与目录实算：蝎虎座长轴 10°、中心赤纬 +46.0°，参考焦距 102 mm、建议区间 67–137，与第一步网格及真机截图一致。筛选口径为区间相交（稿 §3.4），排序为对数距离序（覆盖参考者 0 档）。</p>
+<p class="note">注：样张 (a) 为星座自今晚详情窗「去计算」的落点——带地景计算器（§7.8 口径）；选镜块本身与落点品类无关，五个计算品类共用同一块。红光主题下整图同构变红；筹片与候选行热区均 ≥48dp。</p>
+
+<div class="board">
+
+  <!-- ============ Sample A: handover cascade ============ -->
+  <div class="cell">
+    <div class="phone">
+      <div class="ptitle">计算<small>今晚 → 计算 移交后</small></div>
+      <div class="chips">
+        <span class="chip sel">带地景</span><span class="chip">广域星空</span><span class="chip">深空</span><span class="chip">日月食</span><span class="chip">流星雨</span>
+      </div>
+      <div class="hint">来自今晚页 · 蝎虎座：赤纬 +46.0° 已预填 · 推荐焦距 102 mm（区间 67–137）</div>
+      <div class="menu"><span><span class="k">相机</span><span class="v">Sony A1 II</span></span><span class="car">▾</span></div>
+      <div class="lenshead">
+        <span><span class="k">镜头</span><br><span class="v">Tamron 35-150mm F2-2.8 Di III VXD</span><br><span class="s">35–150 mm · f/2–2.8 · Sony E</span></span>
+        <span class="tag">当前</span>
+      </div>
+      <div class="srcnote"><span class="t">按 <b>蝎虎座</b> 推荐焦距筛选 · 参考 <b>102 mm</b> · 区间 <b>67–137 mm</b></span><span class="clr">清除</span></div>
+      <div class="frow"><span class="k">卡口</span>
+        <div class="chips"><span class="chip">全部 · 17</span><span class="chip sel">Sony E · 9</span><span class="chip">Canon RF · 4</span><span class="chip">Nikon Z · 4</span></div>
+      </div>
+      <div class="frow"><span class="k">厂商</span>
+        <div class="chips"><span class="chip">全部 · 9</span><span class="chip">Sony · 3</span><span class="chip">Sigma · 4</span><span class="chip sel">Tamron · 2</span></div>
+      </div>
+      <div class="lrow sel"><span><span class="n">Tamron 35-150mm F2-2.8 Di III VXD</span><br><span class="s">35–150 mm · f/2–2.8 · Sony E</span></span><span class="cov">覆盖参考</span></div>
+      <div class="lrow"><span><span class="n">Tamron 28-75mm F2.8 Di III VXD G2</span><br><span class="s">28–75 mm · f/2.8 · Sony E</span></span></div>
+      <div class="miss">库里没有的镜头？到设置页添加后回到这里选。</div>
+      <div class="slider">
+        <div class="lab"><span>焦距</span><b>102 mm</b></div>
+        <div class="track"><div class="fill" style="width:58%"></div><div class="knob" style="left:58%"></div><span class="endlab" style="left:0">35</span><span class="endlab" style="right:0">150</span></div>
+      </div>
+      <div class="foot">↓ 以下为既有计算表单（光圈随焦距联动等，一字不动）</div>
+    </div>
+    <p class="cap">(a) 带移交选镜全程：蝎虎座<small>收窄链：全库 52 →（区间相交）17 →（卡口 Sony E）9 →（厂商 Tamron）2 → 点选 35-150，焦距落 clamp(102, 35–150) = <b>102 mm</b>（滑杆即所选变焦的焦段）。来源注记行常驻呈推荐态，品类筹片下的一行是移交回执（切品类即消、与注记行分工）。Canon RF 路径附记：17 →（Canon RF）4 → 厂商层只有 Canon 一家 4 支（85 F1.2L / 135 F1.8L / 24-70 F2.8L / 28-70 F2L），厂商行照常呈现不隐藏。若按覆盖参考点筛：全库仅 35-150 一支、RF 与 Z 路径为 0——见稿 §3.4。</small></p>
+  </div>
+
+  <!-- ============ Sample B: direct entry ============ -->
+  <div class="cell">
+    <div class="phone">
+      <div class="ptitle">计算<small>直接打开 · 无移交</small></div>
+      <div class="chips">
+        <span class="chip">带地景</span><span class="chip">广域星空</span><span class="chip sel">深空</span><span class="chip">日月食</span><span class="chip">流星雨</span>
+      </div>
+      <div class="menu"><span><span class="k">相机</span><span class="v">Sony A1 II</span></span><span class="car">▾</span></div>
+      <div class="lenshead">
+        <span><span class="k">镜头</span><br><span class="v">Sony FE 135mm F1.8 GM</span><br><span class="s">135 mm · f/1.8 · Sony E</span></span>
+        <span class="tag">当前</span>
+      </div>
+      <div class="basisrow"><span class="k">焦距依据</span><span class="chip sel">不限焦距</span><span class="chip">按当前焦距 135 mm</span></div>
+      <div class="frow"><span class="k">卡口</span>
+        <div class="chips"><span class="chip sel">全部 · 52</span><span class="chip">Sony E · 30</span><span class="chip">Canon RF · 11</span><span class="chip">Nikon Z · 11</span></div>
+      </div>
+      <div class="frow"><span class="k">厂商</span>
+        <div class="chips"><span class="chip sel">全部 · 52</span><span class="chip">Sony · 12</span><span class="chip">Canon · 11</span><span class="chip">Nikon · 11</span><span class="chip">Sigma · 11</span><span class="chip">Tamron · 7</span></div>
+      </div>
+      <div class="lrow"><span><span class="n">Sony E 11mm F1.8</span><br><span class="s">11 mm · f/1.8 · Sony E</span></span></div>
+      <div class="lrow"><span><span class="n">Tamron 11-20mm F2.8 Di III-A RXD</span><br><span class="s">11–20 mm · f/2.8 · Sony E</span></span></div>
+      <div class="lrow"><span><span class="n">Sony FE 12-24mm F2.8 GM</span><br><span class="s">12–24 mm · f/2.8 · Sony E</span></span></div>
+      <div class="lrow"><span><span class="n">Sigma 14mm F1.4 DG DN Art</span><br><span class="s">14 mm · f/1.4 · Sony E</span></span></div>
+      <div class="miss">（以下按库序续列，随页面滚动；点卡口 / 厂商即收窄）</div>
+      <div class="foot">↓ 以下为既有计算表单（一字不动）</div>
+    </div>
+    <p class="cap">(b) 直接打开计算页：同一选镜块、自由态<small>无移交提示行、无来源注记；默认「不限焦距」呈现全库（即旧平铺下拉菜单的替代物，靠卡口 / 厂商两行收窄，列表按库序）。点「按当前焦距 135 mm」才开启点覆盖筛选，依据为点选当刻的快照——之后拖焦距滑杆不跟随，再点一次重取快照。不另设第二套选镜界面（稿 §5.1）；有自定义镜头时，卡口行与厂商行按数据出现对应取值（厂商入「自定义」）。</small></p>
+  </div>
+
+  <!-- ============ Sample C: dialog step 2 after removal ============ -->
+  <div class="cell">
+    <div class="phone">
+      <div class="ptitle">蝎虎座<small>星座 · 详情</small></div>
+      <div class="steps"><span class="step">1 概览</span><span class="step sel">2 构图</span><span class="step">3 指向</span></div>
+      <div class="chart"><svg viewBox="0 0 360 250" width="360" height="250">
+        <circle cx="52" cy="38" r="0.8" fill="#3D4C73"/><circle cx="118" cy="22" r="0.6" fill="#3D4C73"/><circle cx="205" cy="48" r="0.9" fill="#3D4C73"/><circle cx="300" cy="30" r="0.7" fill="#3D4C73"/><circle cx="332" cy="88" r="0.8" fill="#3D4C73"/><circle cx="28" cy="120" r="0.7" fill="#3D4C73"/><circle cx="70" cy="205" r="0.9" fill="#3D4C73"/><circle cx="150" cy="228" r="0.6" fill="#3D4C73"/><circle cx="250" cy="215" r="0.8" fill="#3D4C73"/><circle cx="322" cy="180" r="0.6" fill="#3D4C73"/><circle cx="180" cy="90" r="0.5" fill="#3D4C73"/><circle cx="96" cy="150" r="0.5" fill="#3D4C73"/><circle cx="268" cy="140" r="0.5" fill="#3D4C73"/>
+        <rect x="72" y="42" width="216" height="144" fill="none" stroke="#6EA8FE" stroke-width="1.2"/>
+        <polyline points="150,92 178,108 196,96 214,128 206,158" fill="none" stroke="#46608F" stroke-width="0.9"/>
+        <circle cx="150" cy="92" r="2.4" fill="#E9EEF8"/><circle cx="178" cy="108" r="1.7" fill="#C7D2EA"/><circle cx="196" cy="96" r="1.5" fill="#C7D2EA"/><circle cx="214" cy="128" r="1.8" fill="#C7D2EA"/><circle cx="206" cy="158" r="1.6" fill="#C7D2EA"/>
+        <ellipse cx="238" cy="86" rx="7" ry="3.4" fill="rgba(110,168,254,.10)" stroke="#46608F" stroke-width="0.8"/>
+        <text x="156" y="88" font-size="10" fill="#96A3BE">α</text>
+        <text x="220" y="124" font-size="10" fill="#96A3BE">β</text>
+        <text x="246" y="82" font-size="10" fill="#96A3BE">NGC 7243</text>
+      </svg></div>
+      <div class="readout">焦距 <b>102 mm</b> · 视场 20.0°×13.4° · 长边占比 50% · 建议参考 102 mm（区间 67–137）</div>
+      <div class="slider">
+        <div class="lab"><span>焦距</span><b>102 mm</b></div>
+        <div class="track"><div class="fill" style="width:40%"></div><div class="knob" style="left:40%"></div><span class="endlab" style="left:0">14</span><span class="endlab" style="right:0">2000</span></div>
+      </div>
+      <div class="slider">
+        <div class="lab"><span>摆角</span><b>0°</b></div>
+        <div class="track"><div class="fill" style="width:50%"></div><div class="knob" style="left:50%"></div><span class="endlab" style="left:0">−90°</span><span class="endlab" style="right:0">+90°</span></div>
+      </div>
+      <div class="toggle"><span class="k">画幅</span><span class="chip sel">横幅</span><span class="chip">竖幅</span></div>
+      <div class="peek"><div class="t">构图窗</div><div class="s">地景方位与可拍时段（§7.9，本批不动）……</div></div>
+    </div>
+    <p class="cap">(c) 弹窗第二步撤除选镜后<small>取景图、焦距读数行、焦距 / 摆角滑杆、横竖切换、构图窗卡全部保留；<span class="gone">撤除</span>：候选筹片行、「全部镜头」入口与面板、读数行的镜头名后缀、刻度带上的所选变焦段标记。第二步回到「看构图、调焦距摆角」的纯呈现；选哪支镜头去计算页完成（页脚「去计算」把参考 102 mm 与区间 67–137 一并带过去）。</small></p>
+  </div>
+
+</div>
+
+<p class="note">注：样张星位为示意；读数行视场按全画幅 36×24 mm 于 102 mm 实算（20.0°×13.4°）。样张 (a) 中列表只剩 Tamron 两支是级联终点状态——点「全部 · 9」或改选厂商即回到该卡口的完整候选。</p>
+</body>
+</html>
