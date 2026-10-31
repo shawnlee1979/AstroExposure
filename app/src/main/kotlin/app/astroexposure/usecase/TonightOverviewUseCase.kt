@@ -1,6 +1,7 @@
 package app.astroexposure.usecase
 
 import app.astroexposure.domain.camera.FramingChart
+import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ChartStar
 import app.astroexposure.domain.catalog.ConstellationEntry
 import app.astroexposure.domain.catalog.ConstellationCatalog
@@ -27,7 +28,7 @@ import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.sky.MoonPhaseName
 import app.astroexposure.domain.sky.MoonPhaseNames
 import app.astroexposure.domain.sky.SkyBrightness
-import app.astroexposure.domain.timeline.CompositionWindow
+import app.astroexposure.domain.timeline.LandscapeComposition
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.timeline.TimelineCursor
 import app.astroexposure.domain.units.Degrees
@@ -971,18 +972,22 @@ class TonightOverviewUseCase(
     }
 
     /**
-     * Composition evaluation behind the detail dialog's and the
-     * landscape calculator's composition sections (ui-design §7.9):
-     * the domain verdict for one subject, one foreground bearing and
-     * one tolerance, plus the axis and the night span it was cut to
-     * (the sections draw their mini time bar from exactly these).
+     * Landscape composition evaluation behind the detail dialog's
+     * composition tool and the landscape calculator's landscape
+     * group (ui-design §7.9, 0.15.0): the domain verdict for one
+     * subject and one site (foreground bearing + foreground-top
+     * altitude), plus the axis and the night span it was cut to
+     * (the sections draw their mini time bar from exactly these)
+     * and the subject's sampled positions at the key moment (the
+     * dialog's landscape snapshot draws from exactly these).
      */
-    data class CompositionEvaluation(
+    data class LandscapeEvaluation(
         val subject: TonightSubject,
-        /** The foreground bearing the windows were computed for, degrees in [0, 360). */
+        /** The foreground bearing the verdict was computed for, degrees in [0, 360). */
         val bearingDeg: Double,
-        val toleranceDeg: Double,
-        val result: CompositionWindow.Result,
+        /** The foreground-top sight-line altitude, degrees. */
+        val foregroundTopDeg: Double,
+        val result: LandscapeComposition.Result,
         val axisStart: Instant,
         val axisEnd: Instant,
         /**
@@ -992,84 +997,225 @@ class TonightOverviewUseCase(
          * uncut — the presentation fallback of [nightSpan].
          */
         val nightSpan: NightTimeline.Interval?,
+        /** The centre's position at the key moment. */
+        val keyMomentCentre: LandscapeComposition.PointSample,
+        /** The range points' positions at the key moment (empty = centre-only subject). */
+        val keyMomentPoints: List<LandscapeComposition.PointSample>,
+        /**
+         * Polylines over [keyMomentPoints] for the snapshot: a
+         * constellation's skeleton chains as index lists; empty for
+         * other shapes (a deep-sky rim is drawn as its point ring).
+         */
+        val keyMomentChains: List<List<Int>>,
     )
 
     /**
-     * Composition windows for one subject by its namespaced id,
+     * Landscape composition for one subject by its namespaced id,
      * against the caller's already-built [timeline] (the detail
      * dialog's entrance). Returns null for an unknown id or a failed
      * catalogue — and for a radiant: a radiant is not a framable
-     * subject and never gets a composition section (ui-design §7.8).
+     * subject and never gets a landscape group (ui-design §7.8).
      */
-    fun evaluateComposition(
+    fun evaluateLandscape(
         location: GeoLocation,
         date: LocalDate,
         timeline: Timeline,
         objectId: String,
         bearingDeg: Double,
-        toleranceDeg: Double,
-    ): CompositionEvaluation? {
+        foregroundTopDeg: Double,
+    ): LandscapeEvaluation? {
         val subject = resolveSubject(objectId, date) ?: return null
         if (subject is TonightSubject.Radiant) return null
-        return compositionFor(location, date, timeline, subject, bearingDeg, toleranceDeg)
+        return landscapeFor(location, date, timeline, subject, bearingDeg, foregroundTopDeg)
     }
 
     /**
-     * Composition windows for a subject the caller already holds
+     * Landscape composition for a subject the caller already holds
      * (the landscape calculator's selector entrance): the timeline
      * is built here, so both entrances share the one axis definition
      * and the one night-span discipline.
      */
-    fun evaluateCompositionForSubject(
+    fun evaluateLandscapeForSubject(
         location: GeoLocation,
         date: LocalDate,
         subject: TonightSubject,
         bearingDeg: Double,
-        toleranceDeg: Double,
-    ): CompositionEvaluation {
+        foregroundTopDeg: Double,
+    ): LandscapeEvaluation {
         val timeline = buildTimeline(
             location, date,
             ephemeris.sunEvents(location, date),
             ephemeris.astronomicalNight(location, date),
             ephemeris.galacticCenterWindow(location, date),
         )
-        return compositionFor(location, date, timeline, subject, bearingDeg, toleranceDeg)
+        return landscapeFor(location, date, timeline, subject, bearingDeg, foregroundTopDeg)
+    }
+
+    /** Boundary points sampled on an ellipse's / circle's rim (§7.9). */
+    private val rimPointCount: Int = 48
+
+    /**
+     * The subject's range as fixed sky points (ui-design §7.9): a
+     * constellation's skeleton unique vertices, a deep-sky object's
+     * catalogue ellipse boundary, a viewpoint's anchor circle rim.
+     * Empty for a subject with no extent data (a size-less deep-sky
+     * object) — the domain then judges the centre alone. Without
+     * the star or line catalogues a constellation degrades to its
+     * centre the same way, never to invented vertices.
+     */
+    private fun rangeSkyPoints(subject: TonightSubject): List<EquatorialCoordinates> =
+        when (subject) {
+            is TonightSubject.Constellation -> {
+                val stars = starCatalog?.stars() ?: emptyList()
+                val chains = constellationLines?.lines()?.get(subject.entry.code)
+                    ?: emptyList()
+                val byId = stars.associateBy { it.id }
+                chains.flatten().distinct().mapNotNull { id ->
+                    byId[id]?.let { EquatorialCoordinates(it.raDeg / 15.0, Degrees(it.decDeg)) }
+                }
+            }
+            is TonightSubject.DeepSky -> {
+                val major = subject.obj.sizeMajorArcmin
+                if (major == null) {
+                    emptyList()
+                } else {
+                    ellipseBoundaryPoints(
+                        centerRaDeg = subject.obj.raHours * 15.0,
+                        centerDecDeg = subject.obj.decDeg,
+                        majorArcmin = major,
+                        minorArcmin = subject.obj.sizeMinorArcmin,
+                        positionAngleDeg = subject.obj.positionAngleDeg,
+                    )
+                }
+            }
+            is TonightSubject.Viewpoint -> {
+                val radiusDeg = subject.viewpoint.sizeMajorDeg.toDouble() / 2.0
+                val rim = kotlin.math.tan(Math.toRadians(radiusDeg))
+                (0 until rimPointCount).map { i ->
+                    val theta = 2.0 * Math.PI * i / rimPointCount
+                    val (ra, dec) = FramingChart.skyPointFromTangent(
+                        subject.viewpoint.anchorRaHours * 15.0,
+                        subject.viewpoint.anchorDecDeg,
+                        FramingChart.TangentPoint(
+                            rim * kotlin.math.cos(theta), rim * kotlin.math.sin(theta),
+                        ),
+                    )
+                    EquatorialCoordinates(ra / 15.0, Degrees(dec))
+                }
+            }
+            is TonightSubject.Radiant -> emptyList()
+        }
+
+    /**
+     * A catalogue ellipse's boundary as sky points, through the
+     * framing chart's inverse tangent transform: the major axis
+     * runs at the catalogue position angle (the RA axis when the
+     * catalogue records none — [FramingChart]'s convention), the
+     * minor axis perpendicular to it.
+     */
+    private fun ellipseBoundaryPoints(
+        centerRaDeg: Double,
+        centerDecDeg: Double,
+        majorArcmin: Double,
+        minorArcmin: Double?,
+        positionAngleDeg: Double?,
+    ): List<EquatorialCoordinates> {
+        val a = kotlin.math.tan(Math.toRadians(majorArcmin / 60.0 / 2.0))
+        val b = kotlin.math.tan(Math.toRadians((minorArcmin ?: majorArcmin) / 60.0 / 2.0))
+        val pa = Math.toRadians(positionAngleDeg ?: FramingChart.RA_AXIS_POSITION_ANGLE_DEG)
+        val majorDir = FramingChart.TangentPoint(kotlin.math.sin(pa), kotlin.math.cos(pa))
+        val minorDir = FramingChart.TangentPoint(kotlin.math.cos(pa), -kotlin.math.sin(pa))
+        return (0 until rimPointCount).map { i ->
+            val theta = 2.0 * Math.PI * i / rimPointCount
+            val offset = FramingChart.TangentPoint(
+                a * kotlin.math.cos(theta) * majorDir.xEast +
+                    b * kotlin.math.sin(theta) * minorDir.xEast,
+                a * kotlin.math.cos(theta) * majorDir.yNorth +
+                    b * kotlin.math.sin(theta) * minorDir.yNorth,
+            )
+            val (ra, dec) = FramingChart.skyPointFromTangent(centerRaDeg, centerDecDeg, offset)
+            EquatorialCoordinates(ra / 15.0, Degrees(dec))
+        }
     }
 
     /**
-     * The one composition assembly: the subject's azimuth and
-     * altitude sampled on the timeline axis at the shared 5-minute
-     * step (azimuth via the port's existing member — no second
-     * ephemeris route), then the domain's pure function.
+     * The one landscape assembly: the centre's and the range
+     * points' azimuth/altitude sampled on the timeline axis at the
+     * shared 5-minute step (via the port's existing members — no
+     * second ephemeris route), then the domain's pure function.
+     * The key-moment positions are re-read through the port at the
+     * solved key instant, so the snapshot draws port truth, not an
+     * interpolation of the samples.
      */
-    private fun compositionFor(
+    private fun landscapeFor(
         location: GeoLocation,
         date: LocalDate,
         timeline: Timeline,
         subject: TonightSubject,
         bearingDeg: Double,
-        toleranceDeg: Double,
-    ): CompositionEvaluation {
+        foregroundTopDeg: Double,
+    ): LandscapeEvaluation {
         val coords = subject.coordinates
+        val rangePoints = rangeSkyPoints(subject)
+        fun positionOf(target: EquatorialCoordinates, t: Instant) =
+            LandscapeComposition.PointSample(
+                azimuthDeg = ephemeris.azimuthOf(location, target, t).value,
+                altitudeDeg = ephemeris.altitudeOf(location, target, t).value,
+            )
         val samples = NightTimeline.sampleInstants(timeline.axisStart, timeline.axisEnd)
             .map { t ->
-                CompositionWindow.Sample(
+                LandscapeComposition.Sample(
                     instant = t,
-                    azimuthDeg = ephemeris.azimuthOf(location, coords, t).value,
-                    altitudeDeg = ephemeris.altitudeOf(location, coords, t).value,
+                    centre = positionOf(coords, t),
+                    points = rangePoints.map { positionOf(it, t) },
                 )
             }
         val bearing = ((bearingDeg % 360.0) + 360.0) % 360.0
         val span = nightSpan(location, date)
-        return CompositionEvaluation(
+        val result = LandscapeComposition.evaluate(
+            samples = samples,
+            bearingDeg = bearing,
+            foregroundTopDeg = foregroundTopDeg,
+            advice = FullFrameFraming.advice(subject.sizeMajorDeg?.times(60.0)),
+            sizeMajorArcmin = subject.sizeMajorDeg?.times(60.0),
+            nightSpan = span,
+        )
+        val keyInstant = result.keyMoment.instant
+        return LandscapeEvaluation(
             subject = subject,
             bearingDeg = bearing,
-            toleranceDeg = toleranceDeg,
-            result = CompositionWindow.windows(samples, bearing, toleranceDeg, span),
+            foregroundTopDeg = foregroundTopDeg,
+            result = result,
             axisStart = timeline.axisStart,
             axisEnd = timeline.axisEnd,
             nightSpan = span,
+            keyMomentCentre = positionOf(coords, keyInstant),
+            keyMomentPoints = rangePoints.map { positionOf(it, keyInstant) },
+            keyMomentChains = rangeChains(subject, rangePoints),
         )
+    }
+
+    /**
+     * The constellation skeleton's chains as index lists into the
+     * range-point list (which [rangeSkyPoints] builds in
+     * chain-flattened distinct order); empty for other subjects.
+     */
+    private fun rangeChains(
+        subject: TonightSubject,
+        rangePoints: List<EquatorialCoordinates>,
+    ): List<List<Int>> {
+        if (subject !is TonightSubject.Constellation) return emptyList()
+        val stars = starCatalog?.stars() ?: return emptyList()
+        val chains = constellationLines?.lines()?.get(subject.entry.code) ?: return emptyList()
+        val indexById = HashMap<Int, Int>()
+        val byId = stars.associateBy { it.id }
+        var next = 0
+        for (id in chains.flatten().distinct()) {
+            if (byId.containsKey(id)) indexById[id] = next++
+        }
+        if (next != rangePoints.size) return emptyList()
+        return chains.map { chain -> chain.mapNotNull { indexById[it] } }
+            .filter { it.size >= 2 }
     }
 
     /** One target's altitude series across the axis at the timeline's 5-minute step. */
