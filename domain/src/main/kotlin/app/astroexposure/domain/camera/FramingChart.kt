@@ -1,6 +1,7 @@
 package app.astroexposure.domain.camera
 
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.atan
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -123,6 +124,30 @@ object FramingChart {
         val x = cos(dec) * sin(deltaRa) / denominator
         val y = (cos(dec0) * sin(dec) - sin(dec0) * cos(dec) * cos(deltaRa)) / denominator
         return TangentPoint(x, y)
+    }
+
+    /**
+     * The inverse of [tangentPoint]: the sky point (raDeg, decDeg)
+     * whose tangent coordinates about the centre are [point]. Used
+     * to place constructed points (an ellipse's boundary, a circle's
+     * rim) on the sky so the ephemeris can carry them like any
+     * catalogue point. Exact inverse of the gnomonic formulas above.
+     */
+    fun skyPointFromTangent(
+        centerRaDeg: Double, centerDecDeg: Double, point: TangentPoint,
+    ): Pair<Double, Double> {
+        val rho = hypot(point.xEast, point.yNorth)
+        if (rho == 0.0) return Pair(centerRaDeg, centerDecDeg)
+        val c = atan(rho)
+        val dec0 = Math.toRadians(centerDecDeg)
+        val dec = asin(
+            cos(c) * sin(dec0) + point.yNorth * sin(c) * cos(dec0) / rho,
+        )
+        val ra = Math.toRadians(centerRaDeg) + atan2(
+            point.xEast * sin(c),
+            rho * cos(dec0) * cos(c) - point.yNorth * sin(dec0) * sin(c),
+        )
+        return Pair(Math.toDegrees(ra), Math.toDegrees(dec))
     }
 
     /**
