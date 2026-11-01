@@ -229,4 +229,26 @@ class FramingChartTest {
         assertEquals(27.0, FullFrameFraming.shortSideFovDeg(50.0), 0.05)
         assertEquals(39.6, FullFrameFraming.longSideFovDeg(50.0), 0.05)
     }
+
+    @Test
+    fun `sky point from tangent wraps right ascension across the origin`() {
+        // The 0.17.1 device crash, as geometry: the Cassiopeia
+        // viewpoint's rim (centre RA 13.5 deg, Dec 60 deg, rim
+        // radius 12.5 deg) reaches west of RA 0. The unwrapped
+        // inverse transform returned -1.2333485460501308 deg for
+        // this point; the wrapped answer is the same sky point.
+        val rim = kotlin.math.tan(Math.toRadians(12.5))
+        val theta = 2.0 * Math.PI * 15 / 48
+        val (ra, dec) = FramingChart.skyPointFromTangent(
+            13.5, 60.0,
+            FramingChart.TangentPoint(rim * kotlin.math.cos(theta), rim * kotlin.math.sin(theta)),
+        )
+        assertEquals(358.76665145394987, ra, 1e-9)
+        assertEquals(70.99307310754392, dec, 1e-9)
+        // And east of a centre near 360 the wrap lands near 0.
+        val (raEast, _) = FramingChart.skyPointFromTangent(
+            359.0, 0.0, FramingChart.TangentPoint(kotlin.math.tan(Math.toRadians(3.0)), 0.0),
+        )
+        assertEquals(2.0, raEast, 1e-9)
+    }
 }

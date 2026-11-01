@@ -132,12 +132,19 @@ object FramingChart {
      * to place constructed points (an ellipse's boundary, a circle's
      * rim) on the sky so the ephemeris can carry them like any
      * catalogue point. Exact inverse of the gnomonic formulas above.
+     *
+     * The returned right ascension is wrapped into [0, 360): a
+     * constructed point west of a centre near RA 0 (or east of one
+     * near 360) crosses the coordinate's origin, not the sky — the
+     * unwrapped sum once handed the ephemeris a negative RA and
+     * crashed it (0.17.3). Declination needs no wrap: the asin
+     * keeps it inside [-90, 90] by construction.
      */
     fun skyPointFromTangent(
         centerRaDeg: Double, centerDecDeg: Double, point: TangentPoint,
     ): Pair<Double, Double> {
         val rho = hypot(point.xEast, point.yNorth)
-        if (rho == 0.0) return Pair(centerRaDeg, centerDecDeg)
+        if (rho == 0.0) return Pair(wrapRaDeg(centerRaDeg), centerDecDeg)
         val c = atan(rho)
         val dec0 = Math.toRadians(centerDecDeg)
         val dec = asin(
@@ -147,8 +154,11 @@ object FramingChart {
             point.xEast * sin(c),
             rho * cos(dec0) * cos(c) - point.yNorth * sin(dec0) * sin(c),
         )
-        return Pair(Math.toDegrees(ra), Math.toDegrees(dec))
+        return Pair(wrapRaDeg(Math.toDegrees(ra)), Math.toDegrees(dec))
     }
+
+    /** Right ascension in degrees, wrapped into [0, 360). */
+    private fun wrapRaDeg(raDeg: Double): Double = ((raDeg % 360.0) + 360.0) % 360.0
 
     /**
      * The display projection of a tangent point. Gnomonic is the
