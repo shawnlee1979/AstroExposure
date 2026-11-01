@@ -454,12 +454,8 @@
     <string name="composition_caliber">Judged on the skeleton vertices · azimuth follows the subject · foreground top rests near the frame\'s lower edge (1/10 of frame height) · foreground top is a representative value along the subject\'s direction · cut to the astronomical night</string>
     <string name="composition_caliber_anchor">Judged on the anchor (circle diameter = long axis) · azimuth follows the subject · foreground top rests near the frame\'s lower edge (1/10 of frame height) · foreground top is a representative value along the subject\'s direction · cut to the astronomical night</string>
     <string name="composition_anchor_extends">Timed at the anchor; the segment\'s body extends toward the horizon</string>
-    <string name="composition_capture">Compass capture · aim at the foreground top below the subject, then lock in</string>
     <string name="composition_capture_lock">Lock in</string>
     <string name="composition_capture_cancel">Cancel</string>
-    <string name="composition_capture_unavailable">No direction sensor on this device — compass capture unavailable</string>
-    <string name="composition_capture_lock_pitch">Hold · Write pitch %1$d°</string>
-    <string name="composition_compass_posture">Compass capture (no picture): aim along the phone\'s top edge at the foreground top — hold the phone low, top edge on the topmost point — then hold.</string>
     <string name="composition_viewfinder_capture">Viewfinder capture · Aim at the foreground top and hold</string>
     <string name="composition_viewfinder_title">Viewfinder capture</string>
     <string name="composition_viewfinder_privacy">Preview only · No photos taken · Nothing stored</string>
@@ -470,14 +466,13 @@
     <string name="composition_top_edit_hint">Typing — tap Done or tap elsewhere to compute with this value; clear it to leave the value unchanged.</string>
     <string name="composition_top_range_error">The foreground-top altitude must be between −20° and 80° — %1$d° was not applied; still computing with %2$d°.</string>
     <string name="composition_top_value_cd">Foreground-top altitude %1$d degrees, tap to type</string>
-    <string name="composition_camera_explain">Viewfinder capture uses the camera to aim at the foreground top: it only previews — no photos are taken and nothing is stored. It needs the camera permission; without it, the compass capture and typing still work.</string>
+    <string name="composition_camera_explain">Viewfinder capture uses the camera to aim at the foreground top: it only previews — no photos are taken and nothing is stored. It needs the camera permission; without it, typing still works.</string>
     <string name="composition_camera_continue">Continue</string>
-    <string name="composition_camera_use_compass">Use the compass capture instead</string>
-    <string name="composition_camera_denied">Camera permission was denied, so viewfinder capture is unavailable — retry, or use the compass capture / typing instead.</string>
+    <string name="composition_camera_denied">Camera permission was denied, so viewfinder capture is unavailable — retry, or use typing instead.</string>
     <string name="composition_camera_retry">Retry</string>
-    <string name="composition_camera_denied_forever">The camera permission is off, so viewfinder capture is unavailable — enable the camera for this app in system settings, or use the compass capture / typing instead.</string>
+    <string name="composition_camera_denied_forever">The camera permission is off, so viewfinder capture is unavailable — enable the camera for this app in system settings, or use typing instead.</string>
     <string name="composition_camera_open_settings">Open settings</string>
-    <string name="composition_camera_unavailable">The camera is unavailable, so viewfinder capture cannot run — use the compass capture / typing instead.</string>
+    <string name="composition_camera_unavailable">The camera is unavailable, so viewfinder capture cannot run — use typing instead.</string>
     <string name="composition_duration_hm">%1$dh %2$dm</string>
     <string name="composition_duration_m">%1$dm</string>
     <string name="composition_twilight_note">The composition spans fall entirely outside the astronomical night (twilight)</string>
@@ -499,8 +494,6 @@
     <string name="composition_too_short_short">window too short</string>
     <string name="composition_low_hint">Subject very low: high extinction and foreground-obstruction risk</string>
     <string name="composition_snapshot_cd">Landscape composition snapshot: %1$s at %2$d mm, the frame at the best moment; below the foreground-top line is foreground</string>
-    <string name="composition_capture_live_pitch">Pitch %1$d° · heading %2$d°</string>
-    <string name="composition_capture_live_pitch_subject">Pitch %1$d° · heading %2$d° · subject azimuth %3$d°</string>
     <string name="composition_derived_conclusion">Recommended %1$d mm (%2$s)</string>
     <string name="composition_derivation_note">Derived from the foreground top %1$d° and the span at the subject\'s highest moment (%2$s)</string>
     <string name="composition_focal_capped_note">The focal the span needs exceeds the slider domain — computed at 2000 mm</string>
