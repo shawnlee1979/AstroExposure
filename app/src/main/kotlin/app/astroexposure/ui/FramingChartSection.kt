@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astroexposure.R
+import app.astroexposure.camera.CameraViewfinderPort
 import app.astroexposure.domain.camera.FramingChart
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.timeline.LandscapeComposition
@@ -105,6 +106,7 @@ fun FramingChartSection(
     zone: ZoneId? = null,
     subjectIsViewpoint: Boolean = false,
     subjectAzimuthDeg: Double? = null,
+    viewfinderPort: CameraViewfinderPort? = null,
 ) {
     val defaultFocal = FramingChart.defaultFocalMm(advice) ?: return
     var focalMm by remember(data) { mutableStateOf(defaultFocal) }
@@ -376,6 +378,8 @@ fun FramingChartSection(
                         siteLongitudeDeg = siteLongitudeDeg,
                         siteAltitudeMeters = siteAltitudeMeters,
                         subjectAzimuthDeg = subjectAzimuthDeg,
+                        viewfinderPort = viewfinderPort,
+                        redLight = redLight,
                     )
                     val current = landscapeEvaluation
                     if (current == null) {

@@ -76,6 +76,13 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    // CameraX for the viewfinder capture (0.17.0, ADR-0005): every
+    // CameraX type is confined to the one adapter in the camera
+    // package; camera-compose is the official Compose viewfinder.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.compose)
     kapt(libs.androidx.room.compiler)
     testImplementation(libs.junit)
 }

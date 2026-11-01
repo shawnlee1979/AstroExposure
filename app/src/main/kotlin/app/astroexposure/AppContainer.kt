@@ -23,6 +23,8 @@ import app.astroexposure.domain.catalog.StarCatalog
 import app.astroexposure.domain.catalog.WideFieldCatalog
 import app.astroexposure.domain.ephemeris.EphemerisProvider
 import app.astroexposure.domain.geo.GeoLocation
+import app.astroexposure.camera.CameraViewfinderPort
+import app.astroexposure.camera.CameraXViewfinderAdapter
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.units.Degrees
 import app.astroexposure.location.LocationProvider
@@ -63,6 +65,7 @@ class AppContainer(context: Context) {
     val locationProvider = LocationProvider(context.applicationContext)
     val orientationProvider: DeviceOrientationProvider =
         AndroidOrientationProvider(context.applicationContext)
+    val viewfinderPort: CameraViewfinderPort = CameraXViewfinderAdapter()
 
     val tonightOverview = TonightOverviewUseCase(
         ephemeris, objectCatalog, eclipseCatalog, showerCatalog, lightPollution,

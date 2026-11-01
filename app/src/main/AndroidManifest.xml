@@ -2,6 +2,14 @@
 <!--
   Offline by design (design §8.1): this manifest intentionally declares NO
   INTERNET permission. Do not add one.
+
+  Permission register: location (the site channels, design §2.1) and, since
+  0.17.0, the camera — used ONLY by the landscape viewfinder capture
+  (ui-design §7.9) to preview while aiming at a foreground top. The camera
+  is bound to preview alone: nothing is ever photographed, recorded or
+  stored, and the app works fully without the permission (compass capture
+  and typed input remain). Nothing else may be added here without a design
+  record.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -9,6 +17,13 @@
          fully without it via manual coordinates and favourite places. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Camera for the viewfinder capture's preview only (see the register
+         above); requested at the moment of capture, never on entry. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
 
     <application
         android:allowBackup="true"

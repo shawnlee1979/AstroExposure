@@ -133,6 +133,7 @@ fun TonightScreen(
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
     modifier: Modifier = Modifier,
+    viewfinderPort: app.astroexposure.camera.CameraViewfinderPort? = null,
 ) {
     val scrollState = rememberScrollState()
     val haptic = LocalHapticFeedback.current
@@ -744,6 +745,7 @@ fun TonightScreen(
                     siteLatitudeDeg = siteLatitudeDeg,
                     siteLongitudeDeg = siteLongitudeDeg,
                     siteAltitudeMeters = siteAltitudeMeters,
+                    viewfinderPort = viewfinderPort,
                     onDismiss = { detailObjectId = null },
                     actionLabel = if (category != null) {
                         stringResource(R.string.cursor_detail_goto_calculator)

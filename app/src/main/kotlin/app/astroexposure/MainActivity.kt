@@ -599,6 +599,7 @@ private fun AstroApp(container: AppContainer) {
                             tab = Tab.CALCULATE
                         },
                         orientationProvider = container.orientationProvider,
+                        viewfinderPort = container.viewfinderPort,
                         siteLatitudeDeg = location.latitude.value,
                         siteLongitudeDeg = location.longitude.value,
                         siteAltitudeMeters = location.heightMeters,
@@ -608,6 +609,7 @@ private fun AstroApp(container: AppContainer) {
 
                 Tab.CALCULATE -> CalculatorsScreen(
                     container = container,
+                    redLight = redLight,
                     cameras = cameras.map { it.first },
                     lenses = lenses.map { it.first },
                     profiles = profiles,
