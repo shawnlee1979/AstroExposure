@@ -691,8 +691,6 @@ private fun LandscapeCalculator(
             siteLongitudeDeg = location.longitude.value,
             siteAltitudeMeters = location.heightMeters,
             zone = location.zone,
-            subjectIsViewpoint =
-                activeCompositionSubject is TonightOverviewUseCase.TonightSubject.Viewpoint,
             viewfinderPort = container.viewfinderPort,
             redLight = redLight,
             subjectSelector = {

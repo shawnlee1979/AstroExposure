@@ -451,9 +451,6 @@
     <string name="composition_purpose">For shots with a foreground: set the foreground-top altitude (how much foreground to include) to derive the focal length and this composition\'s shootable spans.</string>
     <string name="composition_example_tag">Sample</string>
     <string name="composition_example_note">Computed for the sample foreground top %1$d° — measure the foreground top below the subject once, or enter a value to compute for it.</string>
-    <string name="composition_caliber">Judged on the skeleton vertices · azimuth follows the subject · foreground top rests near the frame\'s lower edge (1/10 of frame height) · foreground top is a representative value along the subject\'s direction · cut to the astronomical night</string>
-    <string name="composition_caliber_anchor">Judged on the anchor (circle diameter = long axis) · azimuth follows the subject · foreground top rests near the frame\'s lower edge (1/10 of frame height) · foreground top is a representative value along the subject\'s direction · cut to the astronomical night</string>
-    <string name="composition_anchor_extends">Timed at the anchor; the segment\'s body extends toward the horizon</string>
     <string name="composition_capture_lock">Lock in</string>
     <string name="composition_capture_cancel">Cancel</string>
     <string name="composition_viewfinder_capture">Viewfinder capture · Aim at the foreground top and hold</string>
@@ -506,13 +503,8 @@
     <string name="composition_best">Best %1$s · altitude %2$d°</string>
     <string name="composition_anchor_outside_note">The subject\'s highest moment (%1$s) is outside the window</string>
     <string name="composition_never_top_title">Cannot shoot: the subject never rises past the foreground top all night</string>
-    <string name="composition_never_top_detail">At its highest (%1$s) the subject\'s bottom is %2$d° · still below the foreground top %3$d° (by %4$d°)</string>
     <string name="composition_never_top_note">Unrelated to focal length — the subject stays behind the foreground throughout. Moving position, or facing a lower foreground top, is the only way.</string>
     <string name="composition_span_title">Does not fit: the span exceeds the widest frame</string>
-    <string name="composition_span_detail">At the anchor (%1$s) the span needs a vertical field of %2$d° · 14 mm at its widest — landscape %3$d° / portrait %4$d°</string>
-    <string name="composition_span_detail_nonpositive">At the anchor (%1$s) the subject top does not rise past where the foreground top would sit, so the span is not positive · 14 mm at its widest — landscape %2$d° / portrait %3$d°</string>
-    <string name="composition_caliber_no_frame">Judged on the skeleton vertices · azimuth follows the subject · foreground top is a representative value along the subject\'s direction</string>
-    <string name="composition_caliber_no_frame_anchor">Judged on the anchor (circle diameter = long axis) · azimuth follows the subject · foreground top is a representative value along the subject\'s direction</string>
     <string name="composition_plan_focal_no_share">Composition focal: %1$d mm (%2$s)</string>
     <string name="composition_plan_blocked_never_top">subject never rises past the foreground top</string>
     <string name="composition_focal_derived_note">With a foreground, the focal length is derived from the foreground top and the span</string>

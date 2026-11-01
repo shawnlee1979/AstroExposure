@@ -407,7 +407,6 @@ fun TargetDetailDialog(
                                         siteLongitudeDeg = siteLongitudeDeg,
                                         siteAltitudeMeters = siteAltitudeMeters,
                                         zone = zone,
-                                        subjectIsViewpoint = isViewpoint,
                                         subjectAzimuthDeg = detail.azimuthDeg,
                                         viewfinderPort = viewfinderPort,
                                     )
@@ -1002,8 +1001,6 @@ private fun LandscapeSwitchCard(
                     LandscapeResults(
                         evaluation = current,
                         zone = zone,
-                        subjectIsViewpoint =
-                            detail.subject is TonightOverviewUseCase.TonightSubject.Viewpoint,
                         primaryPortrait =
                             recommendedOutcome(current.result)?.portrait ?: false,
                         topEdited = siteState.topEdited,

@@ -453,9 +453,6 @@
     <string name="composition_purpose">带地景拍时用：定地景顶仰角（包含多少地景），反推焦距与这张构图的可拍时段。</string>
     <string name="composition_example_tag">示例</string>
     <string name="composition_example_note">以下按示例地景顶 %1$d° 计算——对准目标下方的地景顶测一次，或填入数值后即按它算。</string>
-    <string name="composition_caliber">按骨架顶点计 · 方位随目标 · 地景顶贴近画框下沿（画高 1/10）· 地景顶按目标方向代表值 · 与天文夜取交</string>
-    <string name="composition_caliber_anchor">按锚点计（圆径＝长轴）· 方位随目标 · 地景顶贴近画框下沿（画高 1/10）· 地景顶按目标方向代表值 · 与天文夜取交</string>
-    <string name="composition_anchor_extends">按锚点计，段体向地平延伸</string>
     <string name="composition_capture_lock">定住</string>
     <string name="composition_capture_cancel">取消</string>
     <string name="composition_viewfinder_capture">取景捕获 · 对准地景顶定住</string>
@@ -508,13 +505,8 @@
     <string name="composition_best">最佳 %1$s · 高度 %2$d°</string>
     <string name="composition_anchor_outside_note">目标最高时（%1$s）不在窗内</string>
     <string name="composition_never_top_title">拍不到：目标整晚不越地景顶</string>
-    <string name="composition_never_top_detail">整晚最高时（%1$s）目标底部 %2$d° · 仍低于地景顶 %3$d°（差 %4$d°）</string>
     <string name="composition_never_top_note">与焦距无关——目标全程在地景后方。换机位、或改朝地景顶更低的方向，才有解。</string>
     <string name="composition_span_title">装不下：跨度超出最宽画框</string>
-    <string name="composition_span_detail">锚点（%1$s）跨度需垂直视场 %2$d° · 14 mm 最宽 横 %3$d° / 竖 %4$d°</string>
-    <string name="composition_span_detail_nonpositive">锚点（%1$s）目标顶未高出地景顶的安放位置，跨度不为正 · 14 mm 最宽 横 %2$d° / 竖 %3$d°</string>
-    <string name="composition_caliber_no_frame">按骨架顶点计 · 方位随目标 · 地景顶按目标方向代表值</string>
-    <string name="composition_caliber_no_frame_anchor">按锚点计（圆径＝长轴）· 方位随目标 · 地景顶按目标方向代表值</string>
     <string name="composition_plan_focal_no_share">构图焦距：%1$d mm（%2$s）</string>
     <string name="composition_plan_blocked_never_top">目标不越地景顶</string>
     <string name="composition_focal_derived_note">带地景时焦距由地景顶与跨度反推</string>

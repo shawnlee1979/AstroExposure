@@ -104,7 +104,6 @@ fun FramingChartSection(
     siteLongitudeDeg: Double = 0.0,
     siteAltitudeMeters: Double = 0.0,
     zone: ZoneId? = null,
-    subjectIsViewpoint: Boolean = false,
     subjectAzimuthDeg: Double? = null,
     viewfinderPort: CameraViewfinderPort? = null,
 ) {
@@ -388,7 +387,6 @@ fun FramingChartSection(
                         LandscapeResults(
                             evaluation = current,
                             zone = zone ?: ZoneId.systemDefault(),
-                            subjectIsViewpoint = subjectIsViewpoint,
                             primaryPortrait = portrait,
                             topEdited = landscapeSite.topEdited,
                         )

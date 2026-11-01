@@ -824,23 +824,24 @@ private fun otherSpanText(outcome: LandscapeComposition.OrientationOutcome): Str
     }
 
 /**
- * The verdict's rendering (ui-design §7.9, 0.16.0), in the row
- * order §4.2 fixes: the sample crown line (while the foreground
- * top is unedited), the derived-focal conclusion — gold only
- * there and on the best-moment lines — its derivation note, the
- * share line, the other orientation's contrast line, the spans
- * with the mini time bar, and the standing caliber line. The two
- * blocking verdicts state their category and figures in the
- * conclusion's place and carry no focal, share, contrast or span
- * lines. [primaryPortrait] names the orientation the primary
- * lines describe; the other orientation gets its one contrast
- * line.
+ * The verdict's rendering (ui-design §7.9, 0.16.0; slimmed in
+ * 0.17.2), in the row order §4.2 fixes: the sample crown line
+ * (while the foreground top is unedited), the derived-focal
+ * conclusion — gold only there and on the best-moment lines —
+ * its derivation note, the share line, the other orientation's
+ * contrast line, the spans with the mini time bar. The two
+ * blocking verdicts state their category in the conclusion's
+ * place and carry no focal, share, contrast or span lines, and
+ * no per-case figures line under the category (0.17.2: the
+ * figures stay in the domain verdict, unrendered; the standing
+ * caliber paragraph at the card's foot is gone the same way).
+ * [primaryPortrait] names the orientation the primary lines
+ * describe; the other orientation gets its one contrast line.
  */
 @Composable
 fun LandscapeResults(
     evaluation: TonightOverviewUseCase.LandscapeEvaluation,
     zone: ZoneId,
-    subjectIsViewpoint: Boolean,
     primaryPortrait: Boolean,
     topEdited: Boolean = true,
 ) {
@@ -992,17 +993,6 @@ fun LandscapeResults(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = stringResource(
-                        R.string.composition_never_top_detail,
-                        formatTime(verdict.atInstant, zone),
-                        verdict.maxBottomAltitudeDeg.roundToInt(),
-                        verdict.foregroundTopDeg.roundToInt(),
-                        (verdict.foregroundTopDeg - verdict.maxBottomAltitudeDeg)
-                            .roundToInt(),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
                     text = stringResource(R.string.composition_never_top_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1013,69 +1003,10 @@ fun LandscapeResults(
                     text = stringResource(R.string.composition_span_title),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                // A null required field means the span at the
-                // anchor is not positive: the sentence states that
-                // instead of printing a number (0.17.0).
-                val required = verdict.requiredVerticalFovDeg
-                Text(
-                    text = if (required != null) {
-                        stringResource(
-                            R.string.composition_span_detail,
-                            formatTime(verdict.anchorInstant, zone),
-                            required.roundToInt(),
-                            LandscapeComposition.verticalFovDeg(
-                                LandscapeComposition.MIN_FOCAL_MM, portrait = false,
-                            ).roundToInt(),
-                            LandscapeComposition.verticalFovDeg(
-                                LandscapeComposition.MIN_FOCAL_MM, portrait = true,
-                            ).roundToInt(),
-                        )
-                    } else {
-                        stringResource(
-                            R.string.composition_span_detail_nonpositive,
-                            formatTime(verdict.anchorInstant, zone),
-                            LandscapeComposition.verticalFovDeg(
-                                LandscapeComposition.MIN_FOCAL_MM, portrait = false,
-                            ).roundToInt(),
-                            LandscapeComposition.verticalFovDeg(
-                                LandscapeComposition.MIN_FOCAL_MM, portrait = true,
-                            ).roundToInt(),
-                        )
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
             }
         }
 
         LandscapeMiniBar(evaluation = evaluation, primaryPortrait = primaryPortrait)
-
-        // The standing caliber line: the placement rule and the
-        // representative-value reading of the foreground top are
-        // part of the answer and stay on screen with it. The
-        // never-above verdict carries the short form — no frame
-        // was ever placed for it.
-        val noFrame = result.verdict is
-            LandscapeComposition.Verdict.NeverAboveForegroundTop
-        Text(
-            text = stringResource(
-                when {
-                    noFrame && subjectIsViewpoint ->
-                        R.string.composition_caliber_no_frame_anchor
-                    noFrame -> R.string.composition_caliber_no_frame
-                    subjectIsViewpoint -> R.string.composition_caliber_anchor
-                    else -> R.string.composition_caliber
-                },
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (subjectIsViewpoint) {
-            Text(
-                text = stringResource(R.string.composition_anchor_extends),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -1209,7 +1140,6 @@ fun LandscapeGroupCard(
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
     zone: ZoneId,
-    subjectIsViewpoint: Boolean,
     modifier: Modifier = Modifier,
     subjectSelector: (@Composable () -> Unit)? = null,
     primaryPortrait: Boolean? = null,
@@ -1244,7 +1174,6 @@ fun LandscapeGroupCard(
                 LandscapeResults(
                     evaluation = current,
                     zone = zone,
-                    subjectIsViewpoint = subjectIsViewpoint,
                     primaryPortrait = primaryPortrait
                         ?: recommendedOutcome(current.result)?.portrait
                         ?: false,
@@ -1271,7 +1200,6 @@ fun CompositionSection(
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
     zone: ZoneId,
-    subjectIsViewpoint: Boolean,
     modifier: Modifier = Modifier,
     subjectSelector: (@Composable () -> Unit)? = null,
     onStateChange: (
@@ -1295,7 +1223,6 @@ fun CompositionSection(
         siteLongitudeDeg = siteLongitudeDeg,
         siteAltitudeMeters = siteAltitudeMeters,
         zone = zone,
-        subjectIsViewpoint = subjectIsViewpoint,
         modifier = modifier,
         subjectSelector = subjectSelector,
         viewfinderPort = viewfinderPort,
