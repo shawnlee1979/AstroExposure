@@ -1511,10 +1511,7 @@ class TonightOverviewUseCase(
         val days = ShowerDates.daysFromPeak(shower, date)
         return TonightSubject.Radiant(
             shower = shower,
-            radiant = EquatorialCoordinates(
-                shower.radiantRaHours + shower.driftRaPerDay * days,
-                Degrees(shower.radiantDecDeg + shower.driftDecPerDay * days),
-            ),
+            radiant = shower.radiantAt(days),
         )
     }
 

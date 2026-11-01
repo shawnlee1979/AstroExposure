@@ -5,7 +5,6 @@ import app.astroexposure.domain.catalog.EclipseType
 import app.astroexposure.domain.catalog.MeteorShower
 import app.astroexposure.domain.ephemeris.CelestialBody
 import app.astroexposure.domain.ephemeris.EphemerisProvider
-import app.astroexposure.domain.ephemeris.EquatorialCoordinates
 import app.astroexposure.domain.ephemeris.TargetPass
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.model.DeepSkyModel
@@ -285,10 +284,7 @@ class MeteorUseCase(private val ephemeris: EphemerisProvider) {
             input.location, CelestialBody.MOON, sample,
         ).altitude.value > 0.0
         val daysFromPeak = ShowerDates.daysFromPeak(input.shower, input.date)
-        val radiant = EquatorialCoordinates(
-            raHours = input.shower.radiantRaHours + input.shower.driftRaPerDay * daysFromPeak,
-            declination = Degrees(input.shower.radiantDecDeg + input.shower.driftDecPerDay * daysFromPeak),
-        )
+        val radiant = input.shower.radiantAt(daysFromPeak)
         val result = MeteorModel.evaluate(
             MeteorModel.Input(
                 shower = input.shower,
