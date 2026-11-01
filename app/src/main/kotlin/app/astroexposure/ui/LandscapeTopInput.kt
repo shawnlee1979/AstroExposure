@@ -79,9 +79,8 @@ internal const val AXIS_HOLD_WINDOW_MILLIS = 600L
  * sampled inside the trailing [windowMillis] before the latest
  * sample (the samples ride the orientation port's stream, stamped
  * on the adapter's elapsed clock). Null when there are no samples —
- * the hold is then disabled, the same discipline as the compass
- * capture's no-pitch state. Windows compare on sample stamps only;
- * this function reads no clock.
+ * the hold is then disabled and nothing is written. Windows compare
+ * on sample stamps only; this function reads no clock.
  */
 internal fun meanCameraAxisDeg(
     samples: List<DeviceOrientationProvider.OrientationSample>,

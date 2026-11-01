@@ -7,9 +7,9 @@
   0.17.0, the camera — used ONLY by the landscape viewfinder capture
   (ui-design §7.9) to preview while aiming at a foreground top. The camera
   is bound to preview alone: nothing is ever photographed, recorded or
-  stored, and the app works fully without the permission (compass capture
-  and typed input remain). Nothing else may be added here without a design
-  record.
+  stored, and the app works fully without the permission (typed input
+  and the steppers remain). Nothing else may be added here without a
+  design record.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
