@@ -229,13 +229,26 @@ class LandscapeGoldenNightTest {
         val verdict = result.verdict as LandscapeComposition.Verdict.AllOutsideNight
         assertTrue(verdict.recommendedPortrait)
         // The snapshot falls back to the geometric segments (no
-        // night-cut segment exists) and takes the longest one's
-        // best moment: landscape's 107 minutes is the longest
-        // across both orientations (portrait's geometric window
-        // is shorter), so no tie reaches the recommended
-        // orientation's preference here.
-        assertEquals(86.0, result.portrait.geometricSegments.single().durationMinutes, 8.0)
-        assertNear(local(0, LocalTime.of(18, 43)), evaluation.snapshotInstant, 10)
+        // night-cut segment exists). The two spans share their
+        // endpoints exactly — the same 106.89 minutes — so the
+        // longest-segment rule ties and §7.10's tie rule decides:
+        // the recommended orientation's segment, portrait, whose
+        // best moment is 18:35. Before 0.17.0 the snapshot
+        // defaulted to landscape and froze at landscape's best
+        // moment (18:43, the design board's figure); the board's
+        // ±10-minute tolerance straddles both instants, so the
+        // pin here is the exact segment instant instead.
+        assertEquals(107.0, result.portrait.geometricSegments.single().durationMinutes, 10.0)
+        assertEquals(
+            geometric.durationMinutes,
+            result.portrait.geometricSegments.single().durationMinutes,
+            0.0,
+        )
+        assertEquals(
+            result.portrait.geometricSegments.single().best.instant,
+            evaluation.snapshotInstant,
+        )
+        assertNear(local(0, LocalTime.of(18, 35)), evaluation.snapshotInstant, 10)
         // A viewpoint's range is its anchor circle rim.
         assertEquals(48, evaluation.snapshotPoints.size)
     }

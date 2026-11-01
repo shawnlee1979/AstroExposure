@@ -1,5 +1,13 @@
 package app.astroexposure.ui
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -8,7 +16,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,9 +27,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,21 +45,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import app.astroexposure.R
+import app.astroexposure.camera.CameraViewfinderPort
 import app.astroexposure.domain.orientation.DeviceOrientationProvider
 import app.astroexposure.domain.timeline.LandscapeComposition
 import app.astroexposure.domain.timeline.NightTimeline
@@ -63,10 +85,13 @@ import kotlinx.coroutines.withTimeout
 
 /**
  * The landscape composition component library (ui-design §7.9,
- * 0.16.0): the foreground-top altitude is the one site input — the
- * subject is the anchor and its azimuth is derived, never entered —
- * written by steppers or by a compass capture that writes the pitch
- * alone; the results render the domain's verdict — the focal length
+ * 0.16.0; input layer 0.17.0): the foreground-top altitude is the
+ * one site input — the subject is the anchor and its azimuth is
+ * derived, never entered — written by steppers, by direct typing
+ * (the one entry that rejects out-of-domain values instead of
+ * clamping them), or by a capture that writes its angle alone
+ * (the viewfinder's camera-axis elevation, the compass's pitch);
+ * the results render the domain's verdict — the focal length
  * derived from the foreground top and the subject's span, the
  * shootable spans at that focal and their best moments, or the one
  * honest "does not fit" category with its figures. The same pieces
@@ -85,7 +110,7 @@ class LandscapeSiteState {
 
     /** Write the foreground-top altitude: clamps into [-20, 80] and marks edited. */
     fun writeTop(value: Int) {
-        topDeg = value.coerceIn(-20, 80)
+        topDeg = value.coerceIn(TOP_MIN_DEG, TOP_MAX_DEG)
         topEdited = true
     }
 }
@@ -148,17 +173,36 @@ fun LandscapeSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     }
 }
 
+/** Orientation samples retained for the viewfinder hold's trailing mean. */
+private const val SAMPLE_HISTORY = 24
+
+/** The capture area's states (ui-design §7.9, 0.17.0). */
+private enum class CaptureMode {
+    NONE, EXPLAIN, VIEWFINDER, COMPASS, DENIED_ONCE, DENIED_FOREVER, UNAVAILABLE,
+}
+
 /**
- * The site input: the foreground-top row (stepper clamps instead
- * of wrapping) and the capture row. Capture subscribes only while
- * it runs (the finder section's discipline); its live line leads
- * with the pitch, and shows the current heading — and the subject's
- * azimuth when the caller supplies one — as reference only:
- * neither azimuth reading is written to any field (display only,
- * ui-design §7.9, 0.16.0). Locking in writes the pitch alone,
- * rounded (the clamp into the field's domain lives in
- * [LandscapeSiteState.writeTop]), and needs a pitch reading only.
- * Cancelling writes nothing.
+ * The site input: the foreground-top row and the capture area
+ * (ui-design §7.9, 0.17.0). The foreground top T stays the ONE
+ * field; three entries write it — the steppers, direct typing, and
+ * the captures — all through [LandscapeSiteState.writeTop]. Typed
+ * input is the one entry that never clamps: its submit is the
+ * four-way decision in [submitTopInput] (empty cancels, in-domain
+ * writes, out-of-domain is rejected in the open with the text kept
+ * and an error line, and a capture starting mid-edit preempts with
+ * cancel semantics). The bounded entries (steppers, captures)
+ * clamp inside [LandscapeSiteState.writeTop].
+ *
+ * Capture runs on two channels over the same single write: the
+ * viewfinder (primary — the camera preview's centre marker aimed
+ * at the foreground top; the hold writes the mean camera-axis
+ * elevation γ over the trailing 600 ms) and the compass (fallback
+ * — the top edge's pitch, with the aiming posture stated on
+ * screen). Both channels show the current heading, and the
+ * subject's azimuth when the caller supplies one, as reference
+ * only: neither azimuth reading is written to any field (display
+ * only). Captures subscribe only while one runs (the finder
+ * section's discipline); cancelling writes nothing.
  */
 @Composable
 fun LandscapeSiteInputs(
@@ -168,19 +212,23 @@ fun LandscapeSiteInputs(
     siteLongitudeDeg: Double,
     siteAltitudeMeters: Double,
     subjectAzimuthDeg: Double? = null,
+    viewfinderPort: CameraViewfinderPort? = null,
+    redLight: Boolean = false,
 ) {
+    val context = LocalContext.current
     val available = remember(orientationProvider) { orientationProvider.isAvailable() }
-    var capturing by remember { mutableStateOf(false) }
-    var captureSample by remember {
-        mutableStateOf<DeviceOrientationProvider.OrientationSample?>(null)
+    var captureMode by remember { mutableStateOf(CaptureMode.NONE) }
+    var samples by remember {
+        mutableStateOf<List<DeviceOrientationProvider.OrientationSample>>(emptyList())
     }
+    val capturing = captureMode != CaptureMode.NONE && captureMode != CaptureMode.EXPLAIN
     DisposableEffect(
         capturing, orientationProvider, siteLatitudeDeg, siteLongitudeDeg,
     ) {
         if (!capturing) {
             onDispose { }
         } else {
-            captureSample = null
+            samples = emptyList()
             val subscription = orientationProvider.observe(
                 DeviceOrientationProvider.OrientationRequest(
                     latitudeDeg = siteLatitudeDeg,
@@ -188,14 +236,104 @@ fun LandscapeSiteInputs(
                     altitudeMeters = siteAltitudeMeters,
                     epochMillis = System.currentTimeMillis(),
                 ),
-            ) { sample -> captureSample = sample }
+            ) { sample -> samples = (samples + sample).takeLast(SAMPLE_HISTORY) }
             onDispose { subscription.cancel() }
+        }
+    }
+    val captureSample = samples.lastOrNull()
+
+    // --- Typed input -----------------------------------------------------
+    var editing by remember { mutableStateOf(false) }
+    var buffer by remember { mutableStateOf("") }
+    var typeError by remember { mutableStateOf<Int?>(null) }
+    val focusRequester = remember { FocusRequester() }
+    var fieldHadFocus by remember { mutableStateOf(false) }
+    fun submitTyping() {
+        when (val result = submitTopInput(buffer)) {
+            TopSubmit.Cancel -> {
+                editing = false
+                typeError = null
+            }
+            is TopSubmit.Write -> {
+                state.writeTop(result.valueDeg)
+                editing = false
+                typeError = null
+            }
+            is TopSubmit.Reject -> typeError = result.valueDeg
+        }
+    }
+    fun startEditing() {
+        buffer = state.topDeg.toString()
+        typeError = null
+        editing = true
+    }
+    /** A capture starting mid-edit preempts it with cancel semantics (§7.9). */
+    fun preemptTyping() {
+        if (editing) {
+            editing = false
+            typeError = null
+        }
+    }
+    LaunchedEffect(editing) {
+        if (editing) focusRequester.requestFocus()
+    }
+
+    // --- Camera permission ------------------------------------------------
+    var cameraAskedBefore by remember { mutableStateOf(false) }
+    fun permissionStep(): CameraPermissionStep = cameraPermissionStep(
+        granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED,
+        askedBefore = cameraAskedBefore,
+        shouldShowRationale = (context as? Activity)?.let {
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                it, Manifest.permission.CAMERA,
+            )
+        } ?: false,
+    )
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        cameraAskedBefore = true
+        captureMode = if (granted) {
+            CaptureMode.VIEWFINDER
+        } else if (permissionStep() == CameraPermissionStep.DENIED_PERMANENT) {
+            CaptureMode.DENIED_FOREVER
+        } else {
+            CaptureMode.DENIED_ONCE
+        }
+    }
+    fun startViewfinder() {
+        preemptTyping()
+        captureMode = when (permissionStep()) {
+            CameraPermissionStep.GRANTED -> CaptureMode.VIEWFINDER
+            CameraPermissionStep.EXPLAIN_FIRST -> CaptureMode.EXPLAIN
+            CameraPermissionStep.DENIED_ASKABLE -> CaptureMode.DENIED_ONCE
+            CameraPermissionStep.DENIED_PERMANENT -> CaptureMode.DENIED_FOREVER
+        }
+    }
+    fun openAppSettings() {
+        val details = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null),
+        )
+        try {
+            context.startActivity(details)
+        } catch (e: Exception) {
+            // The details screen is standard; a device without it
+            // still has the general settings surface.
+            try {
+                context.startActivity(Intent(Settings.ACTION_SETTINGS))
+            } catch (e2: Exception) {
+                // No settings surface at all: the line above the
+                // button already states the compass/typing fallback.
+            }
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Foreground-top altitude: stepper and compass capture
-        // write the SAME single field (ui-design §7.9).
+        // Foreground-top altitude: steppers, typing and the
+        // captures write the SAME single field (ui-design §7.9).
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -205,99 +343,477 @@ fun LandscapeSiteInputs(
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.weight(1f),
             )
-            BearingStepButton(
-                label = "−",
-                description = stringResource(R.string.composition_step_down_top),
-            ) { step -> state.writeTop(state.topDeg - step) }
-            Text(
-                text = "${state.topDeg}°",
-                style = MaterialTheme.typography.bodyLarge,
-                fontFamily = FontFamily.Monospace,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(60.dp),
-            )
-            if (!state.topEdited) {
-                Text(
-                    text = stringResource(R.string.composition_example_tag),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (editing) {
+                OutlinedTextField(
+                    value = buffer,
+                    onValueChange = { raw ->
+                        buffer = filterTopInput(raw)
+                        typeError = null
+                    },
+                    modifier = Modifier
+                        .width(84.dp)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focus ->
+                            if (focus.isFocused) {
+                                fieldHadFocus = true
+                            } else if (fieldHadFocus && editing) {
+                                fieldHadFocus = false
+                                submitTyping()
+                            }
+                        },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { submitTyping() },
+                    ),
                 )
+                Text(
+                    text = "°",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontFamily = FontFamily.Monospace,
+                )
+            } else {
+                BearingStepButton(
+                    label = "−",
+                    description = stringResource(R.string.composition_step_down_top),
+                ) { step -> state.writeTop(state.topDeg - step) }
+                val valueDescription = stringResource(
+                    R.string.composition_top_value_cd, state.topDeg,
+                )
+                Text(
+                    text = "${state.topDeg}°",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .width(60.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = valueDescription
+                            onClick(label = valueDescription) {
+                                startEditing()
+                                true
+                            }
+                        },
+                )
+                if (!state.topEdited) {
+                    Text(
+                        text = stringResource(R.string.composition_example_tag),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                BearingStepButton(
+                    label = "+",
+                    description = stringResource(R.string.composition_step_up_top),
+                ) { step -> state.writeTop(state.topDeg + step) }
             }
-            BearingStepButton(
-                label = "+",
-                description = stringResource(R.string.composition_step_up_top),
-            ) { step -> state.writeTop(state.topDeg + step) }
+        }
+        val rejected = typeError
+        if (rejected != null) {
+            Text(
+                text = stringResource(
+                    R.string.composition_top_range_error, rejected, state.topDeg,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (editing) {
+            Text(
+                text = stringResource(R.string.composition_top_edit_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
-        if (!capturing) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = { capturing = true },
-                    enabled = available,
-                    modifier = Modifier.heightIn(min = 48.dp),
+        // --- Capture area -----------------------------------------------
+        when (captureMode) {
+            CaptureMode.NONE -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(stringResource(R.string.composition_capture))
+                    if (viewfinderPort != null) {
+                        OutlinedButton(
+                            onClick = { startViewfinder() },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.composition_viewfinder_capture))
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            preemptTyping()
+                            captureMode = CaptureMode.COMPASS
+                        },
+                        enabled = available,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_capture))
+                    }
+                }
+                if (!available) {
+                    Text(
+                        text = stringResource(R.string.composition_capture_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-            if (!available) {
+            CaptureMode.EXPLAIN -> {
                 Text(
-                    text = stringResource(R.string.composition_capture_unavailable),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.composition_camera_explain),
+                    style = MaterialTheme.typography.bodyMedium,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_camera_continue))
+                    }
+                    OutlinedButton(
+                        onClick = { captureMode = CaptureMode.COMPASS },
+                        enabled = available,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_camera_use_compass))
+                    }
+                    TextButton(
+                        onClick = { captureMode = CaptureMode.NONE },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_capture_cancel))
+                    }
+                }
             }
-        } else {
-            val heading = captureSample?.headingTrueDeg?.let { raw ->
-                ((raw % 360.0) + 360.0) % 360.0
-            }
-            val pitch = captureSample?.pitchDeg
-            Text(
-                text = if (subjectAzimuthDeg == null) {
-                    stringResource(
-                        R.string.composition_capture_live_pitch,
-                        pitch?.roundToInt() ?: 0,
-                        heading?.roundToInt()?.rem(360) ?: 0,
+            CaptureMode.VIEWFINDER -> {
+                val port = viewfinderPort
+                if (port == null) {
+                    // Unreachable by construction (the entry button
+                    // exists only when a port is wired); the compass
+                    // channel stands in rather than dead air.
+                    CompassCaptureBlock(
+                        state = state,
+                        sample = captureSample,
+                        subjectAzimuthDeg = subjectAzimuthDeg,
+                        onDone = { captureMode = CaptureMode.NONE },
                     )
                 } else {
-                    stringResource(
-                        R.string.composition_capture_live_pitch_subject,
-                        pitch?.roundToInt() ?: 0,
-                        heading?.roundToInt()?.rem(360) ?: 0,
-                        ((subjectAzimuthDeg.roundToInt() % 360) + 360) % 360,
+                    ViewfinderCaptureBlock(
+                        port = port,
+                        state = state,
+                        samples = samples,
+                        subjectAzimuthDeg = subjectAzimuthDeg,
+                        redLight = redLight,
+                        onFailure = { captureMode = CaptureMode.UNAVAILABLE },
+                        onDone = { captureMode = CaptureMode.NONE },
                     )
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.primary,
+                }
+            }
+            CaptureMode.COMPASS -> CompassCaptureBlock(
+                state = state,
+                sample = captureSample,
+                subjectAzimuthDeg = subjectAzimuthDeg,
+                onDone = { captureMode = CaptureMode.NONE },
             )
-            if (captureSample?.accuracy ==
-                DeviceOrientationProvider.OrientationAccuracy.LOW ||
-                captureSample?.accuracy ==
-                DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
-            ) {
+            CaptureMode.DENIED_ONCE -> {
                 Text(
-                    text = stringResource(R.string.finder_calibration_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalStateColors.current.warn,
+                    text = stringResource(R.string.composition_camera_denied),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_camera_retry))
+                    }
+                    TextButton(
+                        onClick = { captureMode = CaptureMode.NONE },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_capture_cancel))
+                    }
+                }
+                CompassCaptureBlock(
+                    state = state,
+                    sample = captureSample,
+                    subjectAzimuthDeg = subjectAzimuthDeg,
+                    onDone = { captureMode = CaptureMode.NONE },
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        pitch?.let { state.writeTop(it.roundToInt()) }
-                        capturing = false
+            CaptureMode.DENIED_FOREVER -> {
+                Text(
+                    text = stringResource(R.string.composition_camera_denied_forever),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { openAppSettings() },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_camera_open_settings))
+                    }
+                    TextButton(
+                        onClick = { captureMode = CaptureMode.NONE },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_capture_cancel))
+                    }
+                }
+                CompassCaptureBlock(
+                    state = state,
+                    sample = captureSample,
+                    subjectAzimuthDeg = subjectAzimuthDeg,
+                    onDone = { captureMode = CaptureMode.NONE },
+                )
+            }
+            CaptureMode.UNAVAILABLE -> {
+                Text(
+                    text = stringResource(R.string.composition_camera_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                CompassCaptureBlock(
+                    state = state,
+                    sample = captureSample,
+                    subjectAzimuthDeg = subjectAzimuthDeg,
+                    onDone = { captureMode = CaptureMode.NONE },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The compass (sensor) capture block (ui-design §7.9): the aiming
+ * posture is stated on screen — along the phone's top edge, phone
+ * held low — because the reading is the top edge's pitch and the
+ * posture IS the semantics. The live line leads with the pitch and
+ * shows the heading (and the subject's azimuth when supplied) as
+ * reference only. Holding writes the pitch alone, rounded; the
+ * clamp into the field's domain lives in
+ * [LandscapeSiteState.writeTop]. Cancelling writes nothing.
+ */
+@Composable
+private fun CompassCaptureBlock(
+    state: LandscapeSiteState,
+    sample: DeviceOrientationProvider.OrientationSample?,
+    subjectAzimuthDeg: Double?,
+    onDone: () -> Unit,
+) {
+    val heading = sample?.headingTrueDeg?.let { raw ->
+        ((raw % 360.0) + 360.0) % 360.0
+    }
+    val pitch = sample?.pitchDeg
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = stringResource(R.string.composition_compass_posture),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = if (subjectAzimuthDeg == null) {
+                stringResource(
+                    R.string.composition_capture_live_pitch,
+                    pitch?.roundToInt() ?: 0,
+                    heading?.roundToInt()?.rem(360) ?: 0,
+                )
+            } else {
+                stringResource(
+                    R.string.composition_capture_live_pitch_subject,
+                    pitch?.roundToInt() ?: 0,
+                    heading?.roundToInt()?.rem(360) ?: 0,
+                    ((subjectAzimuthDeg.roundToInt() % 360) + 360) % 360,
+                )
+            },
+            style = MaterialTheme.typography.bodyLarge,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.LOW ||
+            sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
+        ) {
+            Text(
+                text = stringResource(R.string.finder_calibration_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalStateColors.current.warn,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    pitch?.let { state.writeTop(it.roundToInt()) }
+                    onDone()
+                },
+                enabled = pitch != null,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(
+                    if (pitch != null) {
+                        stringResource(
+                            R.string.composition_capture_lock_pitch,
+                            pitch.roundToInt(),
+                        )
+                    } else {
+                        stringResource(R.string.composition_capture_lock)
                     },
-                    enabled = pitch != null,
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(R.string.composition_capture_lock))
-                }
-                TextButton(
-                    onClick = { capturing = false },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(R.string.composition_capture_cancel))
-                }
+                )
+            }
+            TextButton(
+                onClick = { onDone() },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.composition_capture_cancel))
+            }
+        }
+    }
+}
+
+/**
+ * The viewfinder capture block (ui-design §7.9, 0.17.0): the live
+ * preview (the port's surface, decorative to screen readers) with
+ * the aiming overlay — a reference line through the preview's
+ * vertical centre and a thickened centre marker. The centre marker
+ * is the aiming point: only the centre ray's elevation is
+ * identically the camera-axis elevation γ, hold-free (the line's
+ * ends sit at γ only when the phone is unrolled, so they are drawn
+ * as a reference, never as the aiming feature). The readout under
+ * the preview leads with γ; the hold writes the trailing-600 ms
+ * mean of γ, rounded, and is disabled until a sample exists in the
+ * window. Heading and subject azimuth are reference display only.
+ */
+@Composable
+private fun ViewfinderCaptureBlock(
+    port: CameraViewfinderPort,
+    state: LandscapeSiteState,
+    samples: List<DeviceOrientationProvider.OrientationSample>,
+    subjectAzimuthDeg: Double?,
+    redLight: Boolean,
+    onFailure: (CameraViewfinderPort.Failure) -> Unit,
+    onDone: () -> Unit,
+) {
+    val sample = samples.lastOrNull()
+    val mean = meanCameraAxisDeg(samples)
+    val heading = sample?.headingTrueDeg?.let { raw ->
+        ((raw % 360.0) + 360.0) % 360.0
+    }
+    val axisNow = sample?.cameraAxisElevationDeg
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.composition_viewfinder_title),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.composition_viewfinder_privacy),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .clearAndSetSemantics { },
+        ) {
+            port.ViewfinderView(
+                redLight = redLight,
+                onFailure = onFailure,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // The reference line through the vertical centre and
+            // its thickened centre marker — the aiming point.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .align(Alignment.Center)
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .width(56.dp)
+                    .height(10.dp)
+                    .align(Alignment.Center)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+        }
+        Text(
+            text = if (subjectAzimuthDeg == null) {
+                stringResource(
+                    R.string.composition_capture_live_axis,
+                    axisNow?.roundToInt() ?: 0,
+                    heading?.roundToInt()?.rem(360) ?: 0,
+                )
+            } else {
+                stringResource(
+                    R.string.composition_capture_live_axis_subject,
+                    axisNow?.roundToInt() ?: 0,
+                    heading?.roundToInt()?.rem(360) ?: 0,
+                    ((subjectAzimuthDeg.roundToInt() % 360) + 360) % 360,
+                )
+            },
+            style = MaterialTheme.typography.bodyLarge,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.LOW ||
+            sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
+        ) {
+            Text(
+                text = stringResource(R.string.finder_calibration_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalStateColors.current.warn,
+            )
+        }
+        Text(
+            text = stringResource(R.string.composition_viewfinder_guide),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    mean?.let { state.writeTop(it.roundToInt()) }
+                    onDone()
+                },
+                enabled = mean != null,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(
+                    if (mean != null) {
+                        stringResource(
+                            R.string.composition_capture_lock_axis,
+                            mean.roundToInt(),
+                        )
+                    } else {
+                        stringResource(R.string.composition_capture_lock)
+                    },
+                )
+            }
+            TextButton(
+                onClick = { onDone() },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.composition_capture_cancel))
             }
         }
     }
@@ -794,6 +1310,8 @@ fun LandscapeGroupCard(
     modifier: Modifier = Modifier,
     subjectSelector: (@Composable () -> Unit)? = null,
     primaryPortrait: Boolean? = null,
+    viewfinderPort: CameraViewfinderPort? = null,
+    redLight: Boolean = false,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -813,6 +1331,8 @@ fun LandscapeGroupCard(
                 siteLatitudeDeg = siteLatitudeDeg,
                 siteLongitudeDeg = siteLongitudeDeg,
                 siteAltitudeMeters = siteAltitudeMeters,
+                viewfinderPort = viewfinderPort,
+                redLight = redLight,
             )
             val current = state.evaluation
             if (current == null) {
@@ -855,6 +1375,8 @@ fun CompositionSection(
         topDeg: Double,
         evaluation: TonightOverviewUseCase.LandscapeEvaluation?,
     ) -> Unit = { _, _ -> },
+    viewfinderPort: CameraViewfinderPort? = null,
+    redLight: Boolean = false,
 ) {
     val state = rememberLandscapeSiteState()
     LandscapeEvaluationEffect(
@@ -873,5 +1395,7 @@ fun CompositionSection(
         subjectIsViewpoint = subjectIsViewpoint,
         modifier = modifier,
         subjectSelector = subjectSelector,
+        viewfinderPort = viewfinderPort,
+        redLight = redLight,
     )
 }

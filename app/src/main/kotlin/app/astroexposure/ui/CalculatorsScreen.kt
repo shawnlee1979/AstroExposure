@@ -153,6 +153,7 @@ fun categoryNameRes(category: CalcCategory): Int = when (category) {
 @Composable
 fun CalculatorsScreen(
     container: AppContainer,
+    redLight: Boolean,
     cameras: List<Camera>,
     lenses: List<Lens>,
     profiles: List<TrackingProfile>,
@@ -411,6 +412,7 @@ fun CalculatorsScreen(
                 )
                 CalcCategory.LANDSCAPE -> LandscapeCalculator(
                     container, cam, focalMm, aperture, effectiveStrictness, prof, skyFor, location, date, sampleInstant, onSavePlan, computeSignal,
+                    redLight = redLight,
                     declinationText = declinationText,
                     onDeclinationFromSubject = { dec ->
                         declinationText = dec.toString()
@@ -636,6 +638,7 @@ private fun LandscapeCalculator(
     sampleInstant: Instant,
     onSavePlan: (String, String, String, String) -> Unit,
     computeSignal: Int,
+    redLight: Boolean,
     declinationText: String,
     onDeclinationFromSubject: (Double) -> Unit,
 ) {
@@ -690,6 +693,8 @@ private fun LandscapeCalculator(
             zone = location.zone,
             subjectIsViewpoint =
                 activeCompositionSubject is TonightOverviewUseCase.TonightSubject.Viewpoint,
+            viewfinderPort = container.viewfinderPort,
+            redLight = redLight,
             subjectSelector = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

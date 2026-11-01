@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astroexposure.R
+import app.astroexposure.camera.CameraViewfinderPort
 import app.astroexposure.domain.camera.FullFrameFraming
 import app.astroexposure.domain.catalog.ConstellationNames
 import app.astroexposure.domain.catalog.DeepSkyObjectType
@@ -129,6 +130,7 @@ fun TargetDetailDialog(
     siteAltitudeMeters: Double,
     redLight: Boolean,
     onDismiss: () -> Unit,
+    viewfinderPort: CameraViewfinderPort? = null,
     actionLabel: String?,
     onAction: (() -> Unit)?,
     onEvaluateLandscape: (topDeg: Double) ->
@@ -407,6 +409,7 @@ fun TargetDetailDialog(
                                         zone = zone,
                                         subjectIsViewpoint = isViewpoint,
                                         subjectAzimuthDeg = detail.azimuthDeg,
+                                        viewfinderPort = viewfinderPort,
                                     )
                                 } else if (isViewpoint) {
                                     LandscapeSwitchCard(
@@ -417,6 +420,8 @@ fun TargetDetailDialog(
                                         siteLongitudeDeg = siteLongitudeDeg,
                                         siteAltitudeMeters = siteAltitudeMeters,
                                         onEvaluateLandscape = onEvaluateLandscape,
+                                        viewfinderPort = viewfinderPort,
+                                        redLight = redLight,
                                     )
                                 } else if (
                                     detail.subject is TonightOverviewUseCase.TonightSubject.DeepSky &&
@@ -435,6 +440,8 @@ fun TargetDetailDialog(
                                         siteLongitudeDeg = siteLongitudeDeg,
                                         siteAltitudeMeters = siteAltitudeMeters,
                                         onEvaluateLandscape = onEvaluateLandscape,
+                                        viewfinderPort = viewfinderPort,
+                                        redLight = redLight,
                                     )
                                 }
                             }
@@ -956,6 +963,8 @@ private fun LandscapeSwitchCard(
     siteAltitudeMeters: Double,
     onEvaluateLandscape: (topDeg: Double) ->
         TonightOverviewUseCase.LandscapeEvaluation?,
+    viewfinderPort: CameraViewfinderPort? = null,
+    redLight: Boolean = false,
 ) {
     var landscapeOn by remember(detail.subject.id) { mutableStateOf(false) }
     val siteState = remember(detail.subject.id) { LandscapeSiteState() }
@@ -983,6 +992,8 @@ private fun LandscapeSwitchCard(
                     siteLongitudeDeg = siteLongitudeDeg,
                     siteAltitudeMeters = siteAltitudeMeters,
                     subjectAzimuthDeg = detail.azimuthDeg,
+                    viewfinderPort = viewfinderPort,
+                    redLight = redLight,
                 )
                 val current = siteState.evaluation
                 if (current == null) {
