@@ -75,6 +75,20 @@ class CameraAdapterSourceTest {
     }
 
     @Test
+    fun aFailedAvailabilityCheckIsAnOpenFailure() {
+        // UNAVAILABLE means "no rear camera"; a hasCamera call
+        // that THROWS is an open failure, and reporting it as
+        // UNAVAILABLE would misstate the fact to any caller that
+        // distinguishes the two (0.17.0 review, low).
+        val adapter = source(adapterPath)
+        val start = adapter.indexOf("hasCamera")
+        assertTrue(start >= 0)
+        val end = adapter.indexOf("if (!hasRearCamera)", start)
+        assertTrue(end > start)
+        assertTrue(adapter.substring(start, end).contains("OPEN_FAILED"))
+    }
+
+    @Test
     fun theAxisElevationNeverComesFromAPitchShortcut() {
         // γ is computed from the rotation matrix by its own pure
         // function; the 90°-minus-pitch conversion (valid only for

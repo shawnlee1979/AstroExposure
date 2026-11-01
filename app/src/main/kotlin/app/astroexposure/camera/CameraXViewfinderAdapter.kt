@@ -78,7 +78,11 @@ class CameraXViewfinderAdapter : CameraViewfinderPort {
             val hasRearCamera = try {
                 provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)
             } catch (e: Exception) {
-                false
+                // A failed availability CHECK is an open failure,
+                // not evidence that no rear camera exists: the
+                // port's UNAVAILABLE means "no rear camera" only.
+                report(CameraViewfinderPort.Failure.OPEN_FAILED)
+                return@LaunchedEffect
             }
             if (!hasRearCamera) {
                 report(CameraViewfinderPort.Failure.UNAVAILABLE)
