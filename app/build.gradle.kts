@@ -21,14 +21,14 @@ val hasSigning = keystorePropertiesFile.exists()
 
 android {
     namespace = "app.astroexposure"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "app.astroexposure"
         minSdk = 26
         targetSdk = 34
-        versionCode = 46
-        versionName = "0.16.0"
+        versionCode = 47
+        versionName = "0.17.0"
     }
 
     signingConfigs {

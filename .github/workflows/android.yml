@@ -16,11 +16,14 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # No SDK setup step: GitHub's ubuntu runner images ship an Android SDK
-      # (ANDROID_HOME is preset, platform 34 + build-tools included), which
-      # AGP picks up automatically. A third-party setup action was tried
-      # first and its step failed before any project code ran, so the build
-      # relies on the runner image instead.
+      # The runner image ships an Android SDK (ANDROID_HOME preset) but only
+      # guarantees older platforms; the project compiles against SDK 35
+      # (0.17.0), so install that platform explicitly with the image's own
+      # sdkmanager. A third-party setup action was tried in the past and its
+      # step failed before any project code ran, so this stays a plain
+      # run step on the preset SDK.
+      - name: Install Android SDK platform 35
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35"
 
       - name: Unit and contract tests
         run: ./gradlew :domain:test :data:test
