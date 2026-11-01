@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0.17.0 样张板 · 仰角键入 ＋ 实景取景捕获</title>
+<style>
+  :root{
+    --bg:#05070D; --card:#0C1120; --surface2:#131B31; --border:#22304F;
+    --text:#E9EEF8; --sub:#96A3BE; --dim:#5D6C8C;
+    --gold:#F2C66D; --info:#6EA8FE; --ok:#4CC38A; --warn:#F5A524; --bad:#E5484D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#020409; color:var(--text); font-family:"Source Han Sans SC","Noto Sans CJK SC","PingFang SC",sans-serif; padding:28px 20px 60px;}
+  h1{font-size:22px; font-weight:700; margin-bottom:6px;}
+  .lead{color:var(--sub); font-size:13.5px; line-height:1.75; max-width:1080px; margin-bottom:8px;}
+  .lead b{color:var(--text);}
+  .note{border:1px solid var(--border); border-left:3px solid var(--gold); background:var(--card); border-radius:8px; padding:12px 16px; font-size:13px; line-height:1.8; color:var(--sub); max-width:1080px; margin:14px 0 8px;}
+  .note b{color:var(--gold);}
+  h2.sec{font-size:16px; margin:30px 0 4px;}
+  p.secsub{color:var(--sub); font-size:13px; line-height:1.7; max-width:1080px; margin-bottom:14px;}
+  .row{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
+  .cell{width:384px; flex:none;}
+  .cap{font-size:13px; color:var(--sub); line-height:1.7; margin-top:10px; width:384px;}
+  .cap b{color:var(--text);}
+  .phone{background:var(--bg); border:1px solid var(--border); border-radius:18px; padding:14px 14px 16px; min-height:640px; display:flex; flex-direction:column; gap:10px;}
+  .dlg{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
+  .dlghead{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .dlghead .t{font-size:16px; font-weight:600;}
+  .dlghead .x{margin-left:auto; color:var(--sub); font-size:15px;}
+  .steps{display:flex; gap:6px; margin-bottom:10px;}
+  .step{flex:1; text-align:center; font-size:12px; padding:7px 0; border-radius:999px; border:1px solid var(--border); color:var(--sub); background:var(--surface2);}
+  .step.on{color:#0B0F1A; background:var(--gold); border-color:var(--gold); font-weight:600;}
+  .secT{font-size:13.5px; font-weight:600; margin-bottom:8px;}
+  .lab{font-size:12px; color:var(--sub);}
+  .num{font-variant-numeric:tabular-nums;}
+  .goldline{font-size:15px; font-weight:600; color:var(--gold); line-height:1.55;}
+  .rowline{font-size:13px; line-height:1.75;}
+  .small{font-size:12px; color:var(--sub); line-height:1.7;}
+  .tiny{font-size:11px; color:var(--dim); line-height:1.6;}
+  .inrow{display:flex; align-items:center; gap:8px; min-height:48px;}
+  .inrow .nm{font-size:13px; width:74px; flex:none;}
+  .stepper{margin-left:auto; display:flex; align-items:center; gap:6px;}
+  .sbtn{width:40px; height:40px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:16px; text-align:center; line-height:40px;}
+  .sval{font-size:16px; font-weight:600; min-width:52px; text-align:center; border-bottom:1px dashed var(--dim); padding-bottom:2px;}
+  .field{margin-left:auto; display:flex; align-items:center; gap:2px; border:1.6px solid var(--info); border-radius:8px; background:#0A1428; padding:8px 12px; min-height:48px; min-width:118px;}
+  .field .fv{font-size:16px; font-weight:600;}
+  .field .caret{width:2px; height:19px; background:var(--info); margin-left:1px;}
+  .field .unit{font-size:13px; color:var(--sub);}
+  .field.err{border-color:var(--bad);}
+  .errline{color:var(--bad); font-size:12px; line-height:1.6; margin-top:2px;}
+  .kbhint{display:flex; gap:6px; margin-top:10px;}
+  .kbhint span{flex:1; text-align:center; font-size:11.5px; color:var(--dim); border:1px solid var(--border); border-radius:6px; padding:6px 0; background:#0A0F1E;}
+  .capbtn{display:flex; align-items:center; justify-content:center; gap:8px; min-height:48px; border:1px solid var(--info); color:var(--info); border-radius:10px; font-size:13.5px; background:#101D38;}
+  .capbtn.sub{border-color:var(--border); color:var(--sub); background:transparent;}
+  .bigbtn{display:flex; align-items:center; justify-content:center; min-height:52px; border-radius:10px; font-size:15px; font-weight:600; color:#0B0F1A; background:var(--gold);}
+  .ghostbtn{display:flex; align-items:center; justify-content:center; min-height:48px; border-radius:10px; font-size:13.5px; color:var(--sub); border:1px solid var(--border);}
+  .vf{position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--border);}
+  .vf .refline{position:absolute; left:0; right:0; top:50%; height:2px; background:var(--gold); opacity:.95;}
+  .vf .tick{position:absolute; left:50%; top:50%; width:34px; height:10px; transform:translate(-50%,-50%); border-left:3px solid var(--gold); border-right:3px solid var(--gold);}
+  .vf .chip{position:absolute; left:50%; bottom:12px; transform:translateX(-50%); background:rgba(5,8,16,.82); border:1px solid var(--border); border-radius:999px; padding:7px 14px; font-size:13.5px; font-weight:600; white-space:nowrap;}
+  .vf .chip .r{color:var(--sub); font-weight:400; font-size:12px;}
+  .vf .topbar{position:absolute; left:0; right:0; top:0; display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:linear-gradient(rgba(3,5,10,.75), rgba(3,5,10,0)); font-size:12px; color:var(--text);}
+  .warnline{color:var(--warn); font-size:12.5px; line-height:1.65;}
+  .divider{border-top:1px solid var(--border); margin:12px 0 2px;}
+  svg text{font-family:inherit;}
+</style>
+</head>
+<body>
+
+<h1>0.17.0 样张板 · 仰角键入 ＋ 实景取景捕获</h1>
+<p class="lead">本板三张样张对应规格 §7.9 的键入、取景捕获与权限兜底三部分。读数取自真机实例的真实数值（朝向 273°、目标方位 277°、地景顶 6°——0.16.0 天琴座例）；键入的越界例（95°）为构造例，用来呈现「明示拒绝、不静默钳制」的错误形态。</p>
+<div class="note"><b>两条反馈的处置一句话：</b>地景顶仰角改为<b>可直接键入</b>（步进保留、越界明示拒绝不钳制）；俯仰捕获改为<b>实景取景对准</b>——相机画面中心标记对准地景顶、定住写入该瞬间相机光轴仰角 γ，传感器捕获降为兜底。求解模型与 0.16.0 零改动。</div>
+
+<h2 class="sec">样张 (a) · 地景顶仰角键入态（编辑中 ＋ 越界提示）</h2>
+<p class="secsub">点按数值进入编辑态：数值原位变输入框、数字键盘唤起、步进键收起。合法提交（完成键/失焦）经同一写入函数写入；越界提交不写入、不钳制，字段保留原文、错误行明示（下半幅）。</p>
+<div class="row">
+  <div class="cell">
+    <div class="phone">
+      <div class="dlg">
+        <div class="dlghead"><span class="t">天琴座</span><span class="x">✕</span></div>
+        <div class="steps"><span class="step">1 目标信息</span><span class="step on">2 构图</span><span class="step">3 指向</span></div>
+        <div class="secT">构图 · 带地景</div>
+        <div class="inrow">
+          <span class="nm">地景顶仰角</span>
+          <div class="field"><span class="fv num">−12</span><span class="caret"></span><span class="unit">°</span></div>
+        </div>
+        <div class="small">正在输入——点「完成」或点开别处即按此值计算；清空则不改。</div>
+        <div class="kbhint"><span>1</span><span>2</span><span>3</span><span>−</span><span>完成</span></div>
+        <div class="divider"></div>
+        <div class="inrow">
+          <span class="nm">地景顶仰角</span>
+          <div class="field err"><span class="fv num">95</span><span class="caret"></span><span class="unit">°</span></div>
+        </div>
+        <div class="errline">地景顶仰角须在 −20° 到 80° 之间——未按 95° 计算，当前仍按 6° 算。</div>
+        <div class="kbhint"><span>4</span><span>5</span><span>6</span><span>⌫</span><span>完成</span></div>
+        <div class="divider"></div>
+        <div class="small">非编辑态（对照）：点按数值即进入上面的编辑态；步进照旧。</div>
+        <div class="inrow">
+          <span class="nm">地景顶仰角</span>
+          <div class="stepper"><span class="sbtn">−</span><span class="sval num">6°</span><span class="sbtn">+</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>要点：</b>键型只收整数与首位负号（T 全链路粒度为整数度，不放行小数免静默取整）；越界按赤纬字段先例——<b>报告错误、不写、不钳制</b>，与步进/捕获两个有界来源的钳制分工见规格 §7.9 键入条。两落点共用同一组件，一次改造双落点同构。</p>
+  </div>
+</div>
+
+<h2 class="sec">样张 (b) · 取景捕获界面（参考线 ＋ 实时读数 ＋ 定住）</h2>
+<p class="secsub">相机预览全幅呈现：金色参考线过画面竖直正中、中心刻标为对准点（只有中心射线的仰角恒等于被写量 γ，推导见规格 §7.9 捕获条）；底部读数片为 γ 大读数 ＋ 朝向/目标方位参考（只显不写）；「定住」写入定住前 600 ms 的 γ 均值取整。</p>
+<div class="row">
+  <div class="cell">
+    <div class="phone">
+      <div class="vf">
+        <svg width="100%" height="430" viewBox="0 0 356 430">
+          <defs>
+            <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1B2A4A"/><stop offset=".55" stop-color="#31456E"/>
+              <stop offset=".78" stop-color="#5A6FA0"/><stop offset="1" stop-color="#8B9CC0"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="356" height="430" fill="url(#dusk)"/>
+          <g fill="#DCE6F7"><circle cx="40" cy="36" r="1.2"/><circle cx="120" cy="20" r="1"/><circle cx="210" cy="44" r="1.3"/><circle cx="300" cy="26" r="1.1"/><circle cx="70" cy="90" r="1"/><circle cx="330" cy="86" r="1.2"/><circle cx="160" cy="70" r=".9"/></g>
+          <path d="M0,215 L60,208 L118,215 L178,204 L236,215 L300,209 L356,215 L356,430 L0,430 Z" fill="#131E33"/>
+          <path d="M0,262 L84,246 L150,262 L228,242 L356,266 L356,430 L0,430 Z" fill="#0A1220"/>
+          <path d="M0,330 L120,306 L356,338 L356,430 L0,430 Z" fill="#05080F"/>
+        </svg>
+        <div class="refline"></div><div class="tick"></div>
+        <div class="topbar"><span>取景捕获</span><span style="color:var(--sub)">只预览 · 不拍照 · 不存图</span></div>
+        <div class="chip"><span class="num">仰角 6°</span> <span class="r num">· 朝向 273° · 目标方位 277°</span></div>
+      </div>
+      <div class="small">把地景顶对到画面中央的金色刻标上——读数即画面中心所指的仰角。对准后点「定住」，写入这一瞬间的仰角。</div>
+      <div class="bigbtn">定住 · 写入仰角 6°</div>
+      <div class="ghostbtn">取消</div>
+      <div class="tiny">红光模式时画面覆红色滤层并压低曝光；握持不限竖横。</div>
+    </div>
+    <p class="cap"><b>要点：</b>写入的 γ 由旋转矩阵直算光轴仰角（asin(−R[8])），<b>不是</b> 90°−顶边仰角的姿态捷径（规格 §7.9 已否决）；画面与大读数双通道互证，盲举的姿态偏差按构造消失。权限只在此刻申请（规格 §7.9）。</p>
+  </div>
+</div>
+
+<h2 class="sec">样张 (c) · 权限被拒兜底态（退回罗盘捕获 ＋ 键入）</h2>
+<p class="secsub">永久拒绝形态：说明行讲清状态与去设置路径，罗盘捕获（现行传感器通道）即时可用，并新增姿态明示行把 0.16.0 只写在规格里的瞄准姿态搬进界面；键入与步进照常，功能无死路。</p>
+<div class="row">
+  <div class="cell">
+    <div class="phone">
+      <div class="dlg">
+        <div class="dlghead"><span class="t">天琴座</span><span class="x">✕</span></div>
+        <div class="steps"><span class="step">1 目标信息</span><span class="step on">2 构图</span><span class="step">3 指向</span></div>
+        <div class="secT">构图 · 带地景</div>
+        <div class="inrow">
+          <span class="nm">地景顶仰角</span>
+          <div class="stepper"><span class="sbtn">−</span><span class="sval num">6°</span><span class="sbtn">+</span></div>
+        </div>
+        <div class="warnline">相机权限未开启，取景捕获不可用——可在系统设置里为本应用开启相机，或改用罗盘捕获 / 直接输入。</div>
+        <div style="height:6px"></div>
+        <div class="capbtn sub">去设置开启相机</div>
+        <div class="divider"></div>
+        <div class="small">罗盘捕获（无画面）：沿手机上沿瞄准地景顶——把手机放低，上沿对准顶端一点，再定住。</div>
+        <div style="height:4px"></div>
+        <div class="rowline num" style="color:var(--info)">俯仰 6° · 朝向 273° · 目标方位 277°</div>
+        <div style="height:6px"></div>
+        <div class="bigbtn">定住 · 写入俯仰 6°</div>
+        <div class="ghostbtn">取消</div>
+      </div>
+    </div>
+    <p class="cap"><b>要点：</b>兜底不是降级死角：罗盘捕获保留 0.16.0 的单写口径（只写 T、方位只显不写），本批只给它补上<b>姿态明示</b>——现行捕获的偏差不在公式（顶边仰角自洽、且有 AstroHopper 同约定成例），在姿态无强制且可被钳制吞掉（规格 §7.9 节首沿革登记）。本次拒绝（可再问）形态与此同构，仅说明行与按钮换为「重试」。</p>
+  </div>
+</div>
+
+</body>
+</html>
