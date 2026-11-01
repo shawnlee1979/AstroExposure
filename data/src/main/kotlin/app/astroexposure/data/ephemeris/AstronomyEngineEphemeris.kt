@@ -9,6 +9,7 @@ import app.astroexposure.domain.ephemeris.MoonRiseSet
 import app.astroexposure.domain.ephemeris.NightWindow
 import app.astroexposure.domain.ephemeris.SunEvents
 import app.astroexposure.domain.ephemeris.TargetPass
+import app.astroexposure.domain.ephemeris.wrapRaHours
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.timeline.NightTimeline
 import app.astroexposure.domain.units.Degrees
@@ -48,10 +49,20 @@ class AstronomyEngineEphemeris : EphemerisProvider {
      * defineStar writes engine-global state for Body.Star1: every use
      * holds [starLock] and defines the star for [target] first, then
      * runs [block] while the definition is current.
+     *
+     * The engine validates the RA as [0, 24) and throws outside it.
+     * The port speaks of a sky direction and RA is circular, so the
+     * RA is wrapped at this boundary (the third-party constraint
+     * lives in the adapter, DEVELOPMENT-RULES.md B.2): no upstream
+     * arithmetic can make defineStar throw over a right ascension
+     * again (0.17.3). Declination is deliberately NOT wrapped or
+     * clamped — [-90, 90] has no circular identity, so an
+     * out-of-range declination is a data error and keeps failing
+     * loudly from the engine's own validation.
      */
     private fun <T> withStar1(target: EquatorialCoordinates, block: () -> T): T =
         synchronized(starLock) {
-            defineStar(Body.Star1, target.raHours, target.declination.value, STAR_DISTANCE_LY)
+            defineStar(Body.Star1, wrapRaHours(target.raHours), target.declination.value, STAR_DISTANCE_LY)
             block()
         }
 
