@@ -137,6 +137,17 @@ data class MoonRiseSet(val moonrise: Instant?, val moonset: Instant?)
 data class EquatorialCoordinates(val raHours: Double, val declination: Degrees)
 
 /**
+ * Right ascension wrapped into [0, 24): the one implementation of
+ * the wrap, used by every producer whose arithmetic can leave the
+ * range (constructed sky points, drift-extrapolated positions) and
+ * by the ephemeris adapter at its boundary. Wrapping is an identity
+ * on the circle — the same sky direction — never a fudge of the
+ * value; a non-finite input stays non-finite and keeps failing
+ * loudly downstream instead of being silently repaired.
+ */
+fun wrapRaHours(raHours: Double): Double = ((raHours % 24.0) + 24.0) % 24.0
+
+/**
  * The galactic centre (design §4.1): RA 17h45m, Dec -29.0°. The single
  * shared definition — the ephemeris adapter, the tonight use case and
  * the calculators all reference this instead of keeping private copies

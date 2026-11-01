@@ -1,8 +1,11 @@
 package app.astroexposure.domain.catalog
 
 import app.astroexposure.domain.ephemeris.EclipseKind
+import app.astroexposure.domain.ephemeris.EquatorialCoordinates
+import app.astroexposure.domain.ephemeris.wrapRaHours
 import app.astroexposure.domain.geo.GeoLocation
 import app.astroexposure.domain.lens.Lens
+import app.astroexposure.domain.units.Degrees
 import java.time.Instant
 import java.time.LocalDate
 
@@ -124,7 +127,24 @@ data class MeteorShower(
     /** Geocentric velocity, km/s. */
     val velocityKmS: Double,
     val populationIndex: Double,
-)
+) {
+    /**
+     * The radiant's coordinates [daysFromPeak] days after the peak:
+     * the peak position moved by the daily drift, with the RA
+     * wrapped into [0, 24) by [wrapRaHours] — the extrapolation is
+     * unbounded arithmetic on a circular quantity, and the wrap is
+     * what keeps a shower peaking near RA 0 h / 24 h inside the
+     * range the ephemeris accepts on every day of its activity
+     * period. The one implementation of the drift extrapolation:
+     * the tonight use case and the meteor calculator both take the
+     * radiant from here.
+     */
+    fun radiantAt(daysFromPeak: Double): EquatorialCoordinates =
+        EquatorialCoordinates(
+            raHours = wrapRaHours(radiantRaHours + driftRaPerDay * daysFromPeak),
+            declination = Degrees(radiantDecDeg + driftDecPerDay * daysFromPeak),
+        )
+}
 
 /** Built-in lens library (design §2.4). */
 interface LensCatalog {
