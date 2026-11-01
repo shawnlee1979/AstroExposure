@@ -465,7 +465,7 @@
     <string name="composition_viewfinder_capture">取景捕获 · 对准地景顶定住</string>
     <string name="composition_viewfinder_title">取景捕获</string>
     <string name="composition_viewfinder_privacy">只预览 · 不拍照 · 不存图</string>
-    <string name="composition_viewfinder_guide">把地景顶对到画面中央的金色刻标上——读数即画面中心所指的仰角。对准后点「定住」，写入这一瞬间的仰角。</string>
+    <string name="composition_viewfinder_guide">把地景顶对到画面中央的金色刻标上——读数即画面中心所指的仰角。对准后点「定住」，写入定住前 600ms 的仰角均值。</string>
     <string name="composition_capture_live_axis">仰角 %1$d° · 朝向 %2$d°</string>
     <string name="composition_capture_live_axis_subject">仰角 %1$d° · 朝向 %2$d° · 目标方位 %3$d°</string>
     <string name="composition_capture_lock_axis">定住 · 写入仰角 %1$d°</string>
