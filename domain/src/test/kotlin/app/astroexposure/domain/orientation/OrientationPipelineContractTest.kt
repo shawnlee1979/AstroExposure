@@ -73,6 +73,7 @@ class OrientationPipelineContractTest {
         headingTrueDeg = headingTrueDeg,
         pitchDeg = pitchDeg,
         screenNormalTiltDeg = screenNormalTiltDeg,
+        cameraAxisElevationDeg = 0.0,
         accuracy = DeviceOrientationProvider.OrientationAccuracy.HIGH,
         elapsedMillis = elapsedMillis,
     )

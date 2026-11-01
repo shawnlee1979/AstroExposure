@@ -69,13 +69,22 @@ interface DeviceOrientationProvider {
      * §7.5: portrait hold, top edge pointing at the sky); [screenNormalTiltDeg]
      * is the angle between the screen normal and the vertical, the input
      * of the flat-posture judgement in [holdingPosture] (interpreted on
-     * [0, 90]); [elapsedMillis] is the sample's elapsed-time stamp on the
+     * [0, 90]); [cameraAxisElevationDeg] is the elevation angle of the
+     * rear camera's optical axis above the horizon — the aiming quantity
+     * of the viewfinder capture (ui-design §7.9, 0.17.0). The adapter
+     * derives it from the same rotation matrix as the pitch, directly:
+     * it is the arcsine of the signed up-component of the camera axis,
+     * NOT a conversion from [pitchDeg] — the two agree only for
+     * particular holds, and the natural camera-aiming hold is exactly
+     * where they differ most (the pitch reads near 90° − γ there);
+     * [elapsedMillis] is the sample's elapsed-time stamp on the
      * adapter's clock, for staleness judgements by the caller.
      */
     data class OrientationSample(
         val headingTrueDeg: Double,
         val pitchDeg: Double,
         val screenNormalTiltDeg: Double,
+        val cameraAxisElevationDeg: Double,
         val accuracy: OrientationAccuracy,
         val elapsedMillis: Long,
     )

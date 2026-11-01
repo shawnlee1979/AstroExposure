@@ -45,3 +45,35 @@ internal fun topEdgeWorld(rotationMatrix: FloatArray): WorldComponents {
         up = rotationMatrix[7].toDouble(),
     )
 }
+
+/**
+ * The world-frame components of the device +Z axis in
+ * [rotationMatrix]: east = R[2], north = R[5], up = R[8] — the third
+ * column, by the same column semantics as [topEdgeWorld]. The +Z
+ * axis points out of the screen toward the holder, so the rear
+ * camera's optical axis (screen toward scene) is its negative.
+ */
+internal fun screenNormalWorld(rotationMatrix: FloatArray): WorldComponents {
+    require(rotationMatrix.size >= 9) {
+        "rotation matrix needs at least 9 elements, has ${rotationMatrix.size}"
+    }
+    return WorldComponents(
+        east = rotationMatrix[2].toDouble(),
+        north = rotationMatrix[5].toDouble(),
+        up = rotationMatrix[8].toDouble(),
+    )
+}
+
+/**
+ * The elevation of the rear camera's optical axis above the horizon,
+ * in degrees: γ = asin(−up(+Z)) (ui-design §7.9, 0.17.0). Computed
+ * from the matrix directly — deliberately NOT from the top edge's
+ * pitch: γ = 90° − pitch holds only for the zero-roll portrait
+ * family of holds, and the viewfinder capture exists precisely for
+ * the holds where it does not (in the natural camera-aiming hold
+ * with a level camera axis, the pitch reads ≈ 90° while γ = 0°).
+ */
+internal fun cameraAxisElevationDeg(rotationMatrix: FloatArray): Double {
+    val up = screenNormalWorld(rotationMatrix).up
+    return Math.toDegrees(kotlin.math.asin((-up).coerceIn(-1.0, 1.0)))
+}

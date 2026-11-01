@@ -80,4 +80,76 @@ class RotationMatrixAxesTest {
         assertEquals(0.0, headingDeg(pitched), 1e-6)
         assertEquals(45.0, pitchDeg(pitched), 1e-4)
     }
+
+    // --- The camera axis elevation γ (0.17.0) --------------------------------
+    //
+    // γ = asin(−R[8]) by construction of each pose below (columns
+    // are the device axes in world coordinates, as above). The
+    // poses are chosen so that a γ derived from the pitch — by
+    // identity or by the 90° − pitch shortcut — fails at least one
+    // of them: the shortcut survives only the zero-roll portrait
+    // family (poses two and three), never the flat or rolled ones.
+
+    @Test
+    fun cameraAxisFlatScreenUpPointsDown() {
+        // Identity (flat on a table, screen up): the rear camera
+        // looks straight down, γ = −90°, while the top edge lies
+        // level (pitch 0°).
+        val identity = floatArrayOf(
+            1f, 0f, 0f,
+            0f, 1f, 0f,
+            0f, 0f, 1f,
+        )
+        assertEquals(-90.0, cameraAxisElevationDeg(identity), 1e-6)
+        assertEquals(0.0, pitchDeg(identity), 1e-9)
+    }
+
+    @Test
+    fun cameraAxisPortraitPhotoPoseLevel() {
+        // The natural aiming hold: portrait, screen toward the
+        // holder, camera level facing north. Columns: X=(1,0,0),
+        // Y=(0,0,1) (top edge straight up), Z=(0,−1,0) (screen
+        // normal toward the holder, i.e. south). γ = 0° — the value
+        // a viewfinder hold must write for a level foreground top —
+        // while the pitch reads 90°: the posture gap the viewfinder
+        // capture exists to close.
+        val pose = floatArrayOf(
+            1f, 0f, 0f,
+            0f, 0f, -1f,
+            0f, 1f, 0f,
+        )
+        assertEquals(0.0, cameraAxisElevationDeg(pose), 1e-6)
+        assertEquals(90.0, pitchDeg(pose), 1e-6)
+    }
+
+    @Test
+    fun cameraAxisPortraitPhotoPoseUpThirty() {
+        // The same hold pitched up 30°: the camera axis rides 30°
+        // above the horizon. Columns: X=(1,0,0),
+        // Y=(0,−sin30°, cos30°), Z=(0,−cos30°, −sin30°).
+        val pose = floatArrayOf(
+            1f, 0f, 0f,
+            0f, -0.5f, -0.8660254f,
+            0f, 0.8660254f, -0.5f,
+        )
+        assertEquals(30.0, cameraAxisElevationDeg(pose), 1e-4)
+        assertEquals(60.0, pitchDeg(pose), 1e-4)
+    }
+
+    @Test
+    fun cameraAxisRolledNinetyDegreesStaysLevel() {
+        // Rolled 90° about the camera axis (a landscape grip): the
+        // camera still faces north, level, so γ = 0° — but the top
+        // edge now points east and the pitch reads 0°, so the
+        // 90° − pitch shortcut would write 90°. γ is hold-free by
+        // construction; the shortcut is not. Columns: X=(0,0,−1),
+        // Y=(1,0,0), Z=(0,−1,0).
+        val pose = floatArrayOf(
+            0f, 1f, 0f,
+            0f, 0f, -1f,
+            -1f, 0f, 0f,
+        )
+        assertEquals(0.0, cameraAxisElevationDeg(pose), 1e-6)
+        assertEquals(0.0, pitchDeg(pose), 1e-6)
+    }
 }

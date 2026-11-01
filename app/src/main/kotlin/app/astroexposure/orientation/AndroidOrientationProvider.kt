@@ -141,6 +141,7 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
         private var smoothHeadingCos = 1.0
         private var smoothPitchDeg = 0.0
         private var smoothTiltDeg = 90.0
+        private var smoothAxisDeg = 0.0
         private var hasSmooth = false
         private var lastEmitMillis = 0L
 
@@ -206,8 +207,10 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
          * top edge is the device +Y axis; its world components come
          * from [topEdgeWorld] (the matrix's second column — see that
          * function's doc for the column semantics and the
-         * getOrientation cross-check). The screen normal is +Z, and
-         * its up component R[8] feeds the flat-posture tilt.
+         * getOrientation cross-check). The screen normal is +Z: the
+         * magnitude of its up component R[8] feeds the flat-posture
+         * tilt, and its signed value gives the camera axis elevation
+         * via [cameraAxisElevationDeg] (the third column).
          */
         private fun emitFromMatrix() {
             val top = topEdgeWorld(rotationMatrix)
@@ -218,6 +221,9 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
             val headingTrueDeg = (headingMagDeg + declinationDeg + 360.0) % 360.0
             val pitchDeg = Math.toDegrees(asin(top.up.coerceIn(-1.0, 1.0)))
             val tiltDeg = Math.toDegrees(acos(normalUp.coerceIn(0.0, 1.0)))
+            // The camera axis elevation γ, from the same matrix via
+            // its own pure function (never a pitch conversion).
+            val axisDeg = cameraAxisElevationDeg(rotationMatrix)
 
             // Low-pass: headings smooth on the unit circle (a plain
             // average breaks across 0°/360°), pitch and tilt linearly.
@@ -227,12 +233,14 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
                 smoothHeadingCos = cos(headingRad)
                 smoothPitchDeg = pitchDeg
                 smoothTiltDeg = tiltDeg
+                smoothAxisDeg = axisDeg
                 hasSmooth = true
             } else {
                 smoothHeadingSin += HEADING_SMOOTHING * (sin(headingRad) - smoothHeadingSin)
                 smoothHeadingCos += HEADING_SMOOTHING * (cos(headingRad) - smoothHeadingCos)
                 smoothPitchDeg += ANGLE_SMOOTHING * (pitchDeg - smoothPitchDeg)
                 smoothTiltDeg += ANGLE_SMOOTHING * (tiltDeg - smoothTiltDeg)
+                smoothAxisDeg += ANGLE_SMOOTHING * (axisDeg - smoothAxisDeg)
             }
 
             val now = SystemClock.elapsedRealtime()
@@ -245,6 +253,7 @@ class AndroidOrientationProvider(context: Context) : DeviceOrientationProvider {
                     headingTrueDeg = smoothedHeading,
                     pitchDeg = smoothPitchDeg,
                     screenNormalTiltDeg = smoothTiltDeg,
+                    cameraAxisElevationDeg = smoothAxisDeg,
                     accuracy = reportedAccuracy(),
                     elapsedMillis = now,
                 ),
