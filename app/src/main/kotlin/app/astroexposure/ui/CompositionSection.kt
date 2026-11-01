@@ -448,14 +448,19 @@ fun LandscapeSiteInputs(
         // --- Capture area -----------------------------------------------
         when (captureMode) {
             CaptureMode.NONE -> {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                // The two entry buttons stack full-width, one per
+                // row: both labels are long (each carries its aiming
+                // instruction), and side by side in one Row the
+                // second button was squeezed to a sliver whose text
+                // was clipped away entirely (0.17.1, on-device
+                // report; pinned by LandscapeCaptureLayoutSourceTest).
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (viewfinderPort != null) {
                         OutlinedButton(
                             onClick = { startViewfinder() },
-                            modifier = Modifier.heightIn(min = 48.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
                         ) {
                             Text(stringResource(R.string.composition_viewfinder_capture))
                         }
@@ -466,7 +471,9 @@ fun LandscapeSiteInputs(
                             captureMode = CaptureMode.COMPASS
                         },
                         enabled = available,
-                        modifier = Modifier.heightIn(min = 48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
                     ) {
                         Text(stringResource(R.string.composition_capture))
                     }
@@ -484,25 +491,35 @@ fun LandscapeSiteInputs(
                     text = stringResource(R.string.composition_camera_explain),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Stacked full-width like the entry row: the three
+                // labels together (notably the English "Use the
+                // compass capture instead") exceed one row's width
+                // and would squeeze the same way (0.17.1 audit).
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         },
-                        modifier = Modifier.heightIn(min = 48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
                     ) {
                         Text(stringResource(R.string.composition_camera_continue))
                     }
                     OutlinedButton(
                         onClick = { captureMode = CaptureMode.COMPASS },
                         enabled = available,
-                        modifier = Modifier.heightIn(min = 48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
                     ) {
                         Text(stringResource(R.string.composition_camera_use_compass))
                     }
                     TextButton(
                         onClick = { captureMode = CaptureMode.NONE },
-                        modifier = Modifier.heightIn(min = 48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
                     ) {
                         Text(stringResource(R.string.composition_capture_cancel))
                     }
