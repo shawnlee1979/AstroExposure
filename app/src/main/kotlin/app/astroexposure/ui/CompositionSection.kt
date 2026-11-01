@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -394,6 +395,8 @@ fun LandscapeSiteInputs(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .width(60.dp)
+                        .heightIn(min = 48.dp)
+                        .wrapContentHeight(Alignment.CenterVertically)
                         .semantics {
                             role = Role.Button
                             contentDescription = valueDescription
@@ -401,6 +404,15 @@ fun LandscapeSiteInputs(
                                 startEditing()
                                 true
                             }
+                        }
+                        // The semantic onClick above serves assistive
+                        // services only; the tap channel for fingers
+                        // is this gesture detector — the same dual
+                        // channel as BearingStepButton (0.17.1: the
+                        // value was unreachable by touch and under
+                        // the 48 dp floor without them).
+                        .pointerInput(valueDescription) {
+                            detectTapGestures(onTap = { startEditing() })
                         },
                 )
                 if (!state.topEdited) {
