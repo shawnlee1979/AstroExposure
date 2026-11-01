@@ -90,12 +90,12 @@ import kotlinx.coroutines.withTimeout
  * one site input — the subject is the anchor and its azimuth is
  * derived, never entered — written by steppers, by direct typing
  * (the one entry that rejects out-of-domain values instead of
- * clamping them), or by a capture that writes its angle alone
- * (the viewfinder's camera-axis elevation, the compass's pitch);
- * the results render the domain's verdict — the focal length
+ * clamping them), or by the viewfinder capture, which writes its
+ * angle (the camera-axis elevation) alone; the results render
+ * the domain's verdict — the focal length
  * derived from the foreground top and the subject's span, the
  * shootable spans at that focal and their best moments, or the one
- * honest "does not fit" category with its figures. The same pieces
+ * honest "does not fit" category. The same pieces
  * serve both entrances: the detail dialog's framing section (behind
  * its "with foreground" switch, with the snapshot canvas) and the
  * landscape calculator's always-on group card ([LandscapeGroupCard]
@@ -177,9 +177,11 @@ fun LandscapeSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 /** Orientation samples retained for the viewfinder hold's trailing mean. */
 private const val SAMPLE_HISTORY = 24
 
-/** The capture area's states (ui-design §7.9, 0.17.0). */
+/** The capture area's states (ui-design §7.9, 0.17.0; the
+ * compass channel retired in 0.17.2 — the viewfinder is the one
+ * capture left). */
 private enum class CaptureMode {
-    NONE, EXPLAIN, VIEWFINDER, COMPASS, DENIED_ONCE, DENIED_FOREVER, UNAVAILABLE,
+    NONE, EXPLAIN, VIEWFINDER, DENIED_ONCE, DENIED_FOREVER, UNAVAILABLE,
 }
 
 /**
@@ -194,16 +196,17 @@ private enum class CaptureMode {
  * cancel semantics). The bounded entries (steppers, captures)
  * clamp inside [LandscapeSiteState.writeTop].
  *
- * Capture runs on two channels over the same single write: the
- * viewfinder (primary — the camera preview's centre marker aimed
- * at the foreground top; the hold writes the mean camera-axis
- * elevation γ over the trailing 600 ms) and the compass (fallback
- * — the top edge's pitch, with the aiming posture stated on
- * screen). Both channels show the current heading, and the
- * subject's azimuth when the caller supplies one, as reference
- * only: neither azimuth reading is written to any field (display
- * only). Captures subscribe only while one runs (the finder
- * section's discipline); cancelling writes nothing.
+ * The one capture is the viewfinder: the camera preview's centre
+ * marker aimed at the foreground top; the hold writes the mean
+ * camera-axis elevation γ over the trailing 600 ms. Its live line
+ * shows the current heading, and the subject's azimuth when the
+ * caller supplies one, as reference only: the azimuth reading is
+ * written to no field (display only). The capture subscribes only
+ * while it runs (the finder section's discipline); cancelling
+ * writes nothing. Where the viewfinder cannot run (permission
+ * refused, no camera), typing and the steppers remain — there is
+ * no second capture channel (the compass channel retired in
+ * 0.17.2, its aiming posture unforceable by construction).
  */
 @Composable
 fun LandscapeSiteInputs(
@@ -217,12 +220,13 @@ fun LandscapeSiteInputs(
     redLight: Boolean = false,
 ) {
     val context = LocalContext.current
-    val available = remember(orientationProvider) { orientationProvider.isAvailable() }
     var captureMode by remember { mutableStateOf(CaptureMode.NONE) }
     var samples by remember {
         mutableStateOf<List<DeviceOrientationProvider.OrientationSample>>(emptyList())
     }
-    val capturing = captureMode != CaptureMode.NONE && captureMode != CaptureMode.EXPLAIN
+    // Only the viewfinder shows live orientation readouts, so it
+    // is the one state that subscribes.
+    val capturing = captureMode == CaptureMode.VIEWFINDER
     DisposableEffect(
         capturing, orientationProvider, siteLatitudeDeg, siteLongitudeDeg,
     ) {
@@ -241,7 +245,6 @@ fun LandscapeSiteInputs(
             onDispose { subscription.cancel() }
         }
     }
-    val captureSample = samples.lastOrNull()
 
     // --- Typed input -----------------------------------------------------
     var editing by remember { mutableStateOf(false) }
@@ -327,7 +330,7 @@ fun LandscapeSiteInputs(
                 context.startActivity(Intent(Settings.ACTION_SETTINGS))
             } catch (e2: Exception) {
                 // No settings surface at all: the line above the
-                // button already states the compass/typing fallback.
+                // button already states the typing fallback.
             }
         }
     }
@@ -448,42 +451,22 @@ fun LandscapeSiteInputs(
         // --- Capture area -----------------------------------------------
         when (captureMode) {
             CaptureMode.NONE -> {
-                // The two entry buttons stack full-width, one per
-                // row: both labels are long (each carries its aiming
-                // instruction), and side by side in one Row the
-                // second button was squeezed to a sliver whose text
-                // was clipped away entirely (0.17.1, on-device
-                // report; pinned by LandscapeCaptureLayoutSourceTest).
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (viewfinderPort != null) {
-                        OutlinedButton(
-                            onClick = { startViewfinder() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                        ) {
-                            Text(stringResource(R.string.composition_viewfinder_capture))
-                        }
-                    }
+                // The one entry button stands full-width: its label
+                // is long (it carries its aiming instruction), and
+                // full width is what keeps it whole — a button
+                // sharing a Row with another long label was squeezed
+                // to a sliver whose text was clipped away entirely
+                // in 0.17.0 (0.17.1, on-device report; pinned by
+                // LandscapeCaptureLayoutSourceTest).
+                if (viewfinderPort != null) {
                     OutlinedButton(
-                        onClick = {
-                            preemptTyping()
-                            captureMode = CaptureMode.COMPASS
-                        },
-                        enabled = available,
+                        onClick = { startViewfinder() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp),
                     ) {
-                        Text(stringResource(R.string.composition_capture))
+                        Text(stringResource(R.string.composition_viewfinder_capture))
                     }
-                }
-                if (!available) {
-                    Text(
-                        text = stringResource(R.string.composition_capture_unavailable),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
             CaptureMode.EXPLAIN -> {
@@ -491,10 +474,9 @@ fun LandscapeSiteInputs(
                     text = stringResource(R.string.composition_camera_explain),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                // Stacked full-width like the entry row: the three
-                // labels together (notably the English "Use the
-                // compass capture instead") exceed one row's width
-                // and would squeeze the same way (0.17.1 audit).
+                // Stacked full-width like the entry button: the
+                // labels are long and would squeeze side by side
+                // the way the 0.17.0 entry row did (0.17.1 audit).
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
@@ -505,15 +487,6 @@ fun LandscapeSiteInputs(
                             .heightIn(min = 48.dp),
                     ) {
                         Text(stringResource(R.string.composition_camera_continue))
-                    }
-                    OutlinedButton(
-                        onClick = { captureMode = CaptureMode.COMPASS },
-                        enabled = available,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.composition_camera_use_compass))
                     }
                     TextButton(
                         onClick = { captureMode = CaptureMode.NONE },
@@ -529,14 +502,18 @@ fun LandscapeSiteInputs(
                 val port = viewfinderPort
                 if (port == null) {
                     // Unreachable by construction (the entry button
-                    // exists only when a port is wired); the compass
-                    // channel stands in rather than dead air.
-                    CompassCaptureBlock(
-                        state = state,
-                        sample = captureSample,
-                        subjectAzimuthDeg = subjectAzimuthDeg,
-                        onDone = { captureMode = CaptureMode.NONE },
+                    // exists only when a port is wired); state the
+                    // unavailability rather than dead air.
+                    Text(
+                        text = stringResource(R.string.composition_camera_unavailable),
+                        style = MaterialTheme.typography.bodyMedium,
                     )
+                    TextButton(
+                        onClick = { captureMode = CaptureMode.NONE },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.composition_capture_cancel))
+                    }
                 } else {
                     ViewfinderCaptureBlock(
                         port = port,
@@ -549,12 +526,6 @@ fun LandscapeSiteInputs(
                     )
                 }
             }
-            CaptureMode.COMPASS -> CompassCaptureBlock(
-                state = state,
-                sample = captureSample,
-                subjectAzimuthDeg = subjectAzimuthDeg,
-                onDone = { captureMode = CaptureMode.NONE },
-            )
             CaptureMode.DENIED_ONCE -> {
                 Text(
                     text = stringResource(R.string.composition_camera_denied),
@@ -576,12 +547,6 @@ fun LandscapeSiteInputs(
                         Text(stringResource(R.string.composition_capture_cancel))
                     }
                 }
-                CompassCaptureBlock(
-                    state = state,
-                    sample = captureSample,
-                    subjectAzimuthDeg = subjectAzimuthDeg,
-                    onDone = { captureMode = CaptureMode.NONE },
-                )
             }
             CaptureMode.DENIED_FOREVER -> {
                 Text(
@@ -602,109 +567,18 @@ fun LandscapeSiteInputs(
                         Text(stringResource(R.string.composition_capture_cancel))
                     }
                 }
-                CompassCaptureBlock(
-                    state = state,
-                    sample = captureSample,
-                    subjectAzimuthDeg = subjectAzimuthDeg,
-                    onDone = { captureMode = CaptureMode.NONE },
-                )
             }
             CaptureMode.UNAVAILABLE -> {
                 Text(
                     text = stringResource(R.string.composition_camera_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                CompassCaptureBlock(
-                    state = state,
-                    sample = captureSample,
-                    subjectAzimuthDeg = subjectAzimuthDeg,
-                    onDone = { captureMode = CaptureMode.NONE },
-                )
-            }
-        }
-    }
-}
-
-/**
- * The compass (sensor) capture block (ui-design §7.9): the aiming
- * posture is stated on screen — along the phone's top edge, phone
- * held low — because the reading is the top edge's pitch and the
- * posture IS the semantics. The live line leads with the pitch and
- * shows the heading (and the subject's azimuth when supplied) as
- * reference only. Holding writes the pitch alone, rounded; the
- * clamp into the field's domain lives in
- * [LandscapeSiteState.writeTop]. Cancelling writes nothing.
- */
-@Composable
-private fun CompassCaptureBlock(
-    state: LandscapeSiteState,
-    sample: DeviceOrientationProvider.OrientationSample?,
-    subjectAzimuthDeg: Double?,
-    onDone: () -> Unit,
-) {
-    val heading = sample?.headingTrueDeg?.let { raw ->
-        ((raw % 360.0) + 360.0) % 360.0
-    }
-    val pitch = sample?.pitchDeg
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = stringResource(R.string.composition_compass_posture),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = if (subjectAzimuthDeg == null) {
-                stringResource(
-                    R.string.composition_capture_live_pitch,
-                    pitch?.roundToInt() ?: 0,
-                    heading?.roundToInt()?.rem(360) ?: 0,
-                )
-            } else {
-                stringResource(
-                    R.string.composition_capture_live_pitch_subject,
-                    pitch?.roundToInt() ?: 0,
-                    heading?.roundToInt()?.rem(360) ?: 0,
-                    ((subjectAzimuthDeg.roundToInt() % 360) + 360) % 360,
-                )
-            },
-            style = MaterialTheme.typography.bodyLarge,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        if (sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.LOW ||
-            sample?.accuracy == DeviceOrientationProvider.OrientationAccuracy.UNRELIABLE
-        ) {
-            Text(
-                text = stringResource(R.string.finder_calibration_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = LocalStateColors.current.warn,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = {
-                    pitch?.let { state.writeTop(it.roundToInt()) }
-                    onDone()
-                },
-                enabled = pitch != null,
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(
-                    if (pitch != null) {
-                        stringResource(
-                            R.string.composition_capture_lock_pitch,
-                            pitch.roundToInt(),
-                        )
-                    } else {
-                        stringResource(R.string.composition_capture_lock)
-                    },
-                )
-            }
-            TextButton(
-                onClick = { onDone() },
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(stringResource(R.string.composition_capture_cancel))
+                TextButton(
+                    onClick = { captureMode = CaptureMode.NONE },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.composition_capture_cancel))
+                }
             }
         }
     }
